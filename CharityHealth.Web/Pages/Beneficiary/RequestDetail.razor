@@ -1,0 +1,211 @@
+﻿@page "/portal/request/{RequestId:guid}"
+@attribute [Authorize(Roles = "Beneficiary")]
+@using CharityHealth.Application.Features.Requests.Queries
+@using CharityHealth.Domain.Enums
+@using MediatR
+@using System.Security.Claims
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>تفاصيل الطلب</PageTitle>
+
+<div class="portal-wrap">
+
+    <div class="page-header">
+        <button class="btn-back" @onclick='() => Nav.NavigateTo("/portal/dashboard")'>
+            → رجوع
+        </button>
+        <h1 class="page-title">تفاصيل الطلب</h1>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>جارٍ تحميل تفاصيل الطلب...</p>
+        </div>
+    }
+    else if (request is null)
+    {
+        <div class="error-state">
+            <p>⚠️ لم يتم العثور على الطلب أو غير مصرح لك بعرضه.</p>
+            <a href="/portal/dashboard" class="btn-secondary">العودة للرئيسية</a>
+        </div>
+    }
+    else
+    {
+        <!-- ── Status Timeline ────────────────────────── -->
+        <div class="status-timeline card">
+            <StatusTimeline CurrentStatus="@request.Status" />
+        </div>
+
+        <!-- ── Info Card ──────────────────────────────── -->
+        <div class="info-card card">
+            <div class="info-row">
+                <span class="info-lbl">رقم الطلب</span>
+                <span class="info-val mono">@request.Id</span>
+            </div>
+            <div class="info-row">
+                <span class="info-lbl">التخصص المطلوب</span>
+                <span class="info-val">@request.SpecialtyNameAr</span>
+            </div>
+            <div class="info-row">
+                <span class="info-lbl">تاريخ التقديم</span>
+                <span class="info-val">@request.SubmittedAt.ToString("dd/MM/yyyy  HH:mm")</span>
+            </div>
+            <div class="info-row">
+                <span class="info-lbl">الحالة</span>
+                <span class="badge badge-@request.StatusColor">@request.StatusAr</span>
+            </div>
+            @if (!string.IsNullOrEmpty(request.ReviewNoteAr))
+            {
+                <div class="review-note @(request.Status == RequestStatus.Rejected ? "note-red" : "note-blue")">
+                    <strong>ملاحظة المراجع:</strong> @request.ReviewNoteAr
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(request.DescriptionAr))
+            {
+                <div class="info-row">
+                    <span class="info-lbl">وصف الحالة</span>
+                    <span class="info-val">@request.DescriptionAr</span>
+                </div>
+            }
+        </div>
+
+        <!-- ── QR Code (only when Approved) ──────────── -->
+        @if (request.Status == RequestStatus.Approved && request.QrCode is not null)
+        {
+            <div class="qr-section card">
+                <h2 class="section-title">🎟️ باركود الكشف الطبي</h2>
+
+                @if (request.QrCode.IsUsed)
+                {
+                    <div class="qr-used">
+                        <span>✅ تم استخدام هذا الباركود مسبقاً</span>
+                    </div>
+                }
+                else if (request.QrCode.IsExpired)
+                {
+                    <div class="qr-expired">
+                        <span>⏰ انتهت صلاحية هذا الباركود</span>
+                        <p>يُرجى التواصل مع الجمعية للحصول على باركود جديد</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="qr-valid">
+                        <div class="qr-image-wrap">
+                            <img src="/api/qr/@request.Id" alt="QR Code" class="qr-image" />
+                        </div>
+                        <div class="qr-info">
+                            <p class="qr-instruction">
+                                اعرض هذا الباركود للدكتور عند الزيارة. سيقوم بمسحه للتحقق من أهليتك.
+                            </p>
+                            <div class="qr-expiry">
+                                ⏳ صالح حتى:
+                                <strong>@request.QrCode.ExpiresAt.ToString("dd/MM/yyyy  HH:mm")</strong>
+                            </div>
+                            <div class="qr-note">
+                                ⚠️ الباركود للاستخدام <strong>مرة واحدة فقط</strong>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- ── Documents ──────────────────────────────── -->
+        @if (request.Documents.Any())
+        {
+            <div class="docs-section card">
+                <h2 class="section-title">📎 المستندات المرفقة</h2>
+                <div class="docs-list">
+                    @foreach (var doc in request.Documents)
+                    {
+                        <div class="doc-item">
+                            <span class="doc-icon">📄</span>
+                            <div class="doc-info">
+                                <span class="doc-name">@doc.FileName</span>
+                                <span class="doc-meta">@doc.DocumentTypeAr · @FormatSize(doc.FileSizeBytes)</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (request.Status == RequestStatus.Submitted)
+                {
+                    <div class="add-doc-section">
+                        <p class="add-doc-hint">يمكنك إضافة مستندات إضافية قبل المراجعة</p>
+                        <DocumentUploader OnFilesSelected="HandleAddDocuments" />
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- ── Consultation Result ────────────────────── -->
+        @if (request.Consultation is not null)
+        {
+            <div class="consultation-section card">
+                <h2 class="section-title">🩺 نتيجة الكشف الطبي</h2>
+                <div class="consultation-info">
+                    <div class="info-row">
+                        <span class="info-lbl">الطبيب</span>
+                        <span class="info-val">د. @request.Consultation.DoctorName</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-lbl">تاريخ الكشف</span>
+                        <span class="info-val">@request.Consultation.ConsultedAt.ToString("dd/MM/yyyy  HH:mm")</span>
+                    </div>
+                    <div class="consultation-diagnosis">
+                        <h4>التشخيص</h4>
+                        <p>@request.Consultation.DiagnosisAr</p>
+                    </div>
+                    @if (!string.IsNullOrEmpty(request.Consultation.NotesAr))
+                    {
+                        <div class="consultation-notes">
+                            <h4>ملاحظات الطبيب</h4>
+                            <p>@request.Consultation.NotesAr</p>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(request.Consultation.RecommendationsAr))
+                    {
+                        <div class="consultation-recs">
+                            <h4>التوصيات</h4>
+                            <p>@request.Consultation.RecommendationsAr</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid RequestId { get; set; }
+
+    private RequestDetailDto? request;
+    private bool isLoading = true;
+    private string userId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        var result = await Mediator.Send(new GetRequestDetailQuery(RequestId, userId));
+        request = result.Succeeded ? result.Data : null;
+        isLoading = false;
+    }
+
+    private Task HandleAddDocuments(List<NewRequest.PendingFile> files)
+    {
+        // TODO: Upload additional documents via UploadDocumentCommand
+        return Task.CompletedTask;
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 * 1024
+            ? $"{bytes / 1024} KB"
+            : $"{bytes / (1024 * 1024):F1} MB";
+}

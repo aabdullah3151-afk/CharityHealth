@@ -1,0 +1,83 @@
+﻿
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly">
+
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData"
+                                DefaultLayout="@typeof(MainLayout)">
+
+                
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        
+                        <RedirectToLogin />
+                    }
+                    else
+                    {
+                       
+                        <LayoutView Layout="@typeof(MainLayout)">
+                            <div style="padding:3rem; text-align:center;">
+                                <div style="font-size:4rem; margin-bottom:1rem;">⛔</div>
+                                <RadzenText TextStyle="TextStyle.H5"
+                                            Style="color:var(--rz-danger);">
+                                    ليس لديك صلاحية الوصول لهذه الصفحة
+                                </RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1"
+                                            Style="color:var(--rz-text-secondary-color); margin-top:0.5rem;">
+                                    تواصل مع المدير إذا كنت تعتقد أن هذا خطأ
+                                </RadzenText>
+                                <RadzenButton Text="العودة للرئيسية"
+                                              ButtonStyle="ButtonStyle.Primary"
+                                              Style="margin-top:1.5rem;"
+                                              Click="@(() => Nav.NavigateTo("/"))" />
+                            </div>
+                        </LayoutView>
+                    }
+                </NotAuthorized>
+
+             
+                <Authorizing>
+                    <div style="display:flex; align-items:center; justify-content:center;
+                                min-height:60vh; flex-direction:column; gap:1rem;">
+                        <RadzenProgressBar Value="100"
+                                           ShowValue="false"
+                                           Mode="ProgressBarMode.Indeterminate"
+                                           Style="width:200px;" />
+                        <RadzenText TextStyle="TextStyle.Body2"
+                                    Style="color:var(--rz-text-secondary-color);">
+                            جارٍ التحقق من الصلاحيات...
+                        </RadzenText>
+                    </div>
+                </Authorizing>
+
+            </AuthorizeRouteView>
+        </Found>
+
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <div style="padding:3rem; text-align:center;">
+                    <div style="font-size:5rem; font-weight:700;
+                                color:var(--rz-text-disabled-color);">404</div>
+                    <RadzenText TextStyle="TextStyle.H5">الصفحة غير موجودة</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1"
+                                Style="color:var(--rz-text-secondary-color);">
+                        تأكد من الرابط أو ارجع للصفحة الرئيسية
+                    </RadzenText>
+                    <RadzenButton Text="الصفحة الرئيسية"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Style="margin-top:1.5rem;"
+                                  Click="@(() => Nav.NavigateTo("/"))" />
+                </div>
+            </LayoutView>
+        </NotFound>
+
+    </Router>
+</CascadingAuthenticationState>
+
+
+
+@code {
+    [Inject] NavigationManager Nav { get; set; } = default!;
+}

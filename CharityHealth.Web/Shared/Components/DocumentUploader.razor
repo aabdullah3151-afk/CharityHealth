@@ -1,0 +1,70 @@
+﻿@using CharityHealth.Web.Pages.Beneficiary
+@using Microsoft.AspNetCore.Components.Forms
+
+<div class="uploader-wrap">
+    <InputFile OnChange="HandleFileChange" multiple
+               accept=".pdf,.jpg,.jpeg,.png"
+               class="file-input" id="@InputId" />
+
+    <label for="@InputId" class="uploader-label">
+        <div class="uploader-content">
+            <span class="upload-icon">📁</span>
+            <span class="upload-text">اسحب الملفات هنا أو انقر للاختيار</span>
+            <span class="upload-hint">PDF, JPG, PNG — حد أقصى 5 ميجابايت للملف</span>
+        </div>
+    </label>
+
+    @if (!string.IsNullOrEmpty(errorMsg))
+    {
+        <div class="alert alert-warning">@errorMsg</div>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback<List<NewRequest.PendingFile>> OnFilesSelected { get; set; }
+
+    // ✅ Pre-computed full string — no mixed text+expression in component attribute
+    private string InputId { get; } = $"file-upload-{Guid.NewGuid():N}";
+
+    private string? errorMsg;
+
+    private const long MaxBytes = 5 * 1024 * 1024;
+    private static readonly string[] Allowed = [".pdf", ".jpg", ".jpeg", ".png"];
+
+    private async Task HandleFileChange(InputFileChangeEventArgs e)
+    {
+        errorMsg = null;
+        var pending = new List<NewRequest.PendingFile>();
+
+        foreach (var file in e.GetMultipleFiles(10))
+        {
+            var ext = Path.GetExtension(file.Name).ToLower();
+
+            if (!Allowed.Contains(ext))
+            {
+                errorMsg = $"نوع الملف غير مقبول: {file.Name}";
+                continue;
+            }
+
+            if (file.Size > MaxBytes)
+            {
+                errorMsg = $"الملف {file.Name} يتجاوز 5 ميجابايت";
+                continue;
+            }
+
+            var ms = new MemoryStream();
+            await file.OpenReadStream(MaxBytes).CopyToAsync(ms);
+            ms.Position = 0;
+
+            pending.Add(new NewRequest.PendingFile
+            {
+                Name = file.Name,
+                Size = file.Size,
+                Stream = ms,
+            });
+        }
+
+        if (pending.Any())
+            await OnFilesSelected.InvokeAsync(pending);
+    }
+}

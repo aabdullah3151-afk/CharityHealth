@@ -1,0 +1,93 @@
+﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+
+<RadzenLayout Style="min-height:100vh;" class="rz-shadow-3">
+
+   
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Style="padding: 0 1rem; height: 100%;">
+
+           
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center" Gap="0.75rem">
+                <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
+                <RadzenText TextStyle="TextStyle.H6" Style="margin:0; color: var(--rz-primary);">
+                    🏥 نظام الرعاية الصحية الخيرية
+                </RadzenText>
+            </RadzenStack>
+
+           
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center" Gap="0.75rem">
+                <AuthorizeView>
+                    <Authorized>
+                        
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info"
+                                     Text="@GetRoleName(context)"
+                                     Style="font-size:0.75rem;" />
+
+                       
+                        <RadzenText Style="margin:0; font-size:0.9rem;">
+                            @context.User.Identity?.Name
+                        </RadzenText>
+
+                      
+                        <RadzenButton ButtonStyle="ButtonStyle.Light"
+                                      Icon="logout"
+                                      Size="ButtonSize.Small"
+                                      Text="خروج"
+                                      Click="@HandleLogout" />
+                    </Authorized>
+                    <NotAuthorized>
+                        <RadzenButton ButtonStyle="ButtonStyle.Primary"
+                                      Icon="login"
+                                      Size="ButtonSize.Small"
+                                      Text="دخول"
+                                      Click='@(() => Nav.NavigateTo("/login"))' />
+                    </NotAuthorized>
+                </AuthorizeView>
+            </RadzenStack>
+
+        </RadzenStack>
+    </RadzenHeader>
+
+   
+    <RadzenSidebar @bind-Expanded="@sidebarExpanded" Style="width:250px;">
+        <NavMenu />
+    </RadzenSidebar>
+
+  
+    <RadzenBody>
+        <RadzenContentContainer Name="main">
+            <div style="padding:1.5rem;">
+                @Body
+            </div>
+        </RadzenContentContainer>
+    </RadzenBody>
+
+</RadzenLayout>
+
+@code {
+    [Inject] NavigationManager Nav { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private bool sidebarExpanded = true;
+
+    private void HandleLogout()
+    {
+        // ✅ Navigate to the Logout razor page — SignOutAsync runs server-side
+        Nav.NavigateTo("/logout", forceLoad: true);
+    }
+
+    private static string GetRoleName(AuthenticationState ctx)
+    {
+        if (ctx.User.IsInRole("Administrator")) return "مدير النظام";
+        if (ctx.User.IsInRole("Staff")) return "موظف";
+        if (ctx.User.IsInRole("Doctor")) return "طبيب";
+        if (ctx.User.IsInRole("Beneficiary")) return "مستفيد";
+        return string.Empty;
+    }
+}

@@ -1,0 +1,226 @@
+﻿@page "/admin/doctors/create"
+@attribute [Authorize(Roles = "Administrator")]
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Domain.Interfaces.Repositories
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject IUnitOfWork UoW
+@inject NavigationManager Nav
+
+<PageTitle>إضافة دكتور جديد</PageTitle>
+
+<div class="admin-card">
+    <h2 class="page-title">🩺 إضافة دكتور جديد</h2>
+    <p class="page-subtitle">
+        يتم إنشاء حساب الدكتور بواسطة المدير فقط — لا يوجد تسجيل ذاتي للدكاتره
+    </p>
+
+    <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <div class="form-grid">
+            <!-- Personal Info -->
+            <div class="form-section">
+                <h3>البيانات الشخصية</h3>
+
+                <div class="form-group">
+                    <label>الاسم الكامل (عربي) *</label>
+                    <InputText @bind-Value="model.FullNameAr" class="form-control" />
+                    <ValidationMessage For="@(() => model.FullNameAr)" />
+                </div>
+
+                <div class="form-group">
+                    <label>الاسم الكامل (إنجليزي)</label>
+                    <InputText @bind-Value="model.FullNameEn" class="form-control" dir="ltr" />
+                </div>
+
+                <div class="form-group">
+                    <label>رقم الهاتف *</label>
+                    <InputText @bind-Value="model.PhoneNumber" class="form-control" dir="ltr" />
+                    <ValidationMessage For="@(() => model.PhoneNumber)" />
+                </div>
+
+                <div class="form-group">
+                    <label>البريد الإلكتروني *</label>
+                    <InputText @bind-Value="model.Email" class="form-control" dir="ltr" />
+                    <ValidationMessage For="@(() => model.Email)" />
+                </div>
+            </div>
+
+            <!-- Professional Info -->
+            <div class="form-section">
+                <h3>البيانات المهنية</h3>
+
+                <div class="form-group">
+                    <label>رقم الرخصة الطبية *</label>
+                    <InputText @bind-Value="model.LicenseNumber" class="form-control" dir="ltr" />
+                    <ValidationMessage For="@(() => model.LicenseNumber)" />
+                </div>
+
+                <div class="form-group">
+                    <label>التخصص *</label>
+                    <InputSelect @bind-Value="model.SpecialtyId" class="form-control">
+                        <option value="">— اختر التخصص —</option>
+                        @foreach (var s in specialties)
+                        {
+                            <option value="@s.Id">@s.NameAr</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => model.SpecialtyId)" />
+                </div>
+
+                <div class="form-group">
+                    <label>عنوان العيادة</label>
+                    <InputText @bind-Value="model.ClinicAddress" class="form-control" />
+                </div>
+
+                <div class="form-group">
+                    <label>هاتف العيادة</label>
+                    <InputText @bind-Value="model.ClinicPhone" class="form-control" dir="ltr" />
+                </div>
+
+                <div class="form-group">
+                    <label>الحد الأقصى للكشوفات اليومية المجانية</label>
+                    <InputNumber @bind-Value="model.MaxDailySlots" class="form-control" />
+                    <small class="form-hint">الافتراضي: 1 كشف مجاني يومياً</small>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+
+        @if (errors.Any())
+        {
+            <div class="alert alert-danger">
+                @foreach (var err in errors)
+                {
+                    <div>• @err</div>
+                }
+            </div>
+        }
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner"></span>
+                }
+                ✅ إنشاء حساب الدكتور
+            </button>
+            <a href="/admin/doctors" class="btn-secondary">إلغاء</a>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private CreateDoctorModel model = new();
+    private List<Specialty> specialties = [];
+    private List<string> errors = [];
+    private string? successMessage;
+    private bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        specialties = (await UoW.Specialties.GetAllAsync()).ToList();
+    }
+
+    private async Task HandleSubmit()
+    {
+        isLoading = true;
+        errors.Clear();
+        successMessage = null;
+
+        try
+        {
+            // 1. Create Identity User
+            var user = new ApplicationUser
+            {
+                UserName = model.Email,
+                Email = model.Email,
+                PhoneNumber = model.PhoneNumber,
+                FullNameAr = model.FullNameAr,
+                FullNameEn = model.FullNameEn,
+                UserType = UserType.Doctor,
+                IsActive = true,
+                EmailConfirmed = true,
+                PhoneNumberConfirmed = true,
+            };
+
+            // Auto-generate temporary password
+            var tempPassword = GenerateTempPassword();
+            var result = await UserManager.CreateAsync(user, tempPassword);
+
+            if (!result.Succeeded)
+            {
+                errors = result.Errors.Select(e => e.Description).ToList();
+                return;
+            }
+
+            await UserManager.AddToRoleAsync(user, "Doctor");
+
+            // 2. Create Doctor profile
+            var doctor = new Doctor
+            {
+                UserId = user.Id,
+                SpecialtyId = model.SpecialtyId,
+                LicenseNumber = model.LicenseNumber,
+                ClinicAddress = model.ClinicAddress,
+                ClinicPhone = model.ClinicPhone,
+                MaxDailySlots = model.MaxDailySlots,
+                IsAvailable = true,
+            };
+
+            await UoW.Doctors.AddAsync(doctor);
+            await UoW.SaveChangesAsync();
+
+            // TODO: Send welcome email/SMS with temp password to doctor
+            successMessage = $"✅ تم إنشاء حساب الدكتور بنجاح. كلمة المرور المؤقتة: {tempPassword}";
+
+            model = new(); // Reset form
+        }
+        catch (Exception ex)
+        {
+            errors.Add($"خطأ غير متوقع: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string GenerateTempPassword()
+    {
+        // Generates something like: Dr@84731!
+        var rnd = new Random();
+        return $"Dr@{rnd.Next(10000, 99999)}!";
+    }
+
+    private class CreateDoctorModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "الاسم العربي مطلوب")]
+        public string FullNameAr { get; set; } = string.Empty;
+
+        public string FullNameEn { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "رقم الهاتف مطلوب")]
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "البريد الإلكتروني مطلوب")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "بريد إلكتروني غير صحيح")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "رقم الرخصة مطلوب")]
+        public string LicenseNumber { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "التخصص مطلوب")]
+        public Guid SpecialtyId { get; set; }
+
+        public string? ClinicAddress { get; set; }
+        public string? ClinicPhone { get; set; }
+        public int MaxDailySlots { get; set; } = 1;
+    }
+}

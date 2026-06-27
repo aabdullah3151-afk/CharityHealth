@@ -1,0 +1,30 @@
+﻿@page "/logout"
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<CharityHealth.Domain.Entities.ApplicationUser> SignInManager
+@inject NavigationManager Nav
+@inject ILogger<Logout> Logger
+
+@* ✅ Logout runs in OnInitializedAsync — no JS needed
+   SignOutAsync clears the Identity cookie server-side,
+   then we redirect to /login with forceLoad:true to
+   flush the Blazor circuit and authentication state. *@
+
+<RadzenProgressBar Value="100"
+                   ShowValue="false"
+                   Mode="ProgressBarMode.Indeterminate"
+                   Style="margin:4rem auto; max-width:300px; display:block;" />
+
+<div style="text-align:center; color:var(--rz-text-secondary-color); margin-top:1rem;">
+    جارٍ تسجيل الخروج...
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await SignInManager.SignOutAsync();
+        Logger.LogInformation("User signed out.");
+
+        // forceLoad: true — clears Blazor circuit + auth state completely
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

@@ -1,0 +1,171 @@
+﻿@using CharityHealth.Application.Features.Auth.Commands
+@using MediatR
+@using Microsoft.AspNetCore.Identity
+@inject IMediator Mediator
+@inject SignInManager<CharityHealth.Domain.Entities.ApplicationUser> SignInManager
+
+@if (step == OtpStep.EnterPhone)
+{
+    <div class="otp-section">
+        <p class="otp-description">أدخل رقم هاتفك لاستقبال رمز التحقق</p>
+
+        <div class="form-group">
+            <label>رقم الهاتف</label>
+            <input @bind="phoneNumber" type="tel"
+                   class="form-control" placeholder="+968 XXXXXXXX"
+                   dir="ltr" />
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <button class="btn-login" @onclick="HandleSendOtp" disabled="@isLoading">
+            @if (isLoading)
+            {
+                <span class="spinner"></span>
+            }
+            إرسال رمز التحقق
+        </button>
+    </div>
+}
+else if (step == OtpStep.EnterOtp)
+{
+    <div class="otp-section">
+        <div class="otp-sent-notice">
+            ✅ تم إرسال رمز التحقق إلى <strong>@phoneNumber</strong>
+        </div>
+
+        <div class="form-group">
+            <label>رمز التحقق (6 أرقام)</label>
+            <input @bind="otpCode" type="text" maxlength="6"
+                   class="form-control otp-input" placeholder="● ● ● ● ● ●"
+                   dir="ltr" inputmode="numeric" autocomplete="one-time-code" />
+        </div>
+
+        @if (secondsRemaining > 0)
+        {
+            <p class="otp-timer">ينتهي الرمز خلال: <strong>@FormatTime(secondsRemaining)</strong></p>
+        }
+        else
+        {
+            <p class="otp-expired">انتهت صلاحية الرمز.</p>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <button class="btn-login" @onclick="HandleVerifyOtp" disabled="@isLoading">
+            @if (isLoading)
+            {
+                <span class="spinner"></span>
+            }
+            تحقق وتسجيل الدخول
+        </button>
+
+        <button class="btn-link" @onclick="ResendOtp" disabled="@(secondsRemaining > 0 || isLoading)">
+            إعادة إرسال الرمز
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback<string> OnLoginSuccess { get; set; }
+
+    private enum OtpStep { EnterPhone, EnterOtp }
+
+    private OtpStep step = OtpStep.EnterPhone;
+    private string phoneNumber = string.Empty;
+    private string otpCode = string.Empty;
+    private string? errorMessage;
+    private bool isLoading;
+    private int secondsRemaining = 300; // 5 minutes
+    private System.Timers.Timer? _timer;
+
+    private async Task HandleSendOtp()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new SendOtpCommand(phoneNumber));
+
+            if (result.Succeeded)
+            {
+                step = OtpStep.EnterOtp;
+                StartCountdown();
+            }
+            else
+            {
+                errorMessage = result.Errors.FirstOrDefault();
+            }
+        }
+        catch (FluentValidation.ValidationException ex)
+        {
+            errorMessage = ex.Errors.First().ErrorMessage;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleVerifyOtp()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new VerifyOtpCommand(phoneNumber, otpCode));
+
+            if (result.Succeeded)
+            {
+                var user = await SignInManager.UserManager.FindByIdAsync(result.UserId!);
+                await SignInManager.SignInAsync(user!, isPersistent: false);
+                await OnLoginSuccess.InvokeAsync(result.UserType);
+            }
+            else
+            {
+                errorMessage = result.ErrorMessage;
+            }
+        }
+        catch (FluentValidation.ValidationException ex)
+        {
+            errorMessage = ex.Errors.First().ErrorMessage;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ResendOtp()
+    {
+        otpCode = string.Empty;
+        secondsRemaining = 300;
+        await HandleSendOtp();
+    }
+
+    private void StartCountdown()
+    {
+        _timer?.Dispose();
+        _timer = new System.Timers.Timer(1000);
+        _timer.Elapsed += async (_, _) =>
+        {
+            secondsRemaining--;
+            if (secondsRemaining <= 0) _timer.Stop();
+            await InvokeAsync(StateHasChanged);
+        };
+        _timer.Start();
+    }
+
+    private static string FormatTime(int seconds)
+        => $"{seconds / 60:D2}:{seconds % 60:D2}";
+
+    public void Dispose() => _timer?.Dispose();
+}

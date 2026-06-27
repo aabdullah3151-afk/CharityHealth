@@ -1,0 +1,141 @@
+﻿using CharityHealth.Application.Interfaces.Services;
+using CharityHealth.Domain.Entities;
+using CharityHealth.Domain.Enums;
+using CharityHealth.Domain.Interfaces.Repositories;
+using CharityHealth.Shared.Wrappers;
+using FluentValidation;
+using MediatR;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
+
+namespace CharityHealth.Application.Features.Beneficiaries.Commands;
+
+// ── Command ───────────────────────────────────────────
+public record RegisterBeneficiaryCommand(
+    string FullNameAr,
+    string FullNameEn,
+    string PhoneNumber,
+    string? Email,
+    string Password,
+    string NationalId,
+    DateOnly DateOfBirth,
+    Gender Gender,
+    string? City,
+    string? AddressAr
+) : IRequest<Result<RegisterBeneficiaryResult>>;
+
+public record RegisterBeneficiaryResult(string UserId, string FullNameAr);
+
+// ── Validator ─────────────────────────────────────────
+public class RegisterBeneficiaryValidator : AbstractValidator<RegisterBeneficiaryCommand>
+{
+    public RegisterBeneficiaryValidator()
+    {
+        RuleFor(x => x.FullNameAr)
+            .NotEmpty().WithMessage("الاسم الكامل بالعربية مطلوب")
+            .MaximumLength(200);
+
+        RuleFor(x => x.PhoneNumber)
+            .NotEmpty().WithMessage("رقم الهاتف مطلوب")
+            .Matches(@"^\+?[0-9]{8,15}$").WithMessage("رقم الهاتف غير صحيح");
+
+        RuleFor(x => x.Password)
+            .NotEmpty().WithMessage("كلمة المرور مطلوبة")
+            .MinimumLength(8).WithMessage("كلمة المرور 8 أحرف على الأقل")
+            .Matches("[A-Z]").WithMessage("كلمة المرور يجب أن تحتوي على حرف كبير")
+            .Matches("[0-9]").WithMessage("كلمة المرور يجب أن تحتوي على رقم")
+            .Matches("[^a-zA-Z0-9]").WithMessage("كلمة المرور يجب أن تحتوي على رمز خاص");
+
+        RuleFor(x => x.NationalId)
+            .NotEmpty().WithMessage("رقم الهوية مطلوب")
+            .MaximumLength(20);
+
+        RuleFor(x => x.DateOfBirth)
+            .LessThan(DateOnly.FromDateTime(DateTime.Today.AddYears(-10)))
+            .WithMessage("العمر يجب أن يكون أكثر من 10 سنوات");
+
+        RuleFor(x => x.Email)
+            .EmailAddress().WithMessage("بريد إلكتروني غير صحيح")
+            .When(x => !string.IsNullOrEmpty(x.Email));
+    }
+}
+
+// ── Handler ───────────────────────────────────────────
+public class RegisterBeneficiaryHandler(
+    UserManager<ApplicationUser> userManager,
+    IUnitOfWork uow,
+    IAuditService audit,
+    ILogger<RegisterBeneficiaryHandler> logger)
+    : IRequestHandler<RegisterBeneficiaryCommand, Result<RegisterBeneficiaryResult>>
+{
+    public async Task<Result<RegisterBeneficiaryResult>> Handle(
+        RegisterBeneficiaryCommand cmd, CancellationToken ct)
+    {
+        // Check duplicate NationalId
+        if (await uow.Beneficiaries.ExistsAsync(b => b.NationalId == cmd.NationalId, ct))
+            return Result<RegisterBeneficiaryResult>.Failure("رقم الهوية مسجل مسبقاً في النظام");
+
+        // Check duplicate phone
+        var existingPhone = userManager.Users.FirstOrDefault(u => u.PhoneNumber == cmd.PhoneNumber);
+        if (existingPhone is not null)
+            return Result<RegisterBeneficiaryResult>.Failure("رقم الهاتف مسجل مسبقاً");
+
+        await uow.BeginTransactionAsync(ct);
+        try
+        {
+            // 1. Create Identity User
+            var user = new ApplicationUser
+            {
+                UserName = cmd.PhoneNumber,
+                PhoneNumber = cmd.PhoneNumber,
+                Email = cmd.Email,
+                FullNameAr = cmd.FullNameAr,
+                FullNameEn = cmd.FullNameEn,
+                UserType = UserType.Beneficiary,
+                IsActive = true,
+                PhoneNumberConfirmed = false,
+                EmailConfirmed = string.IsNullOrEmpty(cmd.Email) ? false : false,
+            };
+
+            var identityResult = await userManager.CreateAsync(user, cmd.Password);
+            if (!identityResult.Succeeded)
+            {
+                await uow.RollbackTransactionAsync(ct);
+                var errors = identityResult.Errors.Select(e => e.Description).ToList();
+                return Result<RegisterBeneficiaryResult>.Failure(errors);
+            }
+
+            await userManager.AddToRoleAsync(user, "Beneficiary");
+
+            // 2. Create Beneficiary profile
+            var beneficiary = new Beneficiary
+            {
+                UserId = user.Id,
+                NationalId = cmd.NationalId,
+                DateOfBirth = cmd.DateOfBirth,
+                Gender = cmd.Gender,
+                City = cmd.City,
+                AddressAr = cmd.AddressAr,
+            };
+
+            await uow.Beneficiaries.AddAsync(beneficiary, ct);
+            await uow.SaveChangesAsync(ct);
+            await uow.CommitTransactionAsync(ct);
+
+            await audit.LogAsync("Beneficiary.Registered", "ApplicationUser", user.Id,
+                newValues: $"{{\"phone\":\"{cmd.PhoneNumber}\",\"nationalId\":\"{cmd.NationalId}\"}}");
+
+            logger.LogInformation("New beneficiary registered: {UserId}", user.Id);
+
+            return Result<RegisterBeneficiaryResult>.Success(
+                new RegisterBeneficiaryResult(user.Id, user.FullNameAr),
+                "تم التسجيل بنجاح!");
+        }
+        catch (Exception ex)
+        {
+            await uow.RollbackTransactionAsync(ct);
+            logger.LogError(ex, "Registration failed");
+            return Result<RegisterBeneficiaryResult>.Failure("حدث خطأ أثناء التسجيل. يرجى المحاولة لاحقاً.");
+        }
+    }
+}

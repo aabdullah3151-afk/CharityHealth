@@ -1,0 +1,236 @@
+﻿@page "/portal/request/new"
+@attribute [Authorize(Roles = "Beneficiary")]
+@using CharityHealth.Application.Features.Requests.Commands
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Domain.Interfaces.Repositories
+@using MediatR
+@using System.Security.Claims
+@inject IMediator Mediator
+@inject IUnitOfWork UoW
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>طلب كشف طبي جديد</PageTitle>
+
+<div class="portal-wrap">
+
+    <div class="page-header">
+        <button class="btn-back" @onclick='() => Nav.NavigateTo("/portal/dashboard")'>
+            → رجوع
+        </button>
+        <h1 class="page-title">➕ طلب كشف طبي جديد</h1>
+    </div>
+
+    @if (submitted)
+    {
+        <!-- ── Success ─────────────────────────────────── -->
+        <div class="success-card">
+            <div class="success-icon-lg">✅</div>
+            <h2>تم تقديم طلبك بنجاح!</h2>
+            <p>رقم الطلب: <strong class="request-id-display">@newRequestId</strong></p>
+            <p class="success-note">سيتم مراجعة طلبك من قِبل فريق الجمعية وسيصلك إشعار بالنتيجة</p>
+            <div class="success-actions">
+                <button class="btn-primary"
+                        @onclick='() => Nav.NavigateTo($"/portal/request/{newRequestId}")'>
+                    متابعة الطلب
+                </button>
+                <button class="btn-secondary"
+                        @onclick='() => Nav.NavigateTo("/portal/dashboard")'>
+                    العودة للرئيسية
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="form-card">
+            <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+                <!-- ── Specialty ──────────────────────────── -->
+                <div class="form-section">
+                    <h3 class="form-section-title">🏥 التخصص الطبي المطلوب</h3>
+
+                    @if (specialties.Any())
+                    {
+                        <div class="specialty-grid">
+                            @foreach (var spec in specialties)
+                            {
+                                <button type="button"
+                                        class="specialty-btn @(model.SpecialtyId == spec.Id ? "selected" : "")"
+                                        @onclick="() => model.SpecialtyId = spec.Id">
+                                    @spec.NameAr
+                                </button>
+                            }
+                        </div>
+                        @if (model.SpecialtyId == Guid.Empty)
+                        {
+                            <span class="field-error">يجب اختيار التخصص</span>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted">جارٍ تحميل التخصصات...</p>
+                    }
+                </div>
+
+                <!-- ── Description ────────────────────────── -->
+                <div class="form-section">
+                    <h3 class="form-section-title">📝 وصف الحالة (اختياري)</h3>
+                    <InputTextArea @bind-Value="model.DescriptionAr"
+                                   class="form-control" rows="4"
+                                   placeholder="اكتب وصفاً مختصراً لحالتك الصحية لمساعدة المراجعين..." />
+                    <small class="char-count">@(model.DescriptionAr?.Length ?? 0) / 2000</small>
+                    <ValidationMessage For="@(() => model.DescriptionAr)" />
+                </div>
+
+                <!-- ── Documents ──────────────────────────── -->
+                <div class="form-section">
+                    <h3 class="form-section-title">📎 المستندات المطلوبة</h3>
+                    <p class="form-hint">يُرجى رفع صورة الهوية الوطنية على الأقل</p>
+                    <DocumentUploader OnFilesSelected="HandleFilesSelected" />
+
+                    @if (pendingFiles.Any())
+                    {
+                        <div class="files-preview">
+                            @foreach (var f in pendingFiles)
+                            {
+                                <div class="file-item">
+                                    <span class="file-icon">📄</span>
+                                    <div class="file-info">
+                                        <span class="file-name">@f.Name</span>
+                                        <span class="file-size">@FormatSize(f.Size)</span>
+                                    </div>
+                                    <select class="doc-type-select"
+                                            value="@f.DocumentType"
+                                            @onchange="e => f.DocumentType = Enum.Parse<DocumentType>(e.Value!.ToString()!)">
+                                        <option value="@DocumentType.NationalId">بطاقة هوية</option>
+                                        <option value="@DocumentType.MedicalReport">تقرير طبي</option>
+                                        <option value="@DocumentType.IncomeProof">إثبات دخل</option>
+                                        <option value="@DocumentType.Other">أخرى</option>
+                                    </select>
+                                    <button type="button" class="btn-remove"
+                                            @onclick="() => pendingFiles.Remove(f)">✕</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- ── Error ──────────────────────────────── -->
+                @if (!string.IsNullOrEmpty(errorMsg))
+                {
+                    <div class="alert alert-danger">@errorMsg</div>
+                }
+
+                <!-- ── Submit ─────────────────────────────── -->
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary btn-lg"
+                            disabled="@(isLoading || model.SpecialtyId == Guid.Empty)">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-sm"></span>
+                            <span>جارٍ تقديم الطلب...</span>
+                        }
+                        else
+                        {
+                            <span>تقديم الطلب ✓</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+</div>
+
+@code {
+    private NewRequestModel model = new();
+    private List<Specialty> specialties = [];
+    private List<PendingFile> pendingFiles = [];
+    private bool isLoading, submitted;
+    private string? errorMsg;
+    private Guid newRequestId;
+    private string userId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+        specialties = (await UoW.Specialties.FindAsync(s => s.IsActive)).ToList();
+    }
+
+    private void HandleFilesSelected(List<PendingFile> files)
+        => pendingFiles.AddRange(files);
+
+    private async Task HandleSubmit()
+    {
+        if (model.SpecialtyId == Guid.Empty)
+        {
+            errorMsg = "يجب اختيار التخصص الطبي";
+            return;
+        }
+
+        isLoading = true;
+        errorMsg  = null;
+
+        try
+        {
+            // 1. Submit request
+            var result = await Mediator.Send(new SubmitRequestCommand(
+                userId, model.SpecialtyId, model.DescriptionAr));
+
+            if (!result.Succeeded)
+            {
+                errorMsg = string.Join(" | ", result.Errors);
+                return;
+            }
+
+            newRequestId = result.Data;
+
+            // 2. Upload documents
+            foreach (var file in pendingFiles)
+            {
+                var uploadResult = await Mediator.Send(new UploadDocumentCommand(
+                    newRequestId, userId,
+                    file.Stream, file.Name, file.Size,
+                    file.DocumentType));
+
+                if (!uploadResult.Succeeded)
+                {
+                    // Log but don't block — documents can be uploaded later
+                    errorMsg = $"تحذير: تعذر رفع المستند {file.Name}";
+                }
+            }
+
+            submitted = true;
+        }
+        catch (Exception ex)
+        {
+            errorMsg = "حدث خطأ غير متوقع. يرجى المحاولة لاحقاً.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 * 1024
+            ? $"{bytes / 1024} KB"
+            : $"{bytes / (1024 * 1024):F1} MB";
+
+    private class NewRequestModel
+    {
+        public Guid SpecialtyId { get; set; } = Guid.Empty;
+        public string? DescriptionAr { get; set; }
+    }
+
+    public class PendingFile
+    {
+        public string Name { get; set; } = string.Empty;
+        public long Size { get; set; }
+        public Stream Stream { get; set; } = Stream.Null;
+        public DocumentType DocumentType { get; set; } = DocumentType.Other;
+    }
+}

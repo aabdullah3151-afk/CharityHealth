@@ -1,0 +1,66 @@
+﻿@* ─────────────────────────────────────────────
+   StatusTimeline.razor
+   Visual stepper showing request progress
+───────────────────────────────────────────── *@
+@using CharityHealth.Domain.Enums
+
+<div class="timeline">
+    @foreach (var s in TimelineSteps)
+    {
+        var state = GetStepState(s.Status);
+        <div class="timeline-step step-@state">
+            <div class="step-dot">
+                @if (state == "done")
+                {
+                    <span>✓</span>
+                }
+                else if (state == "active")
+                {
+
+                    <span class="pulse"></span>
+                }
+            </div>
+            <div class="step-label">@s.Label</div>
+        </div>
+        @if (s != TimelineSteps.Last())
+        {
+            <div class="timeline-line line-@(IsPassedOrActive(s.Status) ? "done" : "pending")"></div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public RequestStatus CurrentStatus { get; set; }
+
+    private record TimelineItem(RequestStatus Status, string Label);
+
+    private static readonly List<TimelineItem> TimelineSteps =
+    [
+        new(RequestStatus.Submitted,   "تم التقديم"),
+        new(RequestStatus.UnderReview, "قيد المراجعة"),
+        new(RequestStatus.Approved,    "موافق عليه"),
+        new(RequestStatus.Completed,   "مكتمل"),
+    ];
+
+    private string GetStepState(RequestStatus stepStatus)
+    {
+        if (CurrentStatus == RequestStatus.Rejected) return "rejected";
+        var currentOrder = GetOrder(CurrentStatus);
+        var stepOrder = GetOrder(stepStatus);
+        if (stepOrder < currentOrder) return "done";
+        if (stepOrder == currentOrder) return "active";
+        return "pending";
+    }
+
+    private bool IsPassedOrActive(RequestStatus s)
+        => GetOrder(s) <= GetOrder(CurrentStatus);
+
+    private static int GetOrder(RequestStatus s) => s switch
+    {
+        RequestStatus.Submitted => 1,
+        RequestStatus.UnderReview => 2,
+        RequestStatus.Approved => 3,
+        RequestStatus.Completed => 4,
+        _ => 0
+    };
+}
