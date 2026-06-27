@@ -1,0 +1,163 @@
+﻿@page "/login"
+@layout AuthLayout
+@using CharityHealth.Application.Common.Models
+@using CharityHealth.Application.Features.Auth.Commands
+@using CharityHealth.Domain.DTO
+@using CharityHealth.Web.Shared.Components
+@using CharityHealth.Web.Shared.Layouts
+@using MediatR
+@using Microsoft.AspNetCore.Antiforgery
+@using Microsoft.AspNetCore.Identity
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@inject SignInManager<CharityHealth.Domain.Entities.ApplicationUser> SignInManager
+
+
+@inject IHttpContextAccessor HttpCtx
+@inject IAntiforgery Antiforgery
+
+
+<RadzenText TextStyle="TextStyle.H6"
+            Style="text-align:center; margin-bottom:1.5rem; color:var(--rz-primary);">
+    تسجيل الدخول
+</RadzenText>
+
+@if (!string.IsNullOrEmpty(Error))
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true"
+                 AllowClose="false" Style="margin-bottom:1rem;">
+        @Error
+    </RadzenAlert>
+}
+
+<RadzenTabs @bind-SelectedIndex="@activeTab">
+    <Tabs>
+
+        <RadzenTabsItem Text="🔑 كلمة المرور">
+            <div style="padding-top:1.25rem;">
+              <form method="post" action="/account/login">
+                    @((MarkupString)antiforgeryHtml)
+                    @if (!string.IsNullOrEmpty(ReturnUrl))
+                    {
+                        <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+                    }
+
+                    <RadzenFormField Text="اسم المستخدم / الهاتف / البريد"
+                                     Style="width:100%; margin-bottom:1rem;">
+                        <RadzenTextBox Name="credential" Placeholder="أدخل بيانات الدخول"
+                                       Style="width:100%;" />
+                    </RadzenFormField>
+
+                    <RadzenFormField Text="كلمة المرور"
+                                     Style="width:100%; margin-bottom:1.25rem;">
+                        <RadzenPassword Name="password" Placeholder="أدخل كلمة المرور"
+                                        Style="width:100%;" />
+                    </RadzenFormField>
+
+                    <RadzenButton ButtonType="ButtonType.Submit" Text="تسجيل الدخول"
+                                  ButtonStyle="ButtonStyle.Primary" Style="width:100%;" />
+                </form>
+                <div style="text-align:center; margin-top:1rem;">
+                    <RadzenLink Text="نسيت كلمة المرور؟" Path="/forgot-password"
+                                Style="font-size:0.85rem;" />
+                </div>
+            </div>
+        </RadzenTabsItem>
+
+       
+        <RadzenTabsItem Text="📱 رمز SMS">
+            <div style="padding-top:1.25rem;">
+                @if (!otpSent)
+                {
+
+                    <form method="post" action="/account/send-otp">
+                        @((MarkupString)antiforgeryHtml)
+                        <RadzenFormField Text="رقم الهاتف"
+                                         Style="width:100%; margin-bottom:1.25rem;">
+                            <RadzenTextBox Name="phone" Placeholder="+96891234567"
+                                           Style="width:100%; direction:ltr; text-align:right;" />
+                        </RadzenFormField>
+                        <RadzenButton ButtonType="ButtonType.Submit" Text="إرسال رمز التحقق"
+                                      ButtonStyle="ButtonStyle.Primary" Style="width:100%;" />
+                    </form>
+                }
+                else
+                {
+                    @if (!string.IsNullOrEmpty(OtpError))
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false"
+                                     Style="margin-bottom:1rem;">@OtpError</RadzenAlert>
+                    }
+                    else
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Success" AllowClose="false"
+                                     Style="margin-bottom:1rem;">
+                            ✅ تم إرسال الرمز إلى @otpPhone
+                        </RadzenAlert>
+                    }
+
+                    <form method="post" action="/account/verify-otp">
+                        @((MarkupString)antiforgeryHtml)
+                        <input type="hidden" name="phone" value="@otpPhone" />
+                        @if (!string.IsNullOrEmpty(ReturnUrl))
+                        {
+                            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+                        }
+                        <RadzenFormField Text="رمز التحقق (6 أرقام)"
+                                         Style="width:100%; margin-bottom:1.25rem;">
+                            <RadzenTextBox Name="otpCode" Placeholder="○ ○ ○ ○ ○ ○" MaxLength="6"
+                                           Style="width:100%; direction:ltr; text-align:center;
+                                                  font-size:1.4rem; letter-spacing:0.5rem;" />
+                        </RadzenFormField>
+                        <RadzenButton ButtonType="ButtonType.Submit"
+                                      Text="تحقق وتسجيل الدخول"
+                                      ButtonStyle="ButtonStyle.Primary" Style="width:100%;" />
+                    </form>
+
+                    <form method="post" action="/account/send-otp" style="margin-top:0.75rem;">
+                        @((MarkupString)antiforgeryHtml)
+                        <input type="hidden" name="phone" value="@otpPhone" />
+                        <RadzenButton ButtonType="ButtonType.Submit" Text="إعادة إرسال الرمز"
+                                      ButtonStyle="ButtonStyle.Light" Style="width:100%;" />
+                    </form>
+                }
+            </div>
+        </RadzenTabsItem>
+
+    </Tabs>
+</RadzenTabs>
+
+<RadzenDivider Style="margin-top:1.5rem;" />
+<div style="text-align:center; margin-top:1rem;">
+    <span style="color:var(--rz-text-secondary-color); font-size:0.9rem;">مستفيد جديد؟ </span>
+    <RadzenLink Text="إنشاء حساب" Path="/register" />
+</div>
+
+@code {
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] private string? Error     { get; set; }
+    [SupplyParameterFromQuery] private string? OtpError  { get; set; }
+    [SupplyParameterFromQuery] private string? Tab       { get; set; }
+
+    private int    activeTab     = 0;
+    private bool   otpSent       = false;
+    private string otpPhone      = string.Empty;
+    private string antiforgeryHtml = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        if (Tab == "otp") activeTab = 1;
+
+        var query = HttpCtx.HttpContext?.Request.Query;
+        otpSent  = query?["otpSent"].ToString() == "true";
+        otpPhone = query?["phone"].ToString() ?? string.Empty;
+
+        if (HttpCtx.HttpContext is not null)
+        {
+            // var t = Antiforgery.GetAndStoreTokens(HttpCtx.HttpContext);
+            // antiforgeryHtml =
+            //     $"<input type=\"hidden\" name=\"{t.FormFieldName}\" value=\"{t.RequestToken}\" />";
+        }
+    }
+}

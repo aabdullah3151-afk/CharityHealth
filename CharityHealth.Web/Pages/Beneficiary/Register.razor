@@ -1,0 +1,299 @@
+﻿@page "/register"
+
+@layout AuthLayout
+@using CharityHealth.Application.Features.Beneficiaries.Commands
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Shared.Layouts
+@using MediatR
+@using Microsoft.AspNetCore.Identity
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@inject SignInManager<CharityHealth.Domain.Entities.ApplicationUser> SignInManager
+@inject UserManager<CharityHealth.Domain.Entities.ApplicationUser> UserManager
+
+<div class="auth-card register-card">
+
+    <div class="auth-card-header">
+        <h1 class="auth-title">📋 تسجيل مستفيد جديد</h1>
+        <p class="auth-sub">أنشئ حسابك للاستفادة من خدمات العيادات المجانية</p>
+    </div>
+
+    @if (step == 1)
+    {
+        <!-- ── Step 1: Personal Info ───────────────────── -->
+        <div class="step-indicator">
+            <span class="step active">1</span>
+            <span class="step-line"></span>
+            <span class="step">2</span>
+        </div>
+
+        <EditForm Model="@step1" OnValidSubmit="GoToStep2">
+            <DataAnnotationsValidator />
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>الاسم الكامل (عربي) <span class="req">*</span></label>
+                    <InputText @bind-Value="step1.FullNameAr" class="form-control"
+                               placeholder="محمد أحمد الحارثي" />
+                    <ValidationMessage For="@(() => step1.FullNameAr)" />
+                </div>
+                <div class="form-group">
+                    <label>الاسم الكامل (إنجليزي)</label>
+                    <InputText @bind-Value="step1.FullNameEn" class="form-control"
+                               placeholder="Mohammed Ahmed" dir="ltr" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>رقم الهوية الوطنية <span class="req">*</span></label>
+                    <InputText @bind-Value="step1.NationalId" class="form-control"
+                               placeholder="XXXXXXXX" dir="ltr" />
+                    <ValidationMessage For="@(() => step1.NationalId)" />
+                </div>
+                <div class="form-group">
+                    <label>تاريخ الميلاد <span class="req">*</span></label>
+                    <InputDate @bind-Value="step1.DateOfBirth" class="form-control" />
+                    <ValidationMessage For="@(() => step1.DateOfBirth)" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>الجنس <span class="req">*</span></label>
+                    <InputSelect @bind-Value="step1.Gender" class="form-control">
+                        <option value="@Gender.Male">ذكر</option>
+                        <option value="@Gender.Female">أنثى</option>
+                    </InputSelect>
+                </div>
+                <div class="form-group">
+                    <label>المدينة</label>
+                    <InputText @bind-Value="step1.City" class="form-control" placeholder="مسقط" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>العنوان</label>
+                <InputTextArea @bind-Value="step1.AddressAr" class="form-control" rows="2"
+                               placeholder="الولاية، الحي، الشارع..." />
+            </div>
+
+            <button type="submit" class="btn-primary btn-full">التالي ←</button>
+        </EditForm>
+    }
+    else if (step == 2)
+    {
+        <!-- ── Step 2: Account Info ────────────────────── -->
+        <div class="step-indicator">
+            <span class="step done">✓</span>
+            <span class="step-line active"></span>
+            <span class="step active">2</span>
+        </div>
+
+        <EditForm Model="@step2" OnValidSubmit="HandleRegister">
+            <DataAnnotationsValidator />
+
+            <div class="form-group">
+                <label>رقم الهاتف <span class="req">*</span></label>
+                <InputText @bind-Value="step2.PhoneNumber" class="form-control"
+                           placeholder="+96891234567" dir="ltr" type="tel"
+                           inputmode="numeric" />
+                <small class="hint">سيُستخدم للدخول عبر رمز SMS</small>
+                <ValidationMessage For="@(() => step2.PhoneNumber)" />
+            </div>
+
+            <div class="form-group">
+                <label>البريد الإلكتروني (اختياري)</label>
+                <InputText @bind-Value="step2.Email" class="form-control"
+                           placeholder="example@email.com" dir="ltr" type="email" />
+                <ValidationMessage For="@(() => step2.Email)" />
+            </div>
+
+            <div class="form-group">
+                <label>كلمة المرور <span class="req">*</span></label>
+                <div class="input-with-toggle">
+                    <InputText @bind-Value="step2.Password"
+                               type="@(showPass ? "text" : "password")"
+                               class="form-control" placeholder="8 أحرف على الأقل" />
+                    <button type="button" class="toggle-btn"
+                            @onclick="() => showPass = !showPass">
+                        @(showPass ? "🙈" : "👁️")
+                    </button>
+                </div>
+                <div class="password-strength">
+                    <div class="strength-bar">
+                        <div class="strength-fill strength-@GetPasswordStrength(step2.Password)"></div>
+                    </div>
+                    <span class="strength-label">@GetPasswordStrengthLabel(step2.Password)</span>
+                </div>
+                <ValidationMessage For="@(() => step2.Password)" />
+            </div>
+
+            <div class="form-group">
+                <label>تأكيد كلمة المرور <span class="req">*</span></label>
+                <InputText @bind-Value="step2.ConfirmPassword"
+                           type="password" class="form-control" />
+                @if (!string.IsNullOrEmpty(step2.Password) &&
+                     step2.Password != step2.ConfirmPassword)
+                {
+                    <span class="field-error">كلمتا المرور غير متطابقتين</span>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMsg))
+            {
+                <div class="alert alert-danger">@errorMsg</div>
+            }
+
+            <div class="btn-row">
+                <button type="button" class="btn-secondary"
+                        @onclick="() => step = 1">
+                    → السابق
+                </button>
+                <button type="submit" class="btn-primary" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span class="spinner-sm"></span>
+                    }
+                    إنشاء الحساب
+                </button>
+            </div>
+        </EditForm>
+    }
+    else if (step == 3)
+    {
+        <!-- ── Step 3: Success ─────────────────────────── -->
+        <div class="success-screen">
+            <div class="success-icon">✅</div>
+            <h2>تم التسجيل بنجاح!</h2>
+            <p>أهلاً بك <strong>@step1.FullNameAr</strong></p>
+            <p class="success-sub">يمكنك الآن تقديم طلب للحصول على كشف طبي مجاني</p>
+            <button class="btn-primary" @onclick="GoToDashboard">
+                الذهاب إلى لوحة التحكم ←
+            </button>
+        </div>
+    }
+
+    @if (step < 3)
+    {
+        <div class="auth-footer-link">
+            لديك حساب؟ <a href="/login">تسجيل الدخول</a>
+        </div>
+    }
+</div>
+
+@code {
+    private int step = 1;
+    private bool isLoading;
+    private bool showPass;
+    private string? errorMsg;
+    private string? newUserId;
+
+    private Step1Model step1 = new();
+    private Step2Model step2 = new();
+
+    private void GoToStep2()
+    {
+        errorMsg = null;
+        step = 2;
+    }
+
+    private async Task HandleRegister()
+    {
+        if (step2.Password != step2.ConfirmPassword)
+        {
+            errorMsg = "كلمتا المرور غير متطابقتين";
+            return;
+        }
+
+        isLoading = true;
+        errorMsg = null;
+
+        try
+        {
+            var cmd = new RegisterBeneficiaryCommand(
+                step1.FullNameAr, step1.FullNameEn ?? string.Empty,
+                step2.PhoneNumber, step2.Email,
+                step2.Password, step1.NationalId,
+                step1.DateOfBirth, step1.Gender,
+                step1.City, step1.AddressAr);
+
+            var result = await Mediator.Send(cmd);
+
+            if (result.Succeeded)
+            {
+                newUserId = result.Data!.UserId;
+                // Auto sign-in after registration
+                var user = await UserManager.FindByIdAsync(newUserId);
+                await SignInManager.SignInAsync(user!, isPersistent: false);
+                step = 3;
+            }
+            else
+            {
+                errorMsg = string.Join(" | ", result.Errors);
+            }
+        }
+        catch (FluentValidation.ValidationException ex)
+        {
+            errorMsg = string.Join(" | ", ex.Errors.Select(e => e.ErrorMessage));
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoToDashboard() => Nav.NavigateTo("/portal/dashboard", forceLoad: true);
+
+    private static string GetPasswordStrength(string? pwd)
+    {
+        if (string.IsNullOrEmpty(pwd)) return "empty";
+        var score = 0;
+        if (pwd.Length >= 8) score++;
+        if (pwd.Any(char.IsUpper)) score++;
+        if (pwd.Any(char.IsDigit)) score++;
+        if (pwd.Any(c => !char.IsLetterOrDigit(c))) score++;
+        return score switch { 1 => "weak", 2 => "fair", 3 => "good", 4 => "strong", _ => "empty" };
+    }
+
+    private static string GetPasswordStrengthLabel(string? pwd) =>
+        GetPasswordStrength(pwd) switch
+        {
+            "weak" => "ضعيفة",
+            "fair" => "مقبولة",
+            "good" => "جيدة",
+            "strong" => "قوية ✓",
+            _ => ""
+        };
+
+    // ── Form Models ───────────────────────────────────
+    private class Step1Model
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "الاسم العربي مطلوب")]
+        public string FullNameAr { get; set; } = string.Empty;
+        public string? FullNameEn { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "رقم الهوية مطلوب")]
+        public string NationalId { get; set; } = string.Empty;
+
+        public DateOnly DateOfBirth { get; set; } = new DateOnly(1990, 1, 1);
+        public Gender Gender { get; set; } = Gender.Male;
+        public string? City { get; set; }
+        public string? AddressAr { get; set; }
+    }
+
+    private class Step2Model
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "رقم الهاتف مطلوب")]
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "بريد إلكتروني غير صحيح")]
+        public string? Email { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "كلمة المرور مطلوبة")]
+        [System.ComponentModel.DataAnnotations.MinLength(8, ErrorMessage = "8 أحرف على الأقل")]
+        public string Password { get; set; } = string.Empty;
+
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

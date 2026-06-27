@@ -1,0 +1,163 @@
+﻿@page "/portal/dashboard"
+@attribute [Authorize(Roles = "Beneficiary")]
+@using CharityHealth.Application.Features.Requests.Queries
+@using CharityHealth.Domain.Enums
+@using MediatR
+@using System.Security.Claims
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>لوحة تحكم المستفيد</PageTitle>
+
+<div class="portal-wrap">
+
+    <!-- ── Welcome Header ────────────────────────────── -->
+    <div class="portal-header">
+        <div>
+            <h1 class="portal-title">مرحباً، @userName 👋</h1>
+            <p class="portal-sub">يمكنك تقديم طلب كشف طبي مجاني ومتابعة طلباتك السابقة</p>
+        </div>
+        <button class="btn-primary" @onclick='() => Nav.NavigateTo("/portal/request/new")'>
+            ➕ طلب كشف جديد
+        </button>
+    </div>
+
+    <!-- ── Stats Cards ────────────────────────────────── -->
+    <div class="stats-grid">
+        <div class="stat-card stat-blue">
+            <div class="stat-icon">📋</div>
+            <div class="stat-val">@requests.Count</div>
+            <div class="stat-lbl">إجمالي الطلبات</div>
+        </div>
+        <div class="stat-card stat-orange">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-val">@requests.Count(r => r.Status == RequestStatus.UnderReview || r.Status == RequestStatus.Submitted)</div>
+            <div class="stat-lbl">قيد المراجعة</div>
+        </div>
+        <div class="stat-card stat-green">
+            <div class="stat-icon">✅</div>
+            <div class="stat-val">@requests.Count(r => r.Status == RequestStatus.Approved)</div>
+            <div class="stat-lbl">موافق عليها</div>
+        </div>
+        <div class="stat-card stat-teal">
+            <div class="stat-icon">🏥</div>
+            <div class="stat-val">@requests.Count(r => r.Status == RequestStatus.Completed)</div>
+            <div class="stat-lbl">مكتملة</div>
+        </div>
+    </div>
+
+    <!-- ── QR Alert (if approved request) ────────────── -->
+    @{
+        var approvedReq = requests.FirstOrDefault(r => r.Status == RequestStatus.Approved && r.HasQrCode);
+    }
+    @if (approvedReq is not null)
+    {
+        <div class="qr-alert">
+            <div class="qr-alert-icon">🎟️</div>
+            <div class="qr-alert-text">
+                <strong>لديك باركود للكشف الطبي!</strong><br />
+                طلبك لتخصص <strong>@approvedReq.SpecialtyNameAr</strong> موافق عليه.
+                اعرض الباركود للدكتور.
+            </div>
+            <button class="btn-accent"
+                    @onclick='() => Nav.NavigateTo($"/portal/request/{approvedReq.Id}")'>
+                عرض الباركود
+            </button>
+        </div>
+    }
+
+    <!-- ── Requests List ──────────────────────────────── -->
+    <div class="section-card">
+        <div class="section-header">
+            <h2 class="section-title">طلباتي</h2>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>جارٍ تحميل طلباتك...</p>
+            </div>
+        }
+        else if (!requests.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>لا توجد طلبات حتى الآن</p>
+                <button class="btn-primary"
+                        @onclick='() => Nav.NavigateTo("/portal/request/new")'>
+                    قدّم طلبك الأول
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="requests-list">
+                @foreach (var req in requests)
+                {
+                    <div class="request-row" @onclick='() => Nav.NavigateTo($"/portal/request/{req.Id}")'>
+                        <div class="request-specialty">
+                            <span class="specialty-icon">🏥</span>
+                            <div>
+                                <div class="specialty-name">@req.SpecialtyNameAr</div>
+                                <div class="request-date">@req.SubmittedAt.ToString("dd/MM/yyyy")</div>
+                            </div>
+                        </div>
+                        <div class="request-meta">
+                            <span class="badge badge-@GetStatusClass(req.Status)">
+                                @req.StatusAr
+                            </span>
+                            @if (req.DocumentsCount > 0)
+                            {
+                                <span class="docs-count">📎 @req.DocumentsCount</span>
+                            }
+                            @if (req.HasQrCode)
+                            {
+                                <span class="qr-badge">🎟️ باركود</span>
+                            }
+                        </div>
+                        <span class="arrow-icon">←</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string userName = string.Empty;
+    private string userId = string.Empty;
+    private List<RequestSummaryDto> requests = [];
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        userName = auth.User.FindFirst(ClaimTypes.Name)?.Value
+                   ?? auth.User.FindFirst("FullNameAr")?.Value
+                   ?? "مستفيد";
+        userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        await LoadRequests();
+    }
+
+    private async Task LoadRequests()
+    {
+        isLoading = true;
+        var result = await Mediator.Send(new GetMyRequestsQuery(userId));
+        if (result.Succeeded)
+            requests = result.Data ?? [];
+        isLoading = false;
+    }
+
+    private static string GetStatusClass(RequestStatus status) => status switch
+    {
+        RequestStatus.Submitted => "blue",
+        RequestStatus.UnderReview => "orange",
+        RequestStatus.Approved => "green",
+        RequestStatus.Rejected => "red",
+        RequestStatus.Completed => "teal",
+        _ => "gray"
+    };
+}

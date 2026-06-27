@@ -1,0 +1,117 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization;
+
+<RadzenPanelMenu Style="width:100%; padding-top:0.5rem;">
+
+   
+    <RadzenPanelMenuItem Text="الرئيسية" Icon="home" Path="/" />
+
+    <AuthorizeView Context="auth">
+
+        <Authorized>
+
+           
+            <AuthorizeView Roles="Beneficiary" Context="_">
+                <Authorized>
+                    <RadzenPanelMenuItem Text="لوحة التحكم"
+                                         Icon="dashboard"
+                                         Path="/portal/dashboard" />
+                    <RadzenPanelMenuItem Text="طلب كشف جديد"
+                                         Icon="add_circle"
+                                         Path="/portal/request/new" />
+                    <RadzenPanelMenuItem Text="طلباتي"
+                                         Icon="list_alt"
+                                         Path="/portal/requests" />
+                </Authorized>
+            </AuthorizeView>
+
+           
+            <AuthorizeView Roles="Doctor" Context="_">
+                <Authorized>
+                    <RadzenPanelMenuItem Text="لوحة التحكم"
+                                         Icon="dashboard"
+                                         Path="/doctor/dashboard" />
+                    <RadzenPanelMenuItem Text="مسح باركود"
+                                         Icon="qr_code_scanner"
+                                         Path="/doctor/scan" />
+                    <RadzenPanelMenuItem Text="سجل الكشوفات"
+                                         Icon="history"
+                                         Path="/doctor/history" />
+                </Authorized>
+            </AuthorizeView>
+
+           
+            <AuthorizeView Roles="Staff" Context="_">
+                <Authorized>
+                    <RadzenPanelMenuItem Text="لوحة التحكم"
+                                         Icon="dashboard"
+                                         Path="/staff/dashboard" />
+                    <RadzenPanelMenuItem Text="الطلبات الواردة"
+                                         Icon="inbox"
+                                         Path="/staff/requests" />
+                    <RadzenPanelMenuItem Text="التقارير"
+                                         Icon="bar_chart"
+                                         Path="/staff/reports" />
+                </Authorized>
+            </AuthorizeView>
+
+          
+            <AuthorizeView Roles="Administrator" Context="_">
+                <Authorized>
+                    <RadzenPanelMenuItem Text="لوحة التحكم"
+                                         Icon="dashboard"
+                                         Path="/admin/dashboard" />
+
+                    <RadzenPanelMenuItem Text="إدارة المستخدمين" Icon="manage_accounts">
+                        <ChildContent>
+                            <RadzenPanelMenuItem Text="إضافة دكتور"
+                                                 Icon="person_add"
+                                                 Path="/admin/doctors/create" />
+                            <RadzenPanelMenuItem Text="قائمة الدكاتره"
+                                                 Icon="people"
+                                                 Path="/admin/doctors" />
+                            <RadzenPanelMenuItem Text="الموظفون"
+                                                 Icon="badge"
+                                                 Path="/admin/staff" />
+                        </ChildContent>
+                    </RadzenPanelMenuItem>
+
+                    <RadzenPanelMenuItem Text="الطلبات والتقارير" Icon="assessment">
+                        <ChildContent>
+                            <RadzenPanelMenuItem Text="جميع الطلبات"
+                                                 Icon="list_alt"
+                                                 Path="/admin/requests" />
+                            <RadzenPanelMenuItem Text="التقارير"
+                                                 Icon="bar_chart"
+                                                 Path="/admin/reports" />
+                        </ChildContent>
+                    </RadzenPanelMenuItem>
+
+                    <RadzenPanelMenuItem Text="الإعدادات" Icon="settings">
+                        <ChildContent>
+                            <RadzenPanelMenuItem Text="التخصصات الطبية"
+                                                 Icon="medical_services"
+                                                 Path="/admin/specialties" />
+                            <RadzenPanelMenuItem Text="سجل التدقيق"
+                                                 Icon="history"
+                                                 Path="/admin/audit-logs" />
+                        </ChildContent>
+                    </RadzenPanelMenuItem>
+                </Authorized>
+            </AuthorizeView>
+
+           
+            <RadzenPanelMenuItem Separator="true" />
+            <RadzenPanelMenuItem Text="تسجيل الخروج"
+                                 Icon="logout"
+                                 Path="/logout" />
+
+        </Authorized>
+
+        <NotAuthorized>
+            <RadzenPanelMenuItem Text="تسجيل الدخول" Icon="login" Path="/login" />
+            <RadzenPanelMenuItem Text="إنشاء حساب" Icon="person_add" Path="/register" />
+        </NotAuthorized>
+
+    </AuthorizeView>
+
+</RadzenPanelMenu>

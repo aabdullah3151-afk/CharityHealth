@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="CharityHealth.Application/CharityHealth.Application.csproj" />
+  <Project Path="CharityHealth.Domain/CharityHealth.Domain.csproj" />
+  <Project Path="CharityHealth.Infrastructure/CharityHealth.Infrastructure.csproj" />
+  <Project Path="CharityHealth.Shared/CharityHealth.Shared.csproj" />
+  <Project Path="CharityHealth.Web/CharityHealth.Web.csproj" Id="dae8c0e9-45de-4547-b723-b42aeab5f137" />
+</Solution>
