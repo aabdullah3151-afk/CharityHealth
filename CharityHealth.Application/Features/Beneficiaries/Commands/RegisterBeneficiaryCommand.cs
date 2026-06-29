@@ -39,12 +39,9 @@ public class RegisterBeneficiaryValidator : AbstractValidator<RegisterBeneficiar
             .NotEmpty().WithMessage("رقم الهاتف مطلوب")
             .Matches(@"^\+?[0-9]{8,15}$").WithMessage("رقم الهاتف غير صحيح");
 
-        RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("كلمة المرور مطلوبة")
-            .MinimumLength(8).WithMessage("كلمة المرور 8 أحرف على الأقل")
-            .Matches("[A-Z]").WithMessage("كلمة المرور يجب أن تحتوي على حرف كبير")
-            .Matches("[0-9]").WithMessage("كلمة المرور يجب أن تحتوي على رقم")
-            .Matches("[^a-zA-Z0-9]").WithMessage("كلمة المرور يجب أن تحتوي على رمز خاص");
+ RuleFor(x => x.Password)
+     .NotEmpty().WithMessage("كلمة المرور مطلوبة")
+     .MinimumLength(6).WithMessage("كلمة المرور 6 أحرف على الأقل");
 
         RuleFor(x => x.NationalId)
             .NotEmpty().WithMessage("رقم الهوية مطلوب")
