@@ -24,13 +24,14 @@ public static class DependencyInjection
 
         services.AddIdentity<ApplicationUser, IdentityRole>(opts =>
         {
-            opts.Password.RequiredLength = 8;
-            opts.Password.RequireUppercase = true;
-            opts.Password.RequireDigit = true;
-            opts.Password.RequireNonAlphanumeric = true;
-            opts.Lockout.MaxFailedAccessAttempts = 5;
-            opts.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-            opts.User.RequireUniqueEmail = false;
+            opts.Password.RequiredLength         = 6;
+ opts.Password.RequireUppercase       = false;
+ opts.Password.RequireDigit           = false;
+ opts.Password.RequireNonAlphanumeric = false;
+ opts.Password.RequireLowercase       = false;
+ opts.Lockout.MaxFailedAccessAttempts = 5;
+ opts.Lockout.DefaultLockoutTimeSpan  = TimeSpan.FromMinutes(15);
+ opts.User.RequireUniqueEmail          = false;
         })
         .AddEntityFrameworkStores<AppDbContext>()
         .AddDefaultTokenProviders();
