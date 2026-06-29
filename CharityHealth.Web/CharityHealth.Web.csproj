@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <Content Include="..\..\..\..\..\Users\khale\Downloads\al zeraeeyn\CharityHealth_Sprint2\CharityHealth\src\CharityHealth.Web\wwwroot\css\portal.css" Link="wwwroot\css\portal.css">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
