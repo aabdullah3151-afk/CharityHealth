@@ -1,0 +1,11 @@
+
+@page "/doctor/history"
+@attribute [Authorize(Roles = "Doctor")]
+@inject HealthcareUiService Ui
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Shared.Components
+
+<PageTitle>سجل الكشوفات</PageTitle>
+<div class="page-head"><div><span class="eyebrow">🕘 History</span><h2>سجل الحالات المكتملة</h2><p>كل الطلبات التي تم تحويلها إلى مكتملة.</p></div></div>
+<section class="ui-card responsive-table"><table class="ui-table"><thead><tr><th>المستفيد</th><th>التخصص</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody>@foreach(var r in rows){<tr><td>@r.BeneficiaryName</td><td>@r.SpecialtyName</td><td>@r.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy")</td><td><StatusPill Text="@r.StatusAr" Tone="@r.StatusCss" /></td></tr>}</tbody></table></section>
+@code { private List<RequestWorkItem> rows=[]; protected override async Task OnInitializedAsync(){ rows=await Ui.GetRequestsAsync(RequestStatus.Completed); } }

@@ -1,0 +1,183 @@
+@page "/admin/audit-logs"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+
+<PageTitle>سجل العمليات</PageTitle>
+
+<div class="admin-list-page" dir="rtl">
+
+    <header class="admin-list-head">
+        <div>
+            <div class="admin-list-kicker">Audit 🛡️</div>
+            <h1>سجل العمليات</h1>
+            <p>آخر 100 عملية مسجلة داخل النظام.</p>
+        </div>
+
+        <div class="admin-search-box">
+            <span>⌕</span>
+            <input @bind="search"
+                   @bind:event="oninput"
+                   placeholder="بحث في السجل..." />
+        </div>
+    </header>
+
+    @if (loading)
+    {
+        <div class="admin-state-card">جارٍ تحميل سجل العمليات...</div>
+    }
+    else
+    {
+        <section class="admin-stats-grid">
+            <div class="admin-stat-card">
+                <span>إجمالي المعروض</span>
+                <strong>@logs.Count</strong>
+            </div>
+
+            <div class="admin-stat-card">
+                <span>عمليات الدخول</span>
+                <strong>@logs.Count(l => l.Action.Contains("Login", StringComparison.OrdinalIgnoreCase))</strong>
+            </div>
+
+            <div class="admin-stat-card">
+                <span>عمليات الخروج</span>
+                <strong>@logs.Count(l => l.Action.Contains("Logout", StringComparison.OrdinalIgnoreCase))</strong>
+            </div>
+
+            <div class="admin-stat-card">
+                <span>الكيانات</span>
+                <strong>@logs.Select(l => l.EntityType).Distinct().Count()</strong>
+            </div>
+        </section>
+
+        <section class="admin-table-card">
+            <div class="admin-table-title">
+                <h2>العمليات الأخيرة</h2>
+                <span>@FilteredLogs.Count() عملية</span>
+            </div>
+
+            @if (!FilteredLogs.Any())
+            {
+                <div class="admin-state-card inside">لا توجد نتائج مطابقة للبحث.</div>
+            }
+            else
+            {
+                <div class="admin-table-wrap">
+                    <table class="admin-modern-table audit-table">
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>العملية</th>
+                                <th>الكيان</th>
+                                <th>Entity ID</th>
+                                <th>User</th>
+                                <th>IP</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var log in FilteredLogs)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong class="admin-date-cell">
+                                            @log.Timestamp.ToLocalTime().ToString("yyyy/MM/dd HH:mm")
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        <span class="admin-action-pill @ActionClass(log.Action)">
+                                            @log.Action
+                                        </span>
+                                    </td>
+
+                                    <td>@log.EntityType</td>
+
+                                    <td class="mono-cell">@ShortId(log.EntityId)</td>
+
+                                    <td class="mono-cell">@ShortId(log.UserId)</td>
+
+                                    <td class="mono-cell">@(!string.IsNullOrWhiteSpace(log.IpAddress) ? log.IpAddress : "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private string search = string.Empty;
+    private List<AuditLogListItem> logs = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        logs = await Ui.GetAuditLogsAsync();
+        loading = false;
+    }
+
+    private IEnumerable<AuditLogListItem> FilteredLogs
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(search))
+            {
+                return logs;
+            }
+
+            var value = search.Trim();
+
+            return logs.Where(l =>
+                l.Action.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                l.EntityType.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                (l.EntityId?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (l.UserId?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (l.IpAddress?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)
+            );
+        }
+    }
+
+    private static string ShortId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "—";
+        }
+
+        if (value.Length <= 14)
+        {
+            return value;
+        }
+
+        return $"{value[..8]}…{value[^6..]}";
+    }
+
+    private static string ActionClass(string action)
+    {
+        var value = action.ToLowerInvariant();
+
+        if (value.Contains("success") || value.Contains("registered"))
+        {
+            return "success";
+        }
+
+        if (value.Contains("logout"))
+        {
+            return "warning";
+        }
+
+        if (value.Contains("fail") || value.Contains("error"))
+        {
+            return "danger";
+        }
+
+        return "info";
+    }
+}

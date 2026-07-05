@@ -1,0 +1,9 @@
+
+@page "/staff/reports"
+@attribute [Authorize(Roles = "Staff")]
+@inject HealthcareUiService Ui
+@using CharityHealth.Web.Shared.Components
+
+<PageTitle>تقارير الموظف</PageTitle>
+<div class="page-head"><div><span class="eyebrow">📈 Reports</span><h2>تقارير الطلبات</h2><p>نظرة مختصرة على حركة الطلبات.</p></div></div>
+<div class="dashboard-grid"><section class="ui-card wide-card"><h3>حركة الطلبات</h3><FakeChart /></section><section class="ui-card"><h3>مؤشرات</h3><ul class="metric-list"><li>طلبات جديدة</li><li>طلبات تحتاج قرار</li><li>طلبات مكتملة</li></ul></section></div>

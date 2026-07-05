@@ -1,9 +1,38 @@
-﻿@page "/"
+@page "/"
+@layout CharityHealth.Web.Shared.Layouts.AuthLayout
+@inject NavigationManager Nav
 
-<PageTitle>Index</PageTitle>
+<PageTitle>مستشفى بلا مستشفى</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="login-shell landing-shell">
+    <section class="login-card landing-card">
+        <div class="login-title-block">
+            <h1>مستشفى بلا مستشفى</h1>
+            <p>منصة خيرية رقمية تربط المستفيدين بالأطباء والمتطوعين والمؤسسة.</p>
+        </div>
 
-Welcome to your new app.
+        <div class="landing-actions">
+            <button class="login-submit" @onclick='() => Nav.NavigateTo("/login")'>تسجيل الدخول</button>
+            <button class="outline-submit" @onclick='() => Nav.NavigateTo("/register")'>إنشاء حساب مستفيد</button>
+        </div>
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+        <div class="landing-feature-list">
+            <div><span>01</span><strong>تقديم طلب كشف</strong><small>رفع البيانات والمستندات المطلوبة بسهولة.</small></div>
+            <div><span>02</span><strong>مراجعة واعتماد</strong><small>متابعة حالة الطلب من الإدارة المختصة.</small></div>
+            <div><span>03</span><strong>تنسيق الكشف</strong><small>ربط الحالة بالطبيب المناسب ومتابعة النتيجة.</small></div>
+        </div>
+    </section>
+
+    <section class="login-brand-panel" aria-label="هوية المنصة">
+        <div class="brand-mark large" aria-hidden="true"></div>
+        <h2>رحمة بلا حدود<br />علاج بلا مبنى</h2>
+        <p>منظومة رعاية صحية خيرية بتجربة استخدام بسيطة ومنظمة.</p>
+
+        <div class="brand-metrics">
+            <div><strong>1,284</strong><span>مستفيد مستفاد</span></div>
+            <div><strong>47</strong><span>طبيب متطوع</span></div>
+            <div><strong>742</strong><span>استشارة مكتملة</span></div>
+            <div><strong class="rating">★ 4.8</strong><span>معدل الرضا</span></div>
+        </div>
+    </section>
+</div>

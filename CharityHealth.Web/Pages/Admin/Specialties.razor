@@ -1,0 +1,148 @@
+@page "/admin/specialties"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+
+<PageTitle>التخصصات الطبية</PageTitle>
+
+<div class="admin-list-page" dir="rtl">
+
+    <header class="admin-list-head">
+        <div>
+            <div class="admin-list-kicker">Specialties 🧬</div>
+            <h1>التخصصات الطبية</h1>
+            <p>إدارة وقراءة التخصصات الطبية المسجلة في قاعدة البيانات.</p>
+        </div>
+
+        <div class="admin-search-box">
+            <span>⌕</span>
+            <input @bind="search"
+                   @bind:event="oninput"
+                   placeholder="بحث عن تخصص..." />
+        </div>
+    </header>
+
+    @if (loading)
+    {
+        <div class="admin-state-card">جارٍ تحميل التخصصات...</div>
+    }
+    else
+    {
+        <section class="admin-stats-grid">
+            <div class="admin-stat-card">
+                <span>إجمالي التخصصات</span>
+                <strong>@specialties.Count</strong>
+            </div>
+
+            <div class="admin-stat-card">
+                <span>التخصصات النشطة</span>
+                <strong>@specialties.Count(s => s.IsActive)</strong>
+            </div>
+
+            <div class="admin-stat-card">
+                <span>إجمالي الأطباء</span>
+                <strong>@specialties.Sum(s => s.DoctorsCount)</strong>
+            </div>
+
+            <div class="admin-stat-card">
+                <span>إجمالي الطلبات</span>
+                <strong>@specialties.Sum(s => s.RequestsCount)</strong>
+            </div>
+        </section>
+
+        <section class="admin-table-card">
+            <div class="admin-table-title">
+                <h2>قائمة التخصصات</h2>
+                <span>@FilteredSpecialties.Count() تخصص</span>
+            </div>
+
+            @if (!FilteredSpecialties.Any())
+            {
+                <div class="admin-state-card inside">لا توجد نتائج مطابقة للبحث.</div>
+            }
+            else
+            {
+                <div class="admin-table-wrap">
+                    <table class="admin-modern-table">
+                        <thead>
+                            <tr>
+                                <th>التخصص</th>
+                                <th>English</th>
+                                <th>الأطباء</th>
+                                <th>الطلبات</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var item in FilteredSpecialties)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="admin-main-cell">
+                                            <div class="admin-cell-icon">🩺</div>
+                                            <div>
+                                                <strong>@item.NameAr</strong>
+                                                <span>تخصص طبي</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td class="ltr-cell">@item.NameEn</td>
+
+                                    <td>
+                                        <span class="admin-number-pill">@item.DoctorsCount</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="admin-number-pill">@item.RequestsCount</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="admin-status-pill @(item.IsActive ? "ok" : "off")">
+                                            @(item.IsActive ? "نشط" : "غير نشط")
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private string search = string.Empty;
+    private List<SpecialtyListItem> specialties = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        specialties = await Ui.GetSpecialtiesAsync();
+        loading = false;
+    }
+
+    private IEnumerable<SpecialtyListItem> FilteredSpecialties
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(search))
+            {
+                return specialties;
+            }
+
+            var value = search.Trim();
+
+            return specialties.Where(s =>
+                s.NameAr.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                s.NameEn.Contains(value, StringComparison.OrdinalIgnoreCase)
+            );
+        }
+    }
+}

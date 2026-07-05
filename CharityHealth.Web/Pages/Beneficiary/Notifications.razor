@@ -1,0 +1,6 @@
+
+@page "/portal/notifications"
+@attribute [Authorize(Roles = "Beneficiary")]
+<PageTitle>الإشعارات</PageTitle>
+<div class="page-head"><div><span class="eyebrow">🔔 Notifications</span><h2>الإشعارات</h2><p>مكان جاهز لربط SignalR وإشعارات القبول والرفض.</p></div></div>
+<section class="ui-card notification-list"><div class="notification-item">✅ سيتم عرض نتيجة الطلب هنا عند الموافقة أو الرفض.</div><div class="notification-item">📲 يمكن ربط SMS/SignalR لاحقًا من نفس الخدمة الموجودة في المشروع.</div></section>

@@ -1,0 +1,13 @@
+
+@page "/doctor/dashboard"
+@attribute [Authorize(Roles = "Doctor")]
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@using System.Security.Claims
+@using CharityHealth.Web.Shared.Components
+
+<PageTitle>لوحة الطبيب</PageTitle>
+<div class="page-head"><div><span class="eyebrow">🩺 Doctor Desk</span><h2>حالات الكشف المتاحة</h2><p>تظهر هنا الحالات الموافق عليها في تخصص الطبيب.</p></div><button class="ui-btn primary" @onclick='() => Nav.NavigateTo("/doctor/scan")'>🎟️ مسح QR</button></div>
+@if(loading){<div class="loading-card">تحميل...</div>}else{<div class="request-cards">@foreach(var r in queue){<article class="request-card"><div class="request-main"><div class="avatar-circle">@Initial(r.BeneficiaryName)</div><div><h3>@r.BeneficiaryName</h3><p>@r.SpecialtyName · @r.BeneficiaryPhone</p><small>@r.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy")</small></div></div><StatusPill Text="@r.StatusAr" Tone="@r.StatusCss" /><p class="request-desc">@r.DescriptionAr</p><div class="action-row"><button class="mini-btn ok" @onclick='() => Nav.NavigateTo($"/doctor/scan?requestId={r.Id}")'>فتح الحالة</button></div></article>}</div>@if(queue.Count==0){<div class="empty-state ui-card">لا توجد حالات موجهة لتخصصك حاليًا ✅</div>}}
+@code{private bool loading=true; private List<RequestWorkItem> queue=[]; protected override async Task OnInitializedAsync(){var auth=await AuthState.GetAuthenticationStateAsync(); var uid=auth.User.FindFirstValue(ClaimTypes.NameIdentifier)??""; queue=await Ui.GetDoctorQueueAsync(uid); loading=false;} static string Initial(string name)=>string.IsNullOrWhiteSpace(name)?"؟":name.Trim()[0].ToString();}

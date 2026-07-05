@@ -1,0 +1,13 @@
+
+@page "/doctor/scan"
+@attribute [Authorize(Roles = "Doctor")]
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@using System.Security.Claims
+
+<PageTitle>مسح QR</PageTitle>
+<div class="page-head"><div><span class="eyebrow">🎟️ QR Verification</span><h2>مسح باركود الحالة</h2><p>النسخة الحالية تقبل رقم الطلب يدويًا أو القادم من رابط الحالة.</p></div></div>
+@if(!string.IsNullOrWhiteSpace(message)){<div class="notice @(success?"ok":"bad")">@message</div>}
+<section class="ui-card scan-panel"><div class="qr-frame">▦</div><label>رقم الطلب</label><input class="ui-input" @bind="requestIdText" placeholder="Guid الخاص بالطلب" /><label>نتيجة الكشف / ملاحظات الطبيب</label><textarea class="ui-input" rows="5" @bind="doctorNote" placeholder="اكتب التشخيص أو ملخص النتيجة"></textarea><button class="ui-btn primary full" @onclick="Complete">إنهاء الكشف وتحديث الحالة ✅</button></section>
+@code{[SupplyParameterFromQuery] public string? RequestId {get;set;} private string? requestIdText; private string? doctorNote; private string? message; private bool success; protected override void OnParametersSet(){ if(!string.IsNullOrWhiteSpace(RequestId)) requestIdText=RequestId;} private async Task Complete(){ if(!Guid.TryParse(requestIdText, out var id)){success=false; message="رقم الطلب غير صحيح"; return;} var auth=await AuthState.GetAuthenticationStateAsync(); var uid=auth.User.FindFirstValue(ClaimTypes.NameIdentifier)??"doctor"; var result=await Ui.CompleteRequestAsync(id, uid, doctorNote); success=result.Succeeded; message=result.Message; }}

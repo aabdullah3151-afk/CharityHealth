@@ -1,3 +1,4 @@
+using CharityHealth.Web.Services;
 using CharityHealth.Application;
 using CharityHealth.Infrastructure;
 using CharityHealth.Web.Data;
@@ -46,6 +47,10 @@ builder.Services.AddSignalR();
 
 // ── HttpContextAccessor (needed for CurrentUserService) ──
 builder.Services.AddHttpContextAccessor();
+
+// ── New Blazor UI services ─────────────────────────────
+builder.Services.AddScoped<UiThemeService>();
+builder.Services.AddScoped<HealthcareUiService>();
 
 // ── Localization ──────────────────────────────────────
 builder.Services.AddLocalization(opts => opts.ResourcesPath = "Resources");
@@ -124,7 +129,7 @@ app.UseAntiforgery();
 //app.MapRazorComponents<CharityHealth.Web.App>()
 //    .AddInteractiveServerRenderMode();
 app.MapBlazorHub();
-//app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.MapFallbackToPage("/_Host");
 

@@ -1,0 +1,208 @@
+@page "/admin/doctors"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject NavigationManager Nav
+
+<PageTitle>إدارة الأطباء</PageTitle>
+
+<div class="doctors-page" dir="rtl">
+
+    <header class="doctors-head">
+        <div>
+            <div class="doctors-kicker">Doctors 👨‍⚕️</div>
+            <h1>الأطباء المتطوعون</h1>
+            <p>قائمة الأطباء المتعاونين مع المؤسسة، مع أيام وساعات العمل المتاحة.</p>
+        </div>
+
+        <button type="button"
+                class="doctor-add-btn"
+                @onclick='() => Nav.NavigateTo("/admin/doctors/create")'>
+            <span>+</span>
+            إضافة طبيب
+        </button>
+    </header>
+
+    @if (loading)
+    {
+        <div class="doctors-empty">جارٍ تحميل الأطباء...</div>
+    }
+    else if (doctors.Count == 0)
+    {
+        <div class="doctors-empty">لا يوجد أطباء مسجلون حالياً</div>
+    }
+    else
+    {
+        <section class="doctors-grid">
+            @foreach (var doctor in doctors)
+            {
+                var stats = GetDoctorStats(doctor);
+
+                <article class="doctor-card">
+
+                    <div class="doctor-card-top">
+                        <div class="doctor-main-info">
+                            <h2>@doctor.FullNameAr</h2>
+                            <strong>@doctor.SpecialtyName</strong>
+                        </div>
+
+                        <div class="doctor-icon">🩺</div>
+                    </div>
+
+                    <div class="doctor-status-row">
+                        <span class="doctor-status @(doctor.IsAvailable ? "available" : "unavailable")">
+                            <i></i>
+                            @(doctor.IsAvailable ? "متاح" : "غير متاح")
+                        </span>
+
+                        <span class="doctor-license">
+                            ترخيص: @doctor.LicenseNumber
+                        </span>
+                    </div>
+
+                    <div class="doctor-meta">
+                        <div>
+                            <span>الهاتف</span>
+                            <strong>@doctor.PhoneNumber</strong>
+                        </div>
+
+                        <div>
+                            <span>الحد اليومي</span>
+                            <strong>@doctor.MaxDailySlots</strong>
+                        </div>
+                    </div>
+
+                    <div class="doctor-schedule">
+                        <div>
+                            <span>أيام العمل</span>
+                            <strong>@FormatWorkingDays(doctor.WorkingDays)</strong>
+                        </div>
+
+                        <div>
+                            <span>وقت العمل</span>
+                            <strong>@FormatWorkingTime(doctor.WorkStartTime, doctor.WorkEndTime)</strong>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(doctor.ClinicAddress))
+                    {
+                        <div class="doctor-address">
+                            📍 @doctor.ClinicAddress
+                        </div>
+                    }
+
+                    <div class="doctor-stats">
+                        <div>
+                            <strong>@stats.Pending</strong>
+                            <span>طلبات معلقة</span>
+                        </div>
+
+                        <div>
+                            <strong>@stats.Approved</strong>
+                            <span>محجوزة</span>
+                        </div>
+
+                        <div>
+                            <strong>@stats.Completed</strong>
+                            <span>مكتملة</span>
+                        </div>
+                    </div>
+
+                    <div class="doctor-card-actions">
+                        <button type="button"
+                                class="doctor-edit-btn"
+                                @onclick='() => Nav.NavigateTo($"/admin/doctors/edit/{doctor.Id}")'>
+                            تعديل البيانات
+                        </button>
+                    </div>
+
+                </article>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+
+    private List<DoctorListItem> doctors = [];
+    private List<RequestWorkItem> requests = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        doctors = await Ui.GetDoctorsAsync();
+        requests = await Ui.GetRequestsAsync();
+
+        loading = false;
+    }
+
+    private DoctorStats GetDoctorStats(DoctorListItem doctor)
+    {
+        var related = requests
+            .Where(r => r.SpecialtyName == doctor.SpecialtyName)
+            .ToList();
+
+        return new DoctorStats(
+            Pending: related.Count(r => r.Status is RequestStatus.Submitted or RequestStatus.UnderReview),
+            Approved: related.Count(r => r.Status == RequestStatus.Approved),
+            Completed: related.Count(r => r.Status == RequestStatus.Completed)
+        );
+    }
+
+    private static string FormatWorkingTime(TimeOnly? start, TimeOnly? end)
+    {
+        if (start is null && end is null)
+        {
+            return "غير محدد";
+        }
+
+        if (start is not null && end is not null)
+        {
+            return $"{start:HH\\:mm} - {end:HH\\:mm}";
+        }
+
+        if (start is not null)
+        {
+            return $"من {start:HH\\:mm}";
+        }
+
+        return $"حتى {end:HH\\:mm}";
+    }
+
+    private static string FormatWorkingDays(string? days)
+    {
+        if (string.IsNullOrWhiteSpace(days))
+        {
+            return "غير محدد";
+        }
+
+        var map = new Dictionary<string, string>
+        {
+            ["Sat"] = "السبت",
+            ["Sun"] = "الأحد",
+            ["Mon"] = "الاثنين",
+            ["Tue"] = "الثلاثاء",
+            ["Wed"] = "الأربعاء",
+            ["Thu"] = "الخميس",
+            ["Fri"] = "الجمعة"
+        };
+
+        var result = days
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(d => map.TryGetValue(d, out var ar) ? ar : d)
+            .ToList();
+
+        return result.Count == 0 ? "غير محدد" : string.Join("، ", result);
+    }
+
+    private sealed record DoctorStats(
+        int Pending,
+        int Approved,
+        int Completed
+    );
+}

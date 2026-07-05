@@ -1,93 +1,106 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
 @using Microsoft.AspNetCore.Components.Authorization
+@inject UiThemeService Theme
+@inject NavigationManager Nav
 
-<RadzenLayout Style="min-height:100vh;" class="rz-shadow-3">
-
-   
-    <RadzenHeader>
-        <RadzenStack Orientation="Orientation.Horizontal"
-                     AlignItems="AlignItems.Center"
-                     JustifyContent="JustifyContent.SpaceBetween"
-                     Style="padding: 0 1rem; height: 100%;">
-
-           
-            <RadzenStack Orientation="Orientation.Horizontal"
-                         AlignItems="AlignItems.Center" Gap="0.75rem">
-                <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
-                <RadzenText TextStyle="TextStyle.H6" Style="margin:0; color: var(--rz-primary);">
-                    🏥 نظام الرعاية الصحية الخيرية
-                </RadzenText>
-            </RadzenStack>
-
-           
-            <RadzenStack Orientation="Orientation.Horizontal"
-                         AlignItems="AlignItems.Center" Gap="0.75rem">
-                <AuthorizeView>
-                    <Authorized>
-                        
-                        <RadzenBadge BadgeStyle="BadgeStyle.Info"
-                                     Text="@GetRoleName(context)"
-                                     Style="font-size:0.75rem;" />
-
-                       
-                        <RadzenText Style="margin:0; font-size:0.9rem;">
-                            @context.User.Identity?.Name
-                        </RadzenText>
-
-                      
-                        <RadzenButton ButtonStyle="ButtonStyle.Light"
-                                      Icon="logout"
-                                      Size="ButtonSize.Small"
-                                      Text="خروج"
-                                      Click="@HandleLogout" />
-                    </Authorized>
-                    <NotAuthorized>
-                        <RadzenButton ButtonStyle="ButtonStyle.Primary"
-                                      Icon="login"
-                                      Size="ButtonSize.Small"
-                                      Text="دخول"
-                                      Click='@(() => Nav.NavigateTo("/login"))' />
-                    </NotAuthorized>
-                </AuthorizeView>
-            </RadzenStack>
-
-        </RadzenStack>
-    </RadzenHeader>
-
-   
-    <RadzenSidebar @bind-Expanded="@sidebarExpanded" Style="width:250px;">
-        <NavMenu />
-    </RadzenSidebar>
-
-  
-    <RadzenBody>
-        <RadzenContentContainer Name="main">
-            <div style="padding:1.5rem;">
-                @Body
+<div class="@($"app-root {Theme.CssClass}")" dir="rtl">
+    <aside class="app-sidebar" aria-label="القائمة الجانبية">
+        <div class="brand-block" @onclick='() => Nav.NavigateTo("/")'>
+            <div class="brand-copy">
+                <div class="brand-title">مستشفى بلا مستشفى</div>
+                <div class="brand-subtitle">رحمة بلا حدود</div>
             </div>
-        </RadzenContentContainer>
-    </RadzenBody>
 
-</RadzenLayout>
+            <div class="brand-mark" aria-hidden="true"></div>
+        </div>
+
+        <AuthorizeView>
+            <Authorized Context="auth">
+                <div class="sidebar-user-card">
+                    <div class="user-initial">
+                        @GetInitial(auth.User.FindFirst("FullNameAr")?.Value ?? auth.User.Identity?.Name)
+                    </div>
+
+                    <div>
+                        <strong>@(auth.User.FindFirst("FullNameAr")?.Value ?? auth.User.Identity?.Name)</strong>
+                        <span>@RoleLabel(auth.User.FindFirst("UserType")?.Value)</span>
+                    </div>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <NavMenu />
+
+        <div class="sidebar-footer">
+            <a class="sidebar-logout" href="/account/logout">
+                <span>تسجيل الخروج</span>
+                <span class="logout-arrow">↢</span>
+            </a>
+        </div>
+    </aside>
+
+    <section class="app-workspace">
+        <header class="app-topbar">
+            <div class="topbar-actions">
+                <a class="topbar-logout" href="/account/logout">
+                    <span>خروج</span>
+                    <span>↢</span>
+                </a>
+
+                <button class="theme-toggle"
+                        type="button"
+                        @onclick="Theme.Toggle"
+                        title="تبديل الوضع"
+                        aria-label="تبديل الوضع">
+                    <span>@Theme.Icon</span>
+                </button>
+            </div>
+
+            <AuthorizeView>
+                <Authorized Context="auth">
+                    <div class="top-user-chip">
+                        <span class="chip-dot"></span>
+                        <strong>@(auth.User.FindFirst("FullNameAr")?.Value ?? auth.User.Identity?.Name)</strong>
+                        <span>· @RoleLabel(auth.User.FindFirst("UserType")?.Value)</span>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
+        </header>
+
+        <main class="page-canvas">
+            @Body
+        </main>
+    </section>
+</div>
 
 @code {
-    [Inject] NavigationManager Nav { get; set; } = default!;
-    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
-
-    private bool sidebarExpanded = true;
-
-    private void HandleLogout()
+    protected override void OnInitialized()
     {
-        // ✅ Navigate to the Logout razor page — SignOutAsync runs server-side
-        Nav.NavigateTo("/logout", forceLoad: true);
+        Theme.OnChange += StateHasChanged;
     }
 
-    private static string GetRoleName(AuthenticationState ctx)
+    public void Dispose()
     {
-        if (ctx.User.IsInRole("Administrator")) return "مدير النظام";
-        if (ctx.User.IsInRole("Staff")) return "موظف";
-        if (ctx.User.IsInRole("Doctor")) return "طبيب";
-        if (ctx.User.IsInRole("Beneficiary")) return "مستفيد";
-        return string.Empty;
+        Theme.OnChange -= StateHasChanged;
     }
+
+    private static string GetInitial(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "ع";
+        }
+
+        return value.Trim()[0].ToString();
+    }
+
+    private static string RoleLabel(string? userType) => userType switch
+    {
+        "Administrator" => "إدارة",
+        "Staff" => "موظف",
+        "Doctor" => "طبيب",
+        "Beneficiary" => "مستفيد",
+        _ => "إدارة"
+    };
 }

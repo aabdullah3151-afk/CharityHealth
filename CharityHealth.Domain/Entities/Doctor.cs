@@ -9,6 +9,11 @@ public class Doctor : BaseEntity
     public string LicenseNumber { get; set; } = string.Empty;
     public string? ClinicAddress { get; set; }
     public string? ClinicPhone { get; set; }
+    public string? WorkingDays { get; set; }
+
+    public TimeOnly? WorkStartTime { get; set; }
+
+    public TimeOnly? WorkEndTime { get; set; }
 
     /// <summary>Max free consultations allowed per day (default 1)</summary>
     public int MaxDailySlots { get; set; } = 1;
