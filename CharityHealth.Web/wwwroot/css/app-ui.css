@@ -8591,6 +8591,343 @@ body {
 
 
 
+/* =========================================================
+   FIX — Global Topbar Visible Like Figma
+   ========================================================= */
+
+   .ch-layout-shell {
+    --topbar-height: 92px;
+    --sidebar-width: 300px;
+    min-height: 100vh !important;
+    background: #f8fafc !important;
+}
+
+/* الشريط العلوي */
+.ch-topbar {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: var(--topbar-height) !important;
+    z-index: 999999 !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    box-shadow: 0 3px 14px rgba(15, 23, 42, 0.08) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* إجبار كل عناصر الشريط تظهر */
+.ch-topbar *,
+.ch-brand,
+.ch-brand *,
+.ch-user-chip,
+.ch-user-chip *,
+.ch-top-actions,
+.ch-top-actions * {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* اللوجو يمين */
+.ch-brand {
+    position: absolute !important;
+    right: 38px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    text-align: right !important;
+    z-index: 1000000 !important;
+}
+
+.ch-brand-logo {
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 50% !important;
+    background: #05a843 !important;
+    position: relative !important;
+    display: inline-block !important;
+    flex: 0 0 auto !important;
+    box-shadow: 0 10px 22px rgba(5, 168, 67, 0.24) !important;
+}
+
+.ch-brand-logo::after {
+    content: "" !important;
+    position: absolute !important;
+    width: 31px !important;
+    height: 31px !important;
+    border-radius: 50% !important;
+    background: #ffffff !important;
+    top: 10px !important;
+    left: 9px !important;
+}
+
+.ch-brand-logo::before {
+    content: "" !important;
+    position: absolute !important;
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 50% !important;
+    background: #05a843 !important;
+    top: 10px !important;
+    left: 17px !important;
+    z-index: 2 !important;
+}
+
+.ch-brand-text {
+    display: grid !important;
+    gap: 3px !important;
+}
+
+.ch-brand-text strong {
+    color: #111827 !important;
+    font-size: 22px !important;
+    line-height: 1.1 !important;
+    font-weight: 950 !important;
+    letter-spacing: -0.03em !important;
+}
+
+.ch-brand-text small {
+    color: #047857 !important;
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+    font-weight: 900 !important;
+}
+
+/* اسم المستخدم في النص */
+.ch-user-chip {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    min-height: 42px !important;
+    border-radius: 999px !important;
+    padding: 0 22px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 9px !important;
+    font-size: 15px !important;
+    font-weight: 950 !important;
+    white-space: nowrap !important;
+    border: 1px solid transparent !important;
+    z-index: 1000000 !important;
+}
+
+.ch-user-chip strong {
+    font-weight: 950 !important;
+}
+
+.ch-user-dot {
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 50% !important;
+    background: currentColor !important;
+    display: inline-block !important;
+}
+
+/* ألوان حسب نوع المستخدم */
+.ch-user-chip.beneficiary {
+    color: #047857 !important;
+    background: #ecfdf3 !important;
+    border-color: #a7f3d0 !important;
+}
+
+.ch-user-chip.doctor {
+    color: #0369a1 !important;
+    background: #eff6ff !important;
+    border-color: #bfdbfe !important;
+}
+
+.ch-user-chip.admin,
+.ch-user-chip.staff {
+    color: #7e22ce !important;
+    background: #faf5ff !important;
+    border-color: #e9d5ff !important;
+}
+
+.ch-user-chip.guest {
+    color: #475467 !important;
+    background: #f8fafc !important;
+    border-color: #e5e7eb !important;
+}
+
+/* الخروج والدارك مود شمال */
+.ch-top-actions {
+    position: absolute !important;
+    left: 38px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    z-index: 1000000 !important;
+}
+
+.ch-logout-link {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 9px !important;
+    color: #667085 !important;
+    text-decoration: none !important;
+    font-size: 16px !important;
+    font-weight: 900 !important;
+}
+
+.ch-logout-link:hover {
+    color: #dc2626 !important;
+}
+
+.ch-logout-icon {
+    font-size: 22px !important;
+    line-height: 1 !important;
+}
+
+.ch-theme-toggle {
+    width: 52px !important;
+    height: 52px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: #f1f5f9 !important;
+    color: #475467 !important;
+    display: grid !important;
+    place-items: center !important;
+    cursor: pointer !important;
+    font-size: 21px !important;
+}
+
+.ch-theme-toggle:hover {
+    background: #e2e8f0 !important;
+}
+
+/* السايدبار يبدأ تحت الشريط */
+.ch-sidebar,
+.app-sidebar.ch-sidebar {
+    position: fixed !important;
+    top: var(--topbar-height) !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: var(--sidebar-width) !important;
+    height: calc(100vh - var(--topbar-height)) !important;
+    z-index: 1000 !important;
+    background: #ffffff !important;
+    border-left: 1px solid #e5e7eb !important;
+    overflow-y: auto !important;
+}
+
+/* مساحة الصفحة */
+.ch-workspace,
+.app-workspace.ch-workspace {
+    min-height: 100vh !important;
+    padding-top: var(--topbar-height) !important;
+    margin-right: var(--sidebar-width) !important;
+    background: #f8fafc !important;
+}
+
+.ch-page-canvas {
+    min-height: calc(100vh - var(--topbar-height)) !important;
+}
+
+/* Dark Mode */
+.theme-dark .ch-topbar {
+    background: #0f172a !important;
+    border-bottom-color: #263244 !important;
+}
+
+.theme-dark .ch-brand-text strong {
+    color: #f8fafc !important;
+}
+
+.theme-dark .ch-brand-text small {
+    color: #86efac !important;
+}
+
+.theme-dark .ch-theme-toggle {
+    background: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+.theme-dark .ch-logout-link {
+    color: #cbd5e1 !important;
+}
+
+.theme-dark .ch-sidebar {
+    background: #111827 !important;
+    border-left-color: #263244 !important;
+}
+
+.theme-dark .ch-workspace {
+    background: #101827 !important;
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+    .ch-layout-shell {
+        --topbar-height: 78px;
+        --sidebar-width: 0px;
+    }
+
+    .ch-topbar {
+        height: var(--topbar-height) !important;
+    }
+
+    .ch-brand {
+        right: 16px !important;
+        gap: 10px !important;
+    }
+
+    .ch-brand-logo {
+        width: 44px !important;
+        height: 44px !important;
+    }
+
+    .ch-brand-text strong {
+        font-size: 16px !important;
+    }
+
+    .ch-brand-text small {
+        font-size: 11px !important;
+    }
+
+    .ch-user-chip {
+        display: none !important;
+    }
+
+    .ch-top-actions {
+        left: 16px !important;
+        gap: 8px !important;
+    }
+
+    .ch-logout-link span:first-child {
+        display: none !important;
+    }
+
+    .ch-theme-toggle {
+        width: 44px !important;
+        height: 44px !important;
+    }
+
+    .ch-sidebar {
+        display: none !important;
+    }
+
+    .ch-workspace {
+        margin-right: 0 !important;
+        padding-top: var(--topbar-height) !important;
+    }
+}
+
+
 
 
 
@@ -9264,5 +9601,1058 @@ body {
 
     .ph-actions-row {
         display: grid !important;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   Global Figma Topbar — Whole App
+   ========================================================= */
+
+   .figma-shell {
+    min-height: 100vh;
+    background: #f8fafc;
+}
+
+.figma-app-topbar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 92px;
+    z-index: 2000;
+    background: rgba(255, 255, 255, 0.98);
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+.figma-brand-area {
+    position: absolute;
+    right: 42px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    text-align: right;
+}
+
+.figma-brand-mark {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #05a843;
+    position: relative;
+    flex: 0 0 auto;
+    box-shadow: 0 10px 22px rgba(5, 168, 67, 0.22);
+}
+
+.figma-brand-mark::after {
+    content: "";
+    position: absolute;
+    width: 31px;
+    height: 31px;
+    border-radius: 50%;
+    background: #ffffff;
+    top: 10px;
+    left: 9px;
+}
+
+.figma-brand-mark::before {
+    content: "";
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #05a843;
+    top: 10px;
+    left: 17px;
+    z-index: 1;
+}
+
+.figma-brand-copy {
+    display: grid;
+    gap: 2px;
+}
+
+.figma-brand-copy strong {
+    color: #111827;
+    font-size: 22px;
+    line-height: 1.1;
+    font-weight: 950;
+    letter-spacing: -0.03em;
+}
+
+.figma-brand-copy span {
+    color: #047857;
+    font-size: 13px;
+    line-height: 1.1;
+    font-weight: 900;
+}
+
+.figma-current-user-chip {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    min-height: 42px;
+    border-radius: 999px;
+    padding: 0 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 15px;
+    font-weight: 950;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.figma-current-user-chip strong {
+    font-weight: 950;
+}
+
+.figma-current-user-chip.beneficiary {
+    color: #047857;
+    background: #ecfdf3;
+    border-color: #a7f3d0;
+}
+
+.figma-current-user-chip.doctor {
+    color: #0369a1;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.figma-current-user-chip.admin,
+.figma-current-user-chip.staff {
+    color: #7e22ce;
+    background: #faf5ff;
+    border-color: #e9d5ff;
+}
+
+.figma-current-user-chip.guest {
+    color: #475467;
+    background: #f8fafc;
+    border-color: #e5e7eb;
+}
+
+.figma-user-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: currentColor;
+    display: inline-block;
+}
+
+.figma-topbar-actions {
+    position: absolute;
+    left: 42px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.figma-logout-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: #667085;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 900;
+}
+
+.figma-logout-link:hover {
+    color: #dc2626;
+}
+
+.figma-logout-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.figma-theme-toggle {
+    width: 52px;
+    height: 52px;
+    border: 0;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #475467;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    font-size: 21px;
+    transition: 0.2s ease;
+}
+
+.figma-theme-toggle:hover {
+    background: #e2e8f0;
+    transform: translateY(-1px);
+}
+
+.figma-shell .figma-sidebar {
+    top: 92px !important;
+    height: calc(100vh - 92px) !important;
+}
+
+.figma-shell .figma-workspace {
+    padding-top: 92px !important;
+}
+
+.figma-sidebar-user-card {
+    margin-top: 18px;
+}
+
+.figma-sidebar-user-card .user-initial {
+    background: #05a843;
+    color: #ffffff;
+}
+
+.figma-sidebar-user-card .user-initial.doctor {
+    background: #0ea5e9;
+}
+
+.figma-sidebar-user-card .user-initial.admin,
+.figma-sidebar-user-card .user-initial.staff {
+    background: #9333ea;
+}
+
+.theme-dark .figma-shell {
+    background: #101827;
+}
+
+.theme-dark .figma-app-topbar {
+    background: rgba(15, 23, 42, 0.98);
+    border-bottom-color: #263244;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+}
+
+.theme-dark .figma-brand-copy strong {
+    color: #f8fafc;
+}
+
+.theme-dark .figma-brand-copy span {
+    color: #86efac;
+}
+
+.theme-dark .figma-theme-toggle {
+    background: #1f2937;
+    color: #e5e7eb;
+}
+
+.theme-dark .figma-theme-toggle:hover {
+    background: #334155;
+}
+
+.theme-dark .figma-logout-link {
+    color: #cbd5e1;
+}
+
+.theme-dark .figma-current-user-chip.beneficiary {
+    background: rgba(22, 101, 52, 0.24);
+    border-color: rgba(34, 197, 94, 0.32);
+    color: #86efac;
+}
+
+.theme-dark .figma-current-user-chip.doctor {
+    background: rgba(14, 165, 233, 0.18);
+    border-color: rgba(56, 189, 248, 0.3);
+    color: #7dd3fc;
+}
+
+.theme-dark .figma-current-user-chip.admin,
+.theme-dark .figma-current-user-chip.staff {
+    background: rgba(126, 34, 206, 0.22);
+    border-color: rgba(192, 132, 252, 0.28);
+    color: #d8b4fe;
+}
+
+@media (max-width: 900px) {
+    .figma-app-topbar {
+        height: 78px;
+    }
+
+    .figma-brand-area {
+        right: 16px;
+        gap: 10px;
+    }
+
+    .figma-brand-mark {
+        width: 44px;
+        height: 44px;
+    }
+
+    .figma-brand-copy strong {
+        font-size: 16px;
+    }
+
+    .figma-brand-copy span {
+        font-size: 11px;
+    }
+
+    .figma-current-user-chip {
+        display: none;
+    }
+
+    .figma-topbar-actions {
+        left: 16px;
+        gap: 8px;
+    }
+
+    .figma-logout-link span:first-child {
+        display: none;
+    }
+
+    .figma-theme-toggle {
+        width: 44px;
+        height: 44px;
+    }
+
+    .figma-shell .figma-sidebar {
+        top: 78px !important;
+        height: calc(100vh - 78px) !important;
+    }
+
+    .figma-shell .figma-workspace {
+        padding-top: 78px !important;
+    }
+}
+
+
+
+
+
+/* =========================================================
+   FINAL FIX — Global Topbar like Figma
+   ========================================================= */
+
+   :root {
+    --global-topbar-height: 78px;
+    --global-sidebar-width: 300px;
+}
+
+/* Root */
+.app-root {
+    min-height: 100vh !important;
+    background: #f8fafc !important;
+    overflow-x: hidden !important;
+}
+
+/* Topbar full width */
+.app-topbar.global-topbar {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: var(--global-topbar-height) !important;
+    min-height: var(--global-topbar-height) !important;
+    z-index: 2147483000 !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08) !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Brand on right */
+.app-topbar.global-topbar .topbar-brand {
+    position: absolute !important;
+    right: 38px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    width: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    z-index: 2147483001 !important;
+}
+
+.app-topbar.global-topbar .brand-mark {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    background: #05a843 !important;
+    position: relative !important;
+    flex: 0 0 auto !important;
+    box-shadow: 0 10px 22px rgba(5, 168, 67, 0.22) !important;
+}
+
+.app-topbar.global-topbar .brand-mark::after {
+    content: "" !important;
+    position: absolute !important;
+    width: 29px !important;
+    height: 29px !important;
+    border-radius: 50% !important;
+    background: #ffffff !important;
+    top: 9px !important;
+    left: 8px !important;
+}
+
+.app-topbar.global-topbar .brand-mark::before {
+    content: "" !important;
+    position: absolute !important;
+    width: 25px !important;
+    height: 25px !important;
+    border-radius: 50% !important;
+    background: #05a843 !important;
+    top: 9px !important;
+    left: 16px !important;
+    z-index: 2 !important;
+}
+
+.app-topbar.global-topbar .brand-copy {
+    display: grid !important;
+    gap: 2px !important;
+    text-align: right !important;
+}
+
+.app-topbar.global-topbar .brand-title {
+    color: #111827 !important;
+    font-size: 21px !important;
+    line-height: 1.1 !important;
+    font-weight: 950 !important;
+    white-space: nowrap !important;
+}
+
+.app-topbar.global-topbar .brand-subtitle {
+    color: #047857 !important;
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+}
+
+/* User chip center */
+.app-topbar.global-topbar .global-user-chip {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    min-height: 40px !important;
+    border-radius: 999px !important;
+    padding: 0 20px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 9px !important;
+    border: 1px solid transparent !important;
+    font-size: 15px !important;
+    font-weight: 950 !important;
+    white-space: nowrap !important;
+    z-index: 2147483001 !important;
+}
+
+.app-topbar.global-topbar .global-user-chip strong {
+    font-weight: 950 !important;
+}
+
+.app-topbar.global-topbar .chip-dot {
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 50% !important;
+    background: currentColor !important;
+    display: inline-block !important;
+}
+
+/* Role colors */
+.app-topbar.global-topbar .global-user-chip.beneficiary {
+    color: #047857 !important;
+    background: #ecfdf3 !important;
+    border-color: #a7f3d0 !important;
+}
+
+.app-topbar.global-topbar .global-user-chip.doctor {
+    color: #0369a1 !important;
+    background: #eff6ff !important;
+    border-color: #bfdbfe !important;
+}
+
+.app-topbar.global-topbar .global-user-chip.admin,
+.app-topbar.global-topbar .global-user-chip.staff {
+    color: #7e22ce !important;
+    background: #faf5ff !important;
+    border-color: #e9d5ff !important;
+}
+
+.app-topbar.global-topbar .global-user-chip.guest {
+    color: #475467 !important;
+    background: #f8fafc !important;
+    border-color: #e5e7eb !important;
+}
+
+/* Left actions */
+.app-topbar.global-topbar .global-top-actions {
+    position: absolute !important;
+    left: 38px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 14px !important;
+    z-index: 2147483001 !important;
+}
+
+.app-topbar.global-topbar .topbar-logout {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    color: #667085 !important;
+    text-decoration: none !important;
+    font-size: 16px !important;
+    font-weight: 900 !important;
+}
+
+.app-topbar.global-topbar .topbar-logout:hover {
+    color: #dc2626 !important;
+}
+
+.app-topbar.global-topbar .theme-toggle {
+    width: 48px !important;
+    height: 48px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: #f1f5f9 !important;
+    color: #475467 !important;
+    display: grid !important;
+    place-items: center !important;
+    cursor: pointer !important;
+    font-size: 20px !important;
+}
+
+.app-topbar.global-topbar .theme-toggle:hover {
+    background: #e2e8f0 !important;
+}
+
+/* Sidebar starts after topbar */
+.app-sidebar.global-sidebar {
+    position: fixed !important;
+    top: var(--global-topbar-height) !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: var(--global-sidebar-width) !important;
+    height: calc(100vh - var(--global-topbar-height)) !important;
+    z-index: 1000 !important;
+    background: #ffffff !important;
+    border-left: 1px solid #edf0f4 !important;
+    padding: 24px 18px !important;
+    overflow-y: auto !important;
+}
+
+/* Workspace */
+.app-workspace.global-workspace {
+    margin-right: var(--global-sidebar-width) !important;
+    width: calc(100% - var(--global-sidebar-width)) !important;
+    padding-top: var(--global-topbar-height) !important;
+    min-height: 100vh !important;
+    background: #f8fafc !important;
+}
+
+.app-workspace.global-workspace .page-canvas {
+    min-height: calc(100vh - var(--global-topbar-height)) !important;
+    background: #f8fafc !important;
+}
+
+/* Sidebar avatar tones */
+.sidebar-user-card .user-initial.beneficiary {
+    background: #05a843 !important;
+    color: #ffffff !important;
+}
+
+.sidebar-user-card .user-initial.doctor {
+    background: #0ea5e9 !important;
+    color: #ffffff !important;
+}
+
+.sidebar-user-card .user-initial.admin,
+.sidebar-user-card .user-initial.staff {
+    background: #9333ea !important;
+    color: #ffffff !important;
+}
+
+/* Dark mode */
+.theme-dark .app-topbar.global-topbar {
+    background: #0f172a !important;
+    border-bottom-color: #263244 !important;
+}
+
+.theme-dark .app-topbar.global-topbar .brand-title {
+    color: #f8fafc !important;
+}
+
+.theme-dark .app-topbar.global-topbar .brand-subtitle {
+    color: #86efac !important;
+}
+
+.theme-dark .app-topbar.global-topbar .theme-toggle {
+    background: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+.theme-dark .app-topbar.global-topbar .topbar-logout {
+    color: #cbd5e1 !important;
+}
+
+.theme-dark .app-sidebar.global-sidebar {
+    background: #111827 !important;
+    border-left-color: #263244 !important;
+}
+
+.theme-dark .app-workspace.global-workspace,
+.theme-dark .app-workspace.global-workspace .page-canvas {
+    background: #101827 !important;
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+    :root {
+        --global-topbar-height: 72px;
+        --global-sidebar-width: 0px;
+    }
+
+    .app-topbar.global-topbar .topbar-brand {
+        right: 14px !important;
+    }
+
+    .app-topbar.global-topbar .brand-mark {
+        width: 42px !important;
+        height: 42px !important;
+    }
+
+    .app-topbar.global-topbar .brand-title {
+        font-size: 15px !important;
+    }
+
+    .app-topbar.global-topbar .brand-subtitle {
+        font-size: 11px !important;
+    }
+
+    .app-topbar.global-topbar .global-user-chip {
+        display: none !important;
+    }
+
+    .app-topbar.global-topbar .global-top-actions {
+        left: 14px !important;
+        gap: 8px !important;
+    }
+
+    .app-topbar.global-topbar .topbar-logout span:first-child {
+        display: none !important;
+    }
+
+    .app-topbar.global-topbar .theme-toggle {
+        width: 42px !important;
+        height: 42px !important;
+    }
+
+    .app-sidebar.global-sidebar {
+        display: none !important;
+    }
+
+    .app-workspace.global-workspace {
+        margin-right: 0 !important;
+        width: 100% !important;
+    }
+}
+
+
+
+
+
+
+
+/* =========================================================
+   FINAL EXACT TOPBAR — Figma Match
+   ========================================================= */
+
+   :root {
+    --final-topbar-height: 76px;
+    --final-sidebar-width: 300px;
+}
+
+.final-app-shell {
+    min-height: 100vh !important;
+    background: #f8fafc !important;
+    overflow-x: hidden !important;
+}
+
+/* Topbar */
+.final-topbar {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: var(--final-topbar-height) !important;
+    z-index: 2147483000 !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08) !important;
+    display: block !important;
+    overflow: visible !important;
+}
+
+/* Brand Right */
+.final-brand {
+    position: fixed !important;
+    right: 32px !important;
+    top: 38px !important;
+    transform: translateY(-50%) !important;
+    z-index: 2147483001 !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    text-align: right !important;
+}
+
+.final-brand-logo {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    background: #05a843 !important;
+    position: relative !important;
+    display: inline-block !important;
+    flex: 0 0 auto !important;
+    box-shadow: 0 10px 22px rgba(5, 168, 67, 0.22) !important;
+}
+
+.final-brand-logo::after {
+    content: "" !important;
+    position: absolute !important;
+    width: 29px !important;
+    height: 29px !important;
+    border-radius: 50% !important;
+    background: #ffffff !important;
+    top: 9px !important;
+    left: 8px !important;
+}
+
+.final-brand-logo::before {
+    content: "" !important;
+    position: absolute !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 50% !important;
+    background: #05a843 !important;
+    top: 9px !important;
+    left: 16px !important;
+    z-index: 2 !important;
+}
+
+.final-brand-text {
+    display: grid !important;
+    gap: 2px !important;
+    text-align: right !important;
+}
+
+.final-brand-text strong {
+    color: #111827 !important;
+    font-size: 21px !important;
+    line-height: 1.1 !important;
+    font-weight: 950 !important;
+    white-space: nowrap !important;
+}
+
+.final-brand-text small {
+    color: #047857 !important;
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+}
+
+/* User Chip Center */
+.final-user-chip {
+    position: fixed !important;
+    left: 50% !important;
+    top: 38px !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 2147483001 !important;
+
+    min-height: 38px !important;
+    border-radius: 999px !important;
+    padding: 0 20px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 9px !important;
+
+    border: 1px solid transparent !important;
+    font-size: 15px !important;
+    font-weight: 950 !important;
+    white-space: nowrap !important;
+}
+
+.final-user-chip strong {
+    font-weight: 950 !important;
+}
+
+.final-user-dot {
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 50% !important;
+    background: currentColor !important;
+    display: inline-block !important;
+}
+
+.final-user-chip.beneficiary {
+    color: #047857 !important;
+    background: #ecfdf3 !important;
+    border-color: #a7f3d0 !important;
+}
+
+.final-user-chip.doctor {
+    color: #0369a1 !important;
+    background: #eff6ff !important;
+    border-color: #bfdbfe !important;
+}
+
+.final-user-chip.admin,
+.final-user-chip.staff {
+    color: #7e22ce !important;
+    background: #faf5ff !important;
+    border-color: #e9d5ff !important;
+}
+
+.final-user-chip.guest {
+    color: #475467 !important;
+    background: #f8fafc !important;
+    border-color: #e5e7eb !important;
+}
+
+/* Actions Left */
+.final-top-actions {
+    position: fixed !important;
+    left: 32px !important;
+    top: 38px !important;
+    transform: translateY(-50%) !important;
+    z-index: 2147483001 !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+}
+
+.final-theme-toggle {
+    width: 48px !important;
+    height: 48px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: #f1f5f9 !important;
+    color: #475467 !important;
+    display: grid !important;
+    place-items: center !important;
+    cursor: pointer !important;
+    font-size: 20px !important;
+    padding: 0 !important;
+}
+
+.final-theme-toggle:hover {
+    background: #e2e8f0 !important;
+}
+
+.final-logout-link {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    color: #667085 !important;
+    text-decoration: none !important;
+    font-size: 16px !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+}
+
+.final-logout-link:hover {
+    color: #dc2626 !important;
+}
+
+.final-logout-icon {
+    font-size: 22px !important;
+    line-height: 1 !important;
+}
+
+/* Sidebar */
+.final-sidebar {
+    position: fixed !important;
+    top: var(--final-topbar-height) !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: var(--final-sidebar-width) !important;
+    height: calc(100vh - var(--final-topbar-height)) !important;
+    z-index: 1000 !important;
+    background: #ffffff !important;
+    border-left: 1px solid #edf0f4 !important;
+    padding: 24px 18px !important;
+    overflow-y: auto !important;
+}
+
+/* Workspace */
+.final-workspace {
+    margin-right: var(--final-sidebar-width) !important;
+    width: calc(100% - var(--final-sidebar-width)) !important;
+    padding-top: var(--final-topbar-height) !important;
+    min-height: 100vh !important;
+    background: #f8fafc !important;
+}
+
+.final-workspace .page-canvas {
+    min-height: calc(100vh - var(--final-topbar-height)) !important;
+    background: #f8fafc !important;
+}
+
+/* Sidebar avatar tones */
+.sidebar-user-card .user-initial.beneficiary {
+    background: #05a843 !important;
+    color: #ffffff !important;
+}
+
+.sidebar-user-card .user-initial.doctor {
+    background: #0ea5e9 !important;
+    color: #ffffff !important;
+}
+
+.sidebar-user-card .user-initial.admin,
+.sidebar-user-card .user-initial.staff {
+    background: #9333ea !important;
+    color: #ffffff !important;
+}
+
+/* Dark Mode */
+.theme-dark .final-topbar {
+    background: #0f172a !important;
+    border-bottom-color: #263244 !important;
+}
+
+.theme-dark .final-brand-text strong {
+    color: #f8fafc !important;
+}
+
+.theme-dark .final-brand-text small {
+    color: #86efac !important;
+}
+
+.theme-dark .final-theme-toggle {
+    background: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+.theme-dark .final-logout-link {
+    color: #cbd5e1 !important;
+}
+
+.theme-dark .final-sidebar {
+    background: #111827 !important;
+    border-left-color: #263244 !important;
+}
+
+.theme-dark .final-workspace,
+.theme-dark .final-workspace .page-canvas {
+    background: #101827 !important;
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+    :root {
+        --final-topbar-height: 72px;
+        --final-sidebar-width: 0px;
+    }
+
+    .final-brand {
+        right: 14px !important;
+        top: 36px !important;
+        gap: 9px !important;
+    }
+
+    .final-brand-logo {
+        width: 42px !important;
+        height: 42px !important;
+    }
+
+    .final-brand-text strong {
+        font-size: 15px !important;
+    }
+
+    .final-brand-text small {
+        font-size: 11px !important;
+    }
+
+    .final-user-chip {
+        display: none !important;
+    }
+
+    .final-top-actions {
+        left: 14px !important;
+        top: 36px !important;
+        gap: 8px !important;
+    }
+
+    .final-logout-link span:last-child {
+        display: none !important;
+    }
+
+    .final-theme-toggle {
+        width: 42px !important;
+        height: 42px !important;
+    }
+
+    .final-sidebar {
+        display: none !important;
+    }
+
+    .final-workspace {
+        margin-right: 0 !important;
+        width: 100% !important;
     }
 }

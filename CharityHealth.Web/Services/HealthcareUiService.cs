@@ -62,7 +62,9 @@ public record SpecialtyListItem(
     string NameEn,
     bool IsActive,
     int DoctorsCount,
-    int RequestsCount
+    int RequestsCount,
+    string? DescriptionAr = null,
+    string? DescriptionEn = null
 );
 
 public record AuditLogListItem(
@@ -289,9 +291,144 @@ public sealed class HealthcareUiService(AppDbContext db)
                 s.NameEn,
                 s.IsActive,
                 s.Doctors.Count,
-                s.MedicalRequests.Count
+                s.MedicalRequests.Count,
+                s.DescriptionAr,
+                s.DescriptionEn
             ))
             .ToListAsync(ct);
+    }
+
+    public async Task<UiActionResult> CreateSpecialtyAsync(
+        string? nameAr,
+        string? nameEn,
+        string? descriptionAr = null,
+        string? descriptionEn = null,
+        bool isActive = true,
+        CancellationToken ct = default)
+    {
+        nameAr = nameAr?.Trim() ?? string.Empty;
+        nameEn = nameEn?.Trim() ?? string.Empty;
+        descriptionAr = string.IsNullOrWhiteSpace(descriptionAr) ? null : descriptionAr.Trim();
+        descriptionEn = string.IsNullOrWhiteSpace(descriptionEn) ? null : descriptionEn.Trim();
+
+        if (string.IsNullOrWhiteSpace(nameAr))
+        {
+            return UiActionResult.Fail("اسم التخصص بالعربي مطلوب.");
+        }
+
+        if (string.IsNullOrWhiteSpace(nameEn))
+        {
+            return UiActionResult.Fail("اسم التخصص بالإنجليزي مطلوب.");
+        }
+
+        var exists = await db.Specialties.AnyAsync(s =>
+            s.NameAr == nameAr || s.NameEn == nameEn,
+            ct
+        );
+
+        if (exists)
+        {
+            return UiActionResult.Fail("هذا التخصص موجود بالفعل.");
+        }
+
+        var specialty = new Specialty
+        {
+            NameAr = nameAr,
+            NameEn = nameEn,
+            DescriptionAr = descriptionAr,
+            DescriptionEn = descriptionEn,
+            IsActive = isActive
+        };
+
+        db.Specialties.Add(specialty);
+        await db.SaveChangesAsync(ct);
+
+        return UiActionResult.Ok("تم إضافة التخصص بنجاح.");
+    }
+
+    public async Task<UiActionResult> UpdateSpecialtyAsync(
+        Guid id,
+        string? nameAr,
+        string? nameEn,
+        string? descriptionAr = null,
+        string? descriptionEn = null,
+        bool isActive = true,
+        CancellationToken ct = default)
+    {
+        nameAr = nameAr?.Trim() ?? string.Empty;
+        nameEn = nameEn?.Trim() ?? string.Empty;
+        descriptionAr = string.IsNullOrWhiteSpace(descriptionAr) ? null : descriptionAr.Trim();
+        descriptionEn = string.IsNullOrWhiteSpace(descriptionEn) ? null : descriptionEn.Trim();
+
+        if (id == Guid.Empty)
+        {
+            return UiActionResult.Fail("لم يتم تحديد التخصص المطلوب تعديله.");
+        }
+
+        if (string.IsNullOrWhiteSpace(nameAr))
+        {
+            return UiActionResult.Fail("اسم التخصص بالعربي مطلوب.");
+        }
+
+        if (string.IsNullOrWhiteSpace(nameEn))
+        {
+            return UiActionResult.Fail("اسم التخصص بالإنجليزي مطلوب.");
+        }
+
+        var specialty = await db.Specialties.FirstOrDefaultAsync(s => s.Id == id, ct);
+
+        if (specialty is null)
+        {
+            return UiActionResult.Fail("التخصص غير موجود أو تم حذفه.");
+        }
+
+        var exists = await db.Specialties.AnyAsync(s =>
+            s.Id != id && (s.NameAr == nameAr || s.NameEn == nameEn),
+            ct
+        );
+
+        if (exists)
+        {
+            return UiActionResult.Fail("يوجد تخصص آخر بنفس الاسم العربي أو الإنجليزي.");
+        }
+
+        specialty.NameAr = nameAr;
+        specialty.NameEn = nameEn;
+        specialty.DescriptionAr = descriptionAr;
+        specialty.DescriptionEn = descriptionEn;
+        specialty.IsActive = isActive;
+
+        await db.SaveChangesAsync(ct);
+
+        return UiActionResult.Ok("تم تعديل التخصص بنجاح.");
+    }
+
+    public async Task<UiActionResult> DeleteSpecialtyAsync(Guid id, CancellationToken ct = default)
+    {
+        if (id == Guid.Empty)
+        {
+            return UiActionResult.Fail("لم يتم تحديد التخصص المطلوب حذفه.");
+        }
+
+        var specialty = await db.Specialties
+            .Include(s => s.Doctors)
+            .Include(s => s.MedicalRequests)
+            .FirstOrDefaultAsync(s => s.Id == id, ct);
+
+        if (specialty is null)
+        {
+            return UiActionResult.Fail("التخصص غير موجود أو تم حذفه بالفعل.");
+        }
+
+        if (specialty.Doctors.Count > 0 || specialty.MedicalRequests.Count > 0)
+        {
+            return UiActionResult.Fail("لا يمكن حذف هذا التخصص لأنه مرتبط بأطباء أو طلبات. يمكنك تعطيله من زر التعديل بدل الحذف.");
+        }
+
+        db.Specialties.Remove(specialty);
+        await db.SaveChangesAsync(ct);
+
+        return UiActionResult.Ok("تم حذف التخصص بنجاح.");
     }
 
     public async Task<List<AuditLogListItem>> GetAuditLogsAsync(CancellationToken ct = default)

@@ -3,10 +3,16 @@
 @attribute [Authorize(Roles = "Administrator,Staff")]
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
 @using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
 @using CharityHealth.Web.Services
 
 @inject HealthcareUiService Ui
+@inject AppDbContext Db
+@inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Nav
 
 <PageTitle>إدارة الأطباء</PageTitle>
@@ -17,29 +23,95 @@
         <div>
             <div class="doctors-kicker">Doctors 👨‍⚕️</div>
             <h1>الأطباء المتطوعون</h1>
-            <p>قائمة الأطباء المتعاونين مع المؤسسة، مع أيام وساعات العمل المتاحة.</p>
+            <p>قائمة الأطباء المتعاونين مع المؤسسة، مع إمكانية تعديل البيانات أو حذف الطبيب من النظام.</p>
         </div>
 
-        <button type="button"
-                class="doctor-add-btn"
-                @onclick='() => Nav.NavigateTo("/admin/doctors/create")'>
-            <span>+</span>
-            إضافة طبيب
-        </button>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <label style="display:inline-flex;align-items:center;gap:8px;color:#475467;font-size:13px;font-weight:900;">
+                <input type="checkbox" @bind="showUnavailable" style="width:16px;height:16px;accent-color:#05a843;" />
+                عرض غير المتاحين
+            </label>
+
+            <button type="button"
+                    class="doctor-add-btn"
+                    @onclick='() => Nav.NavigateTo("/admin/doctors/create")'>
+                <span>+</span>
+                إضافة طبيب
+            </button>
+        </div>
     </header>
+
+    @if (!string.IsNullOrWhiteSpace(actionMessage))
+    {
+        <div style="
+            margin-bottom:18px;
+            border-radius:18px;
+            padding:16px 18px;
+            border:1px solid @(actionSucceeded ? "#bbf7d0" : "#fecaca");
+            background:@(actionSucceeded ? "#f0fdf4" : "#fef2f2");
+            color:@(actionSucceeded ? "#15803d" : "#b91c1c");
+            font-size:14px;
+            font-weight:950;">
+            @actionMessage
+        </div>
+    }
+
+    @if (deleteCandidate is not null)
+    {
+        <section style="
+            margin-bottom:24px;
+            border:1px solid #fecaca;
+            border-radius:24px;
+            background:#fff7f7;
+            padding:20px 22px;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:18px;
+            flex-wrap:wrap;">
+
+            <div>
+                <strong style="display:block;color:#991b1b;font-size:18px;font-weight:950;">تأكيد حذف الطبيب</strong>
+
+                <span style="display:block;margin-top:6px;color:#7f1d1d;font-size:14px;font-weight:850;">
+                    هل تريد حذف الطبيب: @deleteCandidate.FullNameAr ؟
+                </span>
+
+                <small style="display:block;margin-top:8px;color:#b91c1c;font-size:12px;font-weight:900;">
+                    سيتم إخفاء الطبيب من القائمة وتعطيل حسابه لمنع تسجيل الدخول.
+                </small>
+            </div>
+
+            <div style="display:inline-flex;align-items:center;gap:10px;">
+                <button type="button"
+                        @onclick="CancelDelete"
+                        disabled="@deleting"
+                        style="height:42px;border:0;border-radius:999px;padding:0 18px;background:#ffffff;color:#475467;font-size:13px;font-weight:950;cursor:pointer;">
+                    إلغاء
+                </button>
+
+                <button type="button"
+                        @onclick="DeleteDoctorAsync"
+                        disabled="@deleting"
+                        style="height:42px;border:0;border-radius:999px;padding:0 18px;background:#dc2626;color:#ffffff;font-size:13px;font-weight:950;cursor:pointer;">
+                    @(deleting ? "جارٍ الحذف..." : "حذف الطبيب")
+                </button>
+            </div>
+        </section>
+    }
 
     @if (loading)
     {
         <div class="doctors-empty">جارٍ تحميل الأطباء...</div>
     }
-    else if (doctors.Count == 0)
+    else if (!FilteredDoctors.Any())
     {
         <div class="doctors-empty">لا يوجد أطباء مسجلون حالياً</div>
     }
     else
     {
         <section class="doctors-grid">
-            @foreach (var doctor in doctors)
+            @foreach (var doctor in FilteredDoctors)
             {
                 var stats = GetDoctorStats(doctor);
 
@@ -113,11 +185,18 @@
                         </div>
                     </div>
 
-                    <div class="doctor-card-actions">
+                    <div class="doctor-card-actions" style="display:flex;gap:10px;flex-wrap:wrap;">
                         <button type="button"
                                 class="doctor-edit-btn"
                                 @onclick='() => Nav.NavigateTo($"/admin/doctors/edit/{doctor.Id}")'>
                             تعديل البيانات
+                        </button>
+
+                        <button type="button"
+                                class="doctor-edit-btn"
+                                @onclick='() => AskDelete(doctor)'
+                                style="background:#fef2f2 !important;color:#dc2626 !important;">
+                            حذف الطبيب
                         </button>
                     </div>
 
@@ -129,16 +208,114 @@
 
 @code {
     private bool loading = true;
+    private bool deleting;
+    private bool showUnavailable;
+    private bool actionSucceeded;
+    private string? actionMessage;
+
+    private DoctorListItem? deleteCandidate;
 
     private List<DoctorListItem> doctors = [];
     private List<RequestWorkItem> requests = [];
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        loading = true;
+
         doctors = await Ui.GetDoctorsAsync();
         requests = await Ui.GetRequestsAsync();
 
         loading = false;
+    }
+
+    private IEnumerable<DoctorListItem> FilteredDoctors
+    {
+        get
+        {
+            if (showUnavailable)
+            {
+                return doctors;
+            }
+
+            return doctors.Where(d => d.IsAvailable);
+        }
+    }
+
+    private void AskDelete(DoctorListItem doctor)
+    {
+        actionMessage = null;
+        deleteCandidate = doctor;
+    }
+
+    private void CancelDelete()
+    {
+        deleteCandidate = null;
+    }
+
+    private async Task DeleteDoctorAsync()
+    {
+        if (deleting || deleteCandidate is null)
+        {
+            return;
+        }
+
+        deleting = true;
+        actionMessage = null;
+
+        try
+        {
+            var doctor = await Db.Doctors
+                .Include(d => d.User)
+                .FirstOrDefaultAsync(d => d.Id == deleteCandidate.Id);
+
+            if (doctor is null)
+            {
+                actionSucceeded = false;
+                actionMessage = "الطبيب غير موجود أو تم حذفه بالفعل.";
+                return;
+            }
+
+            doctor.IsAvailable = false;
+            doctor.IsDeleted = true;
+            doctor.UpdatedAt = DateTime.UtcNow;
+
+            doctor.User.IsActive = false;
+            doctor.User.EmailConfirmed = false;
+            doctor.User.LockoutEnabled = true;
+            doctor.User.LockoutEnd = DateTimeOffset.UtcNow.AddYears(100);
+            doctor.User.UpdatedAt = DateTime.UtcNow;
+
+            var userUpdate = await UserManager.UpdateAsync(doctor.User);
+
+            if (!userUpdate.Succeeded)
+            {
+                actionSucceeded = false;
+                actionMessage = string.Join(" | ", userUpdate.Errors.Select(e => e.Description));
+                return;
+            }
+
+            await Db.SaveChangesAsync();
+
+            actionSucceeded = true;
+            actionMessage = "تم حذف الطبيب من القائمة وتعطيل حساب الدخول الخاص به.";
+            deleteCandidate = null;
+
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            actionSucceeded = false;
+            actionMessage = $"حدث خطأ أثناء حذف الطبيب: {ex.Message}";
+        }
+        finally
+        {
+            deleting = false;
+        }
     }
 
     private DoctorStats GetDoctorStats(DoctorListItem doctor)

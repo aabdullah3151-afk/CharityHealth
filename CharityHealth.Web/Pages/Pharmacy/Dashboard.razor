@@ -1,190 +1,868 @@
 @page "/pharmacy/dashboard"
 @layout MainLayout
-@attribute [Authorize(Roles = "Pharmacist")]
+@attribute [Authorize(Roles = "Pharmacy,Pharmacist")]
 
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
+@using CharityHealth.Domain.Entities
 @using CharityHealth.Domain.Enums
-@using CharityHealth.Web.Services
 
-@inject HealthcareUiService Ui
-@inject AuthenticationStateProvider AuthState
-@inject NavigationManager Nav
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
 
-<PageTitle>لوحة الصيدلية</PageTitle>
+<PageTitle>إدارة الصيدليات</PageTitle>
 
-<div class="pharmacy-dashboard-v2" dir="rtl">
+<div class="admin-list-page" dir="rtl">
 
-    <section class="pharmacy-dash-hero">
-        <div class="pharmacy-dash-hero-copy">
-            <span>مرحباً</span>
-            <h1>@pharmacyName</h1>
-            <p>صيدلية متطوعة</p>
+    <header class="admin-list-head">
+        <div>
+            <div class="admin-list-kicker">Pharmacies 💊</div>
+            <h1>الصيدليات</h1>
+            <p>إضافة وتعديل وحذف حسابات الصيدليات والصيادلة داخل النظام.</p>
         </div>
 
-        <button type="button"
-                class="pharmacy-dash-hero-pill"
-                @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>
-            <span>⌗</span>
-            صرف وصفة
-        </button>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button type="button"
+                    @onclick="ToggleCreatePanel"
+                    style="
+                        height:52px;
+                        border:0;
+                        border-radius:18px;
+                        padding:0 20px;
+                        background:#f59e0b;
+                        color:#ffffff;
+                        font-size:14px;
+                        font-weight:950;
+                        cursor:pointer;
+                        display:inline-flex;
+                        align-items:center;
+                        gap:9px;
+                        box-shadow:0 14px 28px rgba(245,158,11,.20);">
+                <span style="font-size:20px;line-height:1;">+</span>
+                <span>@(showCreatePanel ? "إغلاق الإضافة" : "إضافة صيدلية")</span>
+            </button>
 
-        <div class="pharmacy-dash-stats">
-            <article>
-                <strong>@TotalCount</strong>
-                <span>إجمالي</span>
-            </article>
+            <label style="display:inline-flex;align-items:center;gap:8px;color:#475467;font-size:13px;font-weight:900;">
+                <input type="checkbox" @bind="showInactive" style="width:16px;height:16px;accent-color:#f59e0b;" />
+                عرض غير النشطين
+            </label>
 
-            <article>
-                <strong>@DispensedCount</strong>
-                <span>تم صرفها</span>
-            </article>
-
-            <article>
-                <strong>@ReadyCount</strong>
-                <span>جاهزة</span>
-            </article>
+            <div class="admin-search-box">
+                <span>⌕</span>
+                <input @bind="search"
+                       @bind:event="oninput"
+                       placeholder="بحث عن صيدلية..." />
+            </div>
         </div>
-    </section>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(actionMessage))
+    {
+        <div style="
+            margin-bottom:18px;
+            border-radius:18px;
+            padding:16px 18px;
+            border:1px solid @(actionSucceeded ? "#bbf7d0" : "#fecaca");
+            background:@(actionSucceeded ? "#f0fdf4" : "#fef2f2");
+            color:@(actionSucceeded ? "#15803d" : "#b91c1c");
+            font-size:14px;
+            font-weight:950;">
+            @actionMessage
+        </div>
+    }
+
+    @if (showCreatePanel)
+    {
+        <section style="
+            margin-bottom:24px;
+            border:1px solid #edf0f4;
+            border-radius:28px;
+            background:#ffffff;
+            box-shadow:0 14px 34px rgba(15,23,42,.07);
+            overflow:hidden;">
+
+            <div style="
+                min-height:78px;
+                padding:22px 26px;
+                border-bottom:1px solid #edf0f4;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:16px;">
+                <div>
+                    <h2 style="margin:0;color:#111827;font-size:22px;font-weight:950;">إضافة صيدلية / صيدلي</h2>
+                    <p style="margin:7px 0 0;color:#98a2b3;font-size:13px;font-weight:850;">كلمة المرور الافتراضية للحساب الجديد: <b>12345678</b></p>
+                </div>
+
+                <span style="
+                    min-height:34px;
+                    border-radius:999px;
+                    padding:0 14px;
+                    display:inline-flex;
+                    align-items:center;
+                    background:#fffbeb;
+                    color:#d97706;
+                    font-size:12px;
+                    font-weight:950;">
+                    Pharmacy
+                </span>
+            </div>
+
+            <div style="padding:24px 26px;display:grid;gap:18px;">
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+                    <label style="@LabelStyle">
+                        اسم الصيدلية / الصيدلي عربي *
+                        <input @bind="newNameAr" @bind:event="oninput" placeholder="صيدلية الرحمة" style="@InputStyle" />
+                    </label>
+
+                    <label style="@LabelStyle">
+                        الاسم بالإنجليزي
+                        <input @bind="newNameEn" @bind:event="oninput" placeholder="Al Rahma Pharmacy" dir="ltr" style="@InputLtrStyle" />
+                    </label>
+
+                    <label style="@LabelStyle">
+                        البريد الإلكتروني *
+                        <input @bind="newEmail" @bind:event="oninput" placeholder="pharmacy@email.com" dir="ltr" type="email" style="@InputLtrStyle" />
+                    </label>
+
+                    <label style="@LabelStyle">
+                        رقم الهاتف
+                        <input @bind="newPhone" @bind:event="oninput" placeholder="01000000000" dir="ltr" style="@InputLtrStyle" />
+                    </label>
+
+                    <label style="@LabelStyle">
+                        نوع الحساب
+                        <select @bind="newRole" style="@InputStyle">
+                            <option value="Pharmacy">صيدلية</option>
+                            <option value="Pharmacist">صيدلي</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">
+                    <button type="button" @onclick="ResetCreateForm" disabled="@saving" style="@SecondaryButtonStyle">تفريغ</button>
+                    <button type="button" @onclick="CreatePharmacyAsync" disabled="@saving" style="@PrimaryAmberButtonStyle">
+                        @(saving ? "جارٍ الحفظ..." : "حفظ الحساب")
+                    </button>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (editingId is not null)
+    {
+        <section style="
+            margin-bottom:24px;
+            border:1px solid #fde68a;
+            border-radius:28px;
+            background:#ffffff;
+            box-shadow:0 14px 34px rgba(245,158,11,.08);
+            overflow:hidden;">
+
+            <div style="
+                min-height:78px;
+                padding:22px 26px;
+                border-bottom:1px solid #fffbeb;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:16px;">
+                <div>
+                    <h2 style="margin:0;color:#111827;font-size:22px;font-weight:950;">تعديل حساب الصيدلية</h2>
+                    <p style="margin:7px 0 0;color:#98a2b3;font-size:13px;font-weight:850;">يمكن تعديل البريد والاسم ورقم الهاتف وكلمة المرور والحالة.</p>
+                </div>
+
+                <span style="
+                    min-height:34px;
+                    border-radius:999px;
+                    padding:0 14px;
+                    display:inline-flex;
+                    align-items:center;
+                    background:#fffbeb;
+                    color:#d97706;
+                    font-size:12px;
+                    font-weight:950;">
+                    Edit
+                </span>
+            </div>
+
+            <div style="padding:24px 26px;display:grid;gap:18px;">
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+                    <label style="@LabelStyle">
+                        الاسم العربي *
+                        <input @bind="editNameAr" @bind:event="oninput" style="@InputStyle" />
+                    </label>
+
+                    <label style="@LabelStyle">
+                        الاسم الإنجليزي
+                        <input @bind="editNameEn" @bind:event="oninput" dir="ltr" style="@InputLtrStyle" />
+                    </label>
+
+                    <label style="@LabelStyle">
+                        البريد الإلكتروني *
+                        <input @bind="editEmail" @bind:event="oninput" dir="ltr" type="email" style="@InputLtrStyle" />
+                    </label>
+
+                    <label style="@LabelStyle">
+                        رقم الهاتف
+                        <input @bind="editPhone" @bind:event="oninput" dir="ltr" style="@InputLtrStyle" />
+                    </label>
+
+                    <label style="@LabelStyle">
+                        نوع الحساب
+                        <select @bind="editRole" style="@InputStyle">
+                            <option value="Pharmacy">صيدلية</option>
+                            <option value="Pharmacist">صيدلي</option>
+                        </select>
+                    </label>
+
+                    <label style="@LabelStyle">
+                        كلمة مرور جديدة اختيارية
+                        <input @bind="editPassword" @bind:event="oninput" dir="ltr" type="password" placeholder="اتركها فارغة بدون تغيير" style="@InputLtrStyle" />
+                    </label>
+                </div>
+
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+                    <label style="display:inline-flex;align-items:center;gap:10px;color:#344054;font-size:14px;font-weight:950;cursor:pointer;">
+                        <input type="checkbox" @bind="editIsActive" style="width:18px;height:18px;accent-color:#f59e0b;" />
+                        الحساب نشط ويسمح بتسجيل الدخول
+                    </label>
+
+                    <div style="display:inline-flex;align-items:center;gap:10px;">
+                        <button type="button" @onclick="CancelEdit" disabled="@updating" style="@SecondaryButtonStyle">إلغاء</button>
+                        <button type="button" @onclick="UpdatePharmacyAsync" disabled="@updating" style="@PrimaryAmberButtonStyle">
+                            @(updating ? "جارٍ التعديل..." : "حفظ التعديل")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (deleteCandidate is not null)
+    {
+        <section style="
+            margin-bottom:24px;
+            border:1px solid #fecaca;
+            border-radius:24px;
+            background:#fff7f7;
+            padding:20px 22px;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:18px;
+            flex-wrap:wrap;">
+            <div>
+                <strong style="display:block;color:#991b1b;font-size:18px;font-weight:950;">تأكيد حذف الحساب</strong>
+                <span style="display:block;margin-top:6px;color:#7f1d1d;font-size:14px;font-weight:850;">
+                    هل تريد حذف: @deleteCandidate.FullNameAr ؟
+                </span>
+                <small style="display:block;margin-top:8px;color:#b91c1c;font-size:12px;font-weight:900;">
+                    إذا كان الحساب مرتبطًا بسجلات داخل النظام سيتم تعطيله بدل الحذف النهائي.
+                </small>
+            </div>
+
+            <div style="display:inline-flex;align-items:center;gap:10px;">
+                <button type="button" @onclick="CancelDelete" disabled="@deleting" style="@SecondaryButtonStyle">إلغاء</button>
+                <button type="button" @onclick="DeletePharmacyAsync" disabled="@deleting" style="height:42px;border:0;border-radius:999px;padding:0 18px;background:#dc2626;color:#ffffff;font-size:13px;font-weight:950;cursor:pointer;">
+                    @(deleting ? "جارٍ الحذف..." : "حذف")
+                </button>
+            </div>
+        </section>
+    }
 
     @if (loading)
     {
-        <section class="pharmacy-dash-state">جارٍ تحميل بيانات الصيدلية...</section>
-    }
-    else if (!string.IsNullOrWhiteSpace(errorMsg))
-    {
-        <section class="pharmacy-dash-alert">@errorMsg</section>
+        <div class="admin-state-card">جارٍ تحميل الصيدليات...</div>
     }
     else
     {
-        <section class="pharmacy-dash-actions">
-            <button type="button" class="pharmacy-dash-action active" @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>
-                <span>▣</span>
-                <strong>الوصفات</strong>
-            </button>
+        <section class="admin-stats-grid">
+            <div class="admin-stat-card">
+                <span>إجمالي الحسابات</span>
+                <strong>@pharmacies.Count</strong>
+            </div>
 
-            <button type="button" class="pharmacy-dash-action mint" @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>
-                <span>⌗</span>
-                <strong>صرف وصفة</strong>
-            </button>
+            <div class="admin-stat-card">
+                <span>الحسابات النشطة</span>
+                <strong>@pharmacies.Count(p => p.IsActive)</strong>
+            </div>
 
-            <button type="button" class="pharmacy-dash-action purple" @onclick='() => Nav.NavigateTo("/pharmacy/inventory")'>
-                <span>▧</span>
-                <strong>المخزون</strong>
-            </button>
+            <div class="admin-stat-card">
+                <span>صيدليات</span>
+                <strong>@pharmacies.Count(p => p.Role == "Pharmacy")</strong>
+            </div>
 
-            <button type="button" class="pharmacy-dash-action orange" @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>
-                <span>↺</span>
-                <strong>السجلات</strong>
-            </button>
+            <div class="admin-stat-card">
+                <span>صيادلة</span>
+                <strong>@pharmacies.Count(p => p.Role == "Pharmacist")</strong>
+            </div>
         </section>
 
-        <section class="pharmacy-latest-head">
-            <h2>آخر الوصفات</h2>
-            <button type="button" @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>عرض الكل</button>
+        <section class="admin-table-card">
+            <div class="admin-table-title">
+                <h2>قائمة الصيدليات</h2>
+                <span>@FilteredPharmacies.Count() حساب</span>
+            </div>
+
+            @if (!FilteredPharmacies.Any())
+            {
+                <div class="admin-state-card inside">لا توجد نتائج مطابقة.</div>
+            }
+            else
+            {
+                <div class="admin-table-wrap">
+                    <table class="admin-modern-table">
+                        <thead>
+                            <tr>
+                                <th>الاسم</th>
+                                <th>البريد</th>
+                                <th>الهاتف</th>
+                                <th>النوع</th>
+                                <th>الحالة</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var item in FilteredPharmacies)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="admin-main-cell">
+                                            <div class="admin-cell-icon">💊</div>
+                                            <div>
+                                                <strong>@item.FullNameAr</strong>
+                                                <span>@(string.IsNullOrWhiteSpace(item.FullNameEn) ? "Pharmacy account" : item.FullNameEn)</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td class="ltr-cell">@item.Email</td>
+                                    <td class="ltr-cell">@item.PhoneNumber</td>
+
+                                    <td>
+                                        <span class="admin-number-pill">@RoleLabel(item.Role)</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="admin-status-pill @(item.IsActive ? "ok" : "off")">
+                                            @(item.IsActive ? "نشط" : "غير نشط")
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                            <button type="button"
+                                                    @onclick="() => BeginEdit(item)"
+                                                    style="height:36px;border:0;border-radius:999px;padding:0 14px;background:#fffbeb;color:#d97706;font-size:12px;font-weight:950;cursor:pointer;">
+                                                تعديل
+                                            </button>
+
+                                            <button type="button"
+                                                    @onclick="() => AskDelete(item)"
+                                                    style="height:36px;border:0;border-radius:999px;padding:0 14px;background:#fef2f2;color:#dc2626;font-size:12px;font-weight:950;cursor:pointer;">
+                                                حذف
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
         </section>
-
-        @if (!LatestRows.Any())
-        {
-            <section class="pharmacy-dash-empty">
-                <div>💊</div>
-                <h3>لا توجد وصفات حالياً</h3>
-                <p>عند قبول طلب من الإدارة سيظهر هنا كطلب جاهز للصرف.</p>
-            </section>
-        }
-        else
-        {
-            <section class="pharmacy-prescription-grid">
-                @foreach (var item in LatestRows)
-                {
-                    <article class="pharmacy-prescription-card">
-                        <div class="prescription-link-icon">🔗</div>
-
-                        <div class="prescription-main">
-                            <h3>@item.BeneficiaryName</h3>
-                            <p>@PrescriptionText(item)</p>
-                            <span>@DoctorLine(item)</span>
-                        </div>
-
-                        <div class="prescription-state @(item.Status == RequestStatus.Completed ? "done" : "ready")">
-                            @(item.Status == RequestStatus.Completed ? "تم الصرف" : "جاهز للصرف")
-                        </div>
-                    </article>
-                }
-            </section>
-        }
     }
 </div>
 
 @code {
-    private bool loading = true;
-    private string? errorMsg;
-    private string pharmacyName = "الصيدلية";
+    private const string DefaultPassword = "12345678";
 
-    private List<RequestWorkItem> rows = [];
+    private bool loading = true;
+    private bool saving;
+    private bool updating;
+    private bool deleting;
+    private bool showCreatePanel;
+    private bool showInactive;
+    private bool actionSucceeded;
+    private string? actionMessage;
+    private string search = string.Empty;
+
+    private string newNameAr = string.Empty;
+    private string? newNameEn;
+    private string newEmail = string.Empty;
+    private string? newPhone;
+    private string newRole = "Pharmacy";
+
+    private string? editingId;
+    private string editNameAr = string.Empty;
+    private string? editNameEn;
+    private string editEmail = string.Empty;
+    private string? editPhone;
+    private string editRole = "Pharmacy";
+    private string? editPassword;
+    private bool editIsActive = true;
+
+    private PharmacyUserItem? deleteCandidate;
+
+    private List<PharmacyUserItem> pharmacies = [];
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadData();
+        await EnsurePharmacyRolesAsync();
+        await LoadPharmaciesAsync();
     }
 
-    private async Task LoadData()
+    private async Task EnsurePharmacyRolesAsync()
+    {
+        foreach (var role in PharmacyRoles)
+        {
+            if (!await RoleManager.RoleExistsAsync(role))
+            {
+                await RoleManager.CreateAsync(new IdentityRole(role));
+            }
+        }
+    }
+
+    private async Task LoadPharmaciesAsync()
     {
         loading = true;
-        errorMsg = null;
+
+        var result = new List<PharmacyUserItem>();
+
+        foreach (var role in PharmacyRoles)
+        {
+            var users = await UserManager.GetUsersInRoleAsync(role);
+
+            foreach (var user in users)
+            {
+                if (result.Any(x => x.Id == user.Id))
+                {
+                    continue;
+                }
+
+                result.Add(new PharmacyUserItem(
+                    user.Id,
+                    user.FullNameAr,
+                    user.FullNameEn,
+                    user.Email ?? "—",
+                    user.PhoneNumber ?? "—",
+                    user.IsActive && !IsLocked(user),
+                    role
+                ));
+            }
+        }
+
+        pharmacies = result
+            .OrderBy(p => p.FullNameAr)
+            .ToList();
+
+        loading = false;
+    }
+
+    private void ToggleCreatePanel()
+    {
+        showCreatePanel = !showCreatePanel;
+        actionMessage = null;
+        CancelEdit();
+        CancelDelete();
+    }
+
+    private async Task CreatePharmacyAsync()
+    {
+        if (saving)
+        {
+            return;
+        }
+
+        saving = true;
+        actionMessage = null;
 
         try
         {
-            var auth = await AuthState.GetAuthenticationStateAsync();
+            var validation = ValidateRequired(newNameAr, newEmail);
 
-            pharmacyName =
-                auth.User.FindFirst("FullNameAr")?.Value
-                ?? auth.User.Identity?.Name
-                ?? "الصيدلية";
+            if (validation is not null)
+            {
+                actionSucceeded = false;
+                actionMessage = validation;
+                return;
+            }
 
-            rows = (await Ui.GetRequestsAsync())
-                .Where(r => r.Status is RequestStatus.Approved or RequestStatus.Completed)
-                .OrderByDescending(r => r.ReviewedAt ?? r.SubmittedAt)
-                .ToList();
-        }
-        catch
-        {
-            errorMsg = "حدث خطأ أثناء تحميل بيانات الصيدلية.";
+            var email = newEmail.Trim();
+
+            var existing = await UserManager.FindByEmailAsync(email);
+
+            if (existing is not null)
+            {
+                actionSucceeded = false;
+                actionMessage = "يوجد حساب آخر بنفس البريد الإلكتروني.";
+                return;
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true,
+                FullNameAr = newNameAr.Trim(),
+                FullNameEn = string.IsNullOrWhiteSpace(newNameEn) ? string.Empty : newNameEn.Trim(),
+                PhoneNumber = string.IsNullOrWhiteSpace(newPhone) ? null : newPhone.Trim(),
+                UserType = UserType.Staff,
+                IsActive = true
+            };
+
+            var createResult = await UserManager.CreateAsync(user, DefaultPassword);
+
+            if (!createResult.Succeeded)
+            {
+                actionSucceeded = false;
+                actionMessage = string.Join(" | ", createResult.Errors.Select(e => e.Description));
+                return;
+            }
+
+            await UserManager.AddToRoleAsync(user, newRole);
+            await ResetUserClaimsAsync(user, newRole);
+
+            actionSucceeded = true;
+            actionMessage = "تم إضافة حساب الصيدلية بنجاح. كلمة المرور الافتراضية: 12345678";
+
+            ResetCreateForm();
+            showCreatePanel = false;
+
+            await LoadPharmaciesAsync();
         }
         finally
         {
-            loading = false;
+            saving = false;
         }
     }
 
-    private IEnumerable<RequestWorkItem> LatestRows => rows.Take(4);
-
-    private int TotalCount => rows.Count;
-    private int ReadyCount => rows.Count(r => r.Status == RequestStatus.Approved);
-    private int DispensedCount => rows.Count(r => r.Status == RequestStatus.Completed);
-
-    private static string PrescriptionText(RequestWorkItem item)
+    private void ResetCreateForm()
     {
-        return item.SpecialtyName switch
-        {
-            "أمراض القلب" => "أملوديبين 5mg · 30 قرص",
-            "طب الأطفال" => "أموكسيسيلين 250 · 21 كبسولة",
-            "أمراض الجهاز العصبي" => "إيبوبروفين 400mg · 20 قرص",
-            "طب العيون" => "قطرة عين · 2 زجاجة",
-            "الجلدية" => "كريم موضعي · عبوة واحدة",
-            _ => $"{item.SpecialtyName} · وصفة علاجية"
-        };
+        newNameAr = string.Empty;
+        newNameEn = null;
+        newEmail = string.Empty;
+        newPhone = null;
+        newRole = "Pharmacy";
     }
 
-    private static string DoctorLine(RequestWorkItem item)
+    private void BeginEdit(PharmacyUserItem item)
     {
-        if (!string.IsNullOrWhiteSpace(item.ReviewNoteAr))
+        showCreatePanel = false;
+        deleteCandidate = null;
+        actionMessage = null;
+
+        editingId = item.Id;
+        editNameAr = item.FullNameAr;
+        editNameEn = item.FullNameEn;
+        editEmail = item.Email;
+        editPhone = item.PhoneNumber == "—" ? null : item.PhoneNumber;
+        editRole = item.Role;
+        editPassword = null;
+        editIsActive = item.IsActive;
+    }
+
+    private void CancelEdit()
+    {
+        editingId = null;
+        editNameAr = string.Empty;
+        editNameEn = null;
+        editEmail = string.Empty;
+        editPhone = null;
+        editRole = "Pharmacy";
+        editPassword = null;
+        editIsActive = true;
+    }
+
+    private async Task UpdatePharmacyAsync()
+    {
+        if (updating || string.IsNullOrWhiteSpace(editingId))
         {
-            return item.ReviewNoteAr;
+            return;
         }
 
-        return item.Status == RequestStatus.Completed
-            ? "تم صرف الوصفة"
-            : "بانتظار الصرف من الصيدلية";
+        updating = true;
+        actionMessage = null;
+
+        try
+        {
+            var validation = ValidateRequired(editNameAr, editEmail);
+
+            if (validation is not null)
+            {
+                actionSucceeded = false;
+                actionMessage = validation;
+                return;
+            }
+
+            var user = await UserManager.FindByIdAsync(editingId);
+
+            if (user is null)
+            {
+                actionSucceeded = false;
+                actionMessage = "الحساب غير موجود أو تم حذفه.";
+                return;
+            }
+
+            var email = editEmail.Trim();
+
+            if (!string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
+            {
+                var existing = await UserManager.FindByEmailAsync(email);
+
+                if (existing is not null && existing.Id != user.Id)
+                {
+                    actionSucceeded = false;
+                    actionMessage = "يوجد حساب آخر بنفس البريد الإلكتروني.";
+                    return;
+                }
+
+                var emailResult = await UserManager.SetEmailAsync(user, email);
+
+                if (!emailResult.Succeeded)
+                {
+                    actionSucceeded = false;
+                    actionMessage = string.Join(" | ", emailResult.Errors.Select(e => e.Description));
+                    return;
+                }
+
+                var userNameResult = await UserManager.SetUserNameAsync(user, email);
+
+                if (!userNameResult.Succeeded)
+                {
+                    actionSucceeded = false;
+                    actionMessage = string.Join(" | ", userNameResult.Errors.Select(e => e.Description));
+                    return;
+                }
+
+                user.EmailConfirmed = true;
+            }
+
+            user.FullNameAr = editNameAr.Trim();
+            user.FullNameEn = string.IsNullOrWhiteSpace(editNameEn) ? string.Empty : editNameEn.Trim();
+            user.PhoneNumber = string.IsNullOrWhiteSpace(editPhone) ? null : editPhone.Trim();
+            user.IsActive = editIsActive;
+            user.LockoutEnabled = !editIsActive;
+            user.LockoutEnd = editIsActive ? null : DateTimeOffset.UtcNow.AddYears(100);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var updateResult = await UserManager.UpdateAsync(user);
+
+            if (!updateResult.Succeeded)
+            {
+                actionSucceeded = false;
+                actionMessage = string.Join(" | ", updateResult.Errors.Select(e => e.Description));
+                return;
+            }
+
+            var roles = await UserManager.GetRolesAsync(user);
+            var oldRoles = roles.Where(r => PharmacyRoles.Contains(r)).ToList();
+
+            if (oldRoles.Count > 0)
+            {
+                await UserManager.RemoveFromRolesAsync(user, oldRoles);
+            }
+
+            await UserManager.AddToRoleAsync(user, editRole);
+            await ResetUserClaimsAsync(user, editRole);
+
+            if (!string.IsNullOrWhiteSpace(editPassword))
+            {
+                if (editPassword.Trim().Length < 8)
+                {
+                    actionSucceeded = false;
+                    actionMessage = "كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف أو أرقام.";
+                    return;
+                }
+
+                var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+                var passwordResult = await UserManager.ResetPasswordAsync(user, token, editPassword.Trim());
+
+                if (!passwordResult.Succeeded)
+                {
+                    actionSucceeded = false;
+                    actionMessage = string.Join(" | ", passwordResult.Errors.Select(e => e.Description));
+                    return;
+                }
+            }
+
+            actionSucceeded = true;
+            actionMessage = "تم تعديل حساب الصيدلية بنجاح.";
+
+            CancelEdit();
+            await LoadPharmaciesAsync();
+        }
+        finally
+        {
+            updating = false;
+        }
     }
+
+    private void AskDelete(PharmacyUserItem item)
+    {
+        showCreatePanel = false;
+        CancelEdit();
+        actionMessage = null;
+        deleteCandidate = item;
+    }
+
+    private void CancelDelete()
+    {
+        deleteCandidate = null;
+    }
+
+    private async Task DeletePharmacyAsync()
+    {
+        if (deleting || deleteCandidate is null)
+        {
+            return;
+        }
+
+        deleting = true;
+        actionMessage = null;
+
+        try
+        {
+            var user = await UserManager.FindByIdAsync(deleteCandidate.Id);
+
+            if (user is null)
+            {
+                actionSucceeded = false;
+                actionMessage = "الحساب غير موجود أو تم حذفه بالفعل.";
+                return;
+            }
+
+            var deleteResult = await UserManager.DeleteAsync(user);
+
+            if (!deleteResult.Succeeded)
+            {
+                user.IsActive = false;
+                user.LockoutEnabled = true;
+                user.LockoutEnd = DateTimeOffset.UtcNow.AddYears(100);
+                user.UpdatedAt = DateTime.UtcNow;
+
+                await UserManager.UpdateAsync(user);
+
+                actionSucceeded = true;
+                actionMessage = "تعذر الحذف النهائي بسبب ارتباطات داخل النظام، لذلك تم تعطيل الحساب وإخفاؤه من القائمة الأساسية.";
+            }
+            else
+            {
+                actionSucceeded = true;
+                actionMessage = "تم حذف حساب الصيدلية بنجاح.";
+            }
+
+            deleteCandidate = null;
+            await LoadPharmaciesAsync();
+        }
+        finally
+        {
+            deleting = false;
+        }
+    }
+
+    private async Task ResetUserClaimsAsync(ApplicationUser user, string role)
+    {
+        var claims = await UserManager.GetClaimsAsync(user);
+        var oldClaims = claims
+            .Where(c => c.Type is "FullNameAr" or "UserType")
+            .ToList();
+
+        foreach (var claim in oldClaims)
+        {
+            await UserManager.RemoveClaimAsync(user, claim);
+        }
+
+        await UserManager.AddClaimAsync(user, new Claim("FullNameAr", user.FullNameAr));
+        await UserManager.AddClaimAsync(user, new Claim("UserType", role));
+    }
+
+    private static string? ValidateRequired(string nameAr, string email)
+    {
+        if (string.IsNullOrWhiteSpace(nameAr))
+        {
+            return "الاسم العربي مطلوب.";
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return "البريد الإلكتروني مطلوب.";
+        }
+
+        if (!email.Contains('@') || !email.Contains('.'))
+        {
+            return "البريد الإلكتروني غير صحيح.";
+        }
+
+        return null;
+    }
+
+    private IEnumerable<PharmacyUserItem> FilteredPharmacies
+    {
+        get
+        {
+            IEnumerable<PharmacyUserItem> query = pharmacies;
+
+            if (!showInactive)
+            {
+                query = query.Where(p => p.IsActive);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var value = search.Trim();
+
+                query = query.Where(p =>
+                    p.FullNameAr.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                    p.FullNameEn.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                    p.Email.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                    p.PhoneNumber.Contains(value, StringComparison.OrdinalIgnoreCase)
+                );
+            }
+
+            return query;
+        }
+    }
+
+    private static bool IsLocked(ApplicationUser user)
+    {
+        return user.LockoutEnd is not null && user.LockoutEnd > DateTimeOffset.UtcNow;
+    }
+
+    private static string RoleLabel(string role) => role switch
+    {
+        "Pharmacy" => "صيدلية",
+        "Pharmacist" => "صيدلي",
+        _ => role
+    };
+
+    private static readonly string[] PharmacyRoles = ["Pharmacy", "Pharmacist"];
+
+    private string LabelStyle =>
+        "display:grid;gap:8px;color:#344054;font-size:13px;font-weight:900;";
+
+    private string InputStyle =>
+        "height:52px;border:1px solid #e5e7eb;border-radius:16px;padding:0 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;";
+
+    private string InputLtrStyle =>
+        "height:52px;border:1px solid #e5e7eb;border-radius:16px;padding:0 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;text-align:left;";
+
+    private string SecondaryButtonStyle =>
+        "height:46px;border:0;border-radius:999px;padding:0 18px;background:#f1f5f9;color:#475467;font-size:13px;font-weight:950;cursor:pointer;";
+
+    private string PrimaryAmberButtonStyle =>
+        "height:46px;border:0;border-radius:999px;padding:0 22px;background:#f59e0b;color:#ffffff;font-size:13px;font-weight:950;cursor:pointer;box-shadow:0 12px 24px rgba(245,158,11,.20);";
+
+    private sealed record PharmacyUserItem(
+        string Id,
+        string FullNameAr,
+        string FullNameEn,
+        string Email,
+        string PhoneNumber,
+        bool IsActive,
+        string Role
+    );
 }

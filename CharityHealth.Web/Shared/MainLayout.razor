@@ -1,56 +1,281 @@
 @inherits LayoutComponentBase
 @implements IDisposable
+
+@using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
+
 @inject UiThemeService Theme
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
 
-<div class="@($"app-root figma-shell {Theme.CssClass}")" dir="rtl">
-    <header class="app-topbar">
-        <div class="topbar-actions">
-            <a class="topbar-logout" href="/account/logout">
-                <span>خروج</span>
-                <span>↢</span>
+<div class="@($"app-root {Theme.CssClass}")"
+     dir="rtl"
+     style="min-height:100vh !important; background:#f8fafc !important; direction:rtl !important;">
+
+    <!-- TOPBAR -->
+    <header style="
+        position:fixed !important;
+        top:0 !important;
+        right:0 !important;
+        left:0 !important;
+        width:100vw !important;
+        height:76px !important;
+        background:#ffffff !important;
+        border-bottom:1px solid #e5e7eb !important;
+        box-shadow:0 4px 14px rgba(15,23,42,.08) !important;
+        z-index:2147483647 !important;
+        display:block !important;
+        visibility:visible !important;
+        opacity:1 !important;
+        overflow:visible !important;">
+
+        <!-- BRAND RIGHT -->
+        <button type="button"
+                @onclick="GoHome"
+                style="
+                    position:absolute !important;
+                    right:32px !important;
+                    top:50% !important;
+                    transform:translateY(-50%) !important;
+                    display:inline-flex !important;
+                    align-items:center !important;
+                    gap:12px !important;
+                    border:0 !important;
+                    background:transparent !important;
+                    padding:0 !important;
+                    margin:0 !important;
+                    cursor:pointer !important;
+                    z-index:2147483647 !important;">
+
+            <span style="
+                width:48px !important;
+                height:48px !important;
+                border-radius:50% !important;
+                background:#05a843 !important;
+                position:relative !important;
+                display:inline-block !important;
+                box-shadow:0 10px 22px rgba(5,168,67,.22) !important;">
+
+                <span style="
+                    position:absolute !important;
+                    width:29px !important;
+                    height:29px !important;
+                    border-radius:50% !important;
+                    background:#ffffff !important;
+                    top:9px !important;
+                    left:8px !important;
+                    display:block !important;">
+                </span>
+
+                <span style="
+                    position:absolute !important;
+                    width:24px !important;
+                    height:24px !important;
+                    border-radius:50% !important;
+                    background:#05a843 !important;
+                    top:9px !important;
+                    left:16px !important;
+                    display:block !important;">
+                </span>
+            </span>
+
+            <span style="display:grid !important; gap:2px !important; text-align:right !important;">
+                <strong style="
+                    color:#111827 !important;
+                    font-size:21px !important;
+                    line-height:1.1 !important;
+                    font-weight:950 !important;
+                    white-space:nowrap !important;">
+                    مستشفى بلا مستشفى
+                </strong>
+
+                <small style="
+                    color:#047857 !important;
+                    font-size:13px !important;
+                    line-height:1.1 !important;
+                    font-weight:900 !important;
+                    white-space:nowrap !important;">
+                    رحمة بلا حدود
+                </small>
+            </span>
+        </button>
+
+        <!-- USER CHIP CENTER -->
+        <AuthorizeView>
+            <Authorized Context="auth">
+                <div style="@UserChipStyle(auth.User)">
+                    <span style="
+                        width:10px !important;
+                        height:10px !important;
+                        border-radius:50% !important;
+                        background:currentColor !important;
+                        display:inline-block !important;">
+                    </span>
+
+                    <strong style="font-weight:950 !important;">
+                        @DisplayName(auth.User)
+                    </strong>
+
+                    <span>
+                        · @RoleLabel(auth.User)
+                    </span>
+                </div>
+            </Authorized>
+
+            <NotAuthorized>
+                <div style="@GuestChipStyle">
+                    <span style="
+                        width:10px !important;
+                        height:10px !important;
+                        border-radius:50% !important;
+                        background:currentColor !important;
+                        display:inline-block !important;">
+                    </span>
+
+                    <strong style="font-weight:950 !important;">زائر</strong>
+                    <span>· غير مسجل</span>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+
+        <!-- ACTIONS LEFT -->
+        <div style="
+            position:absolute !important;
+            left:32px !important;
+            top:50% !important;
+            transform:translateY(-50%) !important;
+            display:inline-flex !important;
+            align-items:center !important;
+            gap:14px !important;
+            direction:ltr !important;
+            z-index:2147483647 !important;">
+
+            <!-- LOGOUT -->
+            <a href="/account/logout"
+               style="
+                    display:inline-flex !important;
+                    align-items:center !important;
+                    justify-content:center !important;
+                    gap:12px !important;
+                    color:#667085 !important;
+                    text-decoration:none !important;
+                    font-size:22px !important;
+                    font-weight:900 !important;
+                    line-height:1 !important;
+                    white-space:nowrap !important;
+                    direction:rtl !important;
+                    font-family:inherit !important;">
+
+                <span style="
+                    display:inline-block !important;
+                    color:#667085 !important;
+                    font-size:22px !important;
+                    font-weight:900 !important;
+                    line-height:1 !important;">
+                    خروج
+                </span>
+
+                <span style="
+                    display:inline-grid !important;
+                    place-items:center !important;
+                    width:28px !important;
+                    height:28px !important;
+                    color:#667085 !important;
+                    font-size:28px !important;
+                    line-height:1 !important;
+                    font-weight:400 !important;
+                    transform:rotate(180deg) !important;">
+                    ↪
+                </span>
             </a>
 
-            <button class="theme-toggle"
-                    type="button"
+            <!-- NOTIFICATIONS -->
+            <AuthorizeView>
+                <Authorized Context="auth">
+                    <button type="button"
+                            @onclick='() => Nav.NavigateTo(NotificationUrl(auth.User))'
+                            title="الإشعارات"
+                            aria-label="الإشعارات"
+                            style="
+                                width:48px !important;
+                                height:48px !important;
+                                border:0 !important;
+                                border-radius:50% !important;
+                                background:#f1f5f9 !important;
+                                color:#667085 !important;
+                                display:grid !important;
+                                place-items:center !important;
+                                cursor:pointer !important;
+                                font-size:22px !important;
+                                padding:0 !important;
+                                position:relative !important;">
+
+                        <span style="line-height:1 !important;">🔔</span>
+
+                        <span style="
+                            position:absolute !important;
+                            top:8px !important;
+                            right:9px !important;
+                            min-width:10px !important;
+                            height:10px !important;
+                            border-radius:999px !important;
+                            background:#ef4444 !important;
+                            border:2px solid #f1f5f9 !important;
+                            display:block !important;">
+                        </span>
+                    </button>
+                </Authorized>
+            </AuthorizeView>
+
+            <!-- THEME -->
+            <button type="button"
                     @onclick="Theme.Toggle"
                     title="تبديل الوضع"
-                    aria-label="تبديل الوضع">
+                    aria-label="تبديل الوضع"
+                    style="
+                        width:48px !important;
+                        height:48px !important;
+                        border:0 !important;
+                        border-radius:50% !important;
+                        background:#f1f5f9 !important;
+                        color:#475467 !important;
+                        display:grid !important;
+                        place-items:center !important;
+                        cursor:pointer !important;
+                        font-size:20px !important;
+                        padding:0 !important;">
                 <span>@Theme.Icon</span>
             </button>
         </div>
-
-        <AuthorizeView>
-            <Authorized Context="auth">
-                <div class="top-user-chip">
-                    <span class="chip-dot"></span>
-                    <strong>@(auth.User.FindFirst("FullNameAr")?.Value ?? auth.User.Identity?.Name)</strong>
-                    <span>· @RoleLabel(auth.User.FindFirst("UserType")?.Value)</span>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        <div class="topbar-brand" @onclick='() => Nav.NavigateTo("/")'>
-            <div>
-                <strong>مستشفى بلا مستشفى</strong>
-                <span>رحمة بلا حدود</span>
-            </div>
-            <div class="brand-mark" aria-hidden="true"></div>
-        </div>
     </header>
 
-    <aside class="app-sidebar" aria-label="القائمة الجانبية">
+    <!-- SIDEBAR -->
+    <aside class="app-sidebar"
+           aria-label="القائمة الجانبية"
+           style="
+                position:fixed !important;
+                top:76px !important;
+                right:0 !important;
+                bottom:0 !important;
+                width:300px !important;
+                height:calc(100vh - 76px) !important;
+                background:#ffffff !important;
+                border-left:1px solid #edf0f4 !important;
+                padding:24px 18px !important;
+                overflow-y:auto !important;
+                z-index:1000 !important;">
+
         <AuthorizeView>
             <Authorized Context="auth">
                 <div class="sidebar-user-card">
-                    <div class="user-initial">
-                        @GetInitial(auth.User.FindFirst("FullNameAr")?.Value ?? auth.User.Identity?.Name)
+                    <div class="user-initial"
+                         style="@SidebarAvatarStyle(auth.User)">
+                        @GetInitial(DisplayName(auth.User))
                     </div>
 
                     <div>
-                        <strong>@(auth.User.FindFirst("FullNameAr")?.Value ?? auth.User.Identity?.Name)</strong>
-                        <span>@RoleLabel(auth.User.FindFirst("UserType")?.Value)</span>
+                        <strong>@DisplayName(auth.User)</strong>
+                        <span>@RoleLabel(auth.User)</span>
                     </div>
                 </div>
             </Authorized>
@@ -66,11 +291,23 @@
         </div>
     </aside>
 
-    <section class="app-workspace">
-        <main class="page-canvas">
+    <!-- CONTENT -->
+    <section class="app-workspace"
+             style="
+                margin-right:300px !important;
+                width:calc(100% - 300px) !important;
+                min-height:100vh !important;
+                padding-top:76px !important;
+                background:#f8fafc !important;">
+
+        <main class="page-canvas"
+              style="
+                min-height:calc(100vh - 76px) !important;
+                background:#f8fafc !important;">
             @Body
         </main>
     </section>
+
 </div>
 
 @code {
@@ -84,22 +321,199 @@
         Theme.OnChange -= StateHasChanged;
     }
 
+    private async Task GoHome()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var user = auth.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        Nav.NavigateTo(DashboardUrl(user));
+    }
+
+    private static string DisplayName(ClaimsPrincipal user)
+    {
+        return user.FindFirst("FullNameAr")?.Value
+            ?? user.Identity?.Name
+            ?? "مستخدم";
+    }
+
     private static string GetInitial(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return "ف";
+            return "م";
         }
 
         return value.Trim()[0].ToString();
     }
 
-    private static string RoleLabel(string? userType) => userType switch
+    private static string UserType(ClaimsPrincipal user)
     {
-        "Administrator" => "إدارة",
-        "Staff" => "موظف",
-        "Doctor" => "طبيب",
-        "Beneficiary" => "مستفيد",
-        _ => "مستفيد"
-    };
+        var claimValue = user.FindFirst("UserType")?.Value;
+
+        if (!string.IsNullOrWhiteSpace(claimValue))
+        {
+            return claimValue;
+        }
+
+        if (user.IsInRole("Administrator")) return "Administrator";
+        if (user.IsInRole("Staff")) return "Staff";
+        if (user.IsInRole("Doctor")) return "Doctor";
+        if (user.IsInRole("Beneficiary")) return "Beneficiary";
+        if (user.IsInRole("Pharmacy")) return "Pharmacy";
+        if (user.IsInRole("Pharmacist")) return "Pharmacist";
+
+        return "User";
+    }
+
+    private static string RoleLabel(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "مدير نظام",
+            "Staff" => "موظف",
+            "Doctor" => "طبيب",
+            "Beneficiary" => "مستفيد",
+            "Pharmacy" => "صيدلية",
+            "Pharmacist" => "صيدلي",
+            _ => "مستخدم"
+        };
+    }
+
+    private static string RoleColor(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "#7e22ce",
+            "Staff" => "#7e22ce",
+            "Doctor" => "#0369a1",
+            "Beneficiary" => "#047857",
+            "Pharmacy" => "#d97706",
+            "Pharmacist" => "#d97706",
+            _ => "#475467"
+        };
+    }
+
+    private static string RoleBackground(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "#faf5ff",
+            "Staff" => "#faf5ff",
+            "Doctor" => "#eff6ff",
+            "Beneficiary" => "#ecfdf3",
+            "Pharmacy" => "#fffbeb",
+            "Pharmacist" => "#fffbeb",
+            _ => "#f8fafc"
+        };
+    }
+
+    private static string RoleBorder(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "#e9d5ff",
+            "Staff" => "#e9d5ff",
+            "Doctor" => "#bfdbfe",
+            "Beneficiary" => "#a7f3d0",
+            "Pharmacy" => "#fde68a",
+            "Pharmacist" => "#fde68a",
+            _ => "#e5e7eb"
+        };
+    }
+
+    private static string UserChipStyle(ClaimsPrincipal user)
+    {
+        return $@"
+            position:absolute !important;
+            left:50% !important;
+            top:50% !important;
+            transform:translate(-50%, -50%) !important;
+            min-height:38px !important;
+            border-radius:999px !important;
+            padding:0 20px !important;
+            display:inline-flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            gap:9px !important;
+            color:{RoleColor(user)} !important;
+            background:{RoleBackground(user)} !important;
+            border:1px solid {RoleBorder(user)} !important;
+            font-size:15px !important;
+            font-weight:950 !important;
+            white-space:nowrap !important;
+            z-index:2147483647 !important;
+            visibility:visible !important;
+            opacity:1 !important;";
+    }
+
+    private static string GuestChipStyle =>
+        @"
+            position:absolute !important;
+            left:50% !important;
+            top:50% !important;
+            transform:translate(-50%, -50%) !important;
+            min-height:38px !important;
+            border-radius:999px !important;
+            padding:0 20px !important;
+            display:inline-flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            gap:9px !important;
+            color:#475467 !important;
+            background:#f8fafc !important;
+            border:1px solid #e5e7eb !important;
+            font-size:15px !important;
+            font-weight:950 !important;
+            white-space:nowrap !important;
+            z-index:2147483647 !important;";
+
+    private static string SidebarAvatarStyle(ClaimsPrincipal user)
+    {
+        var bg = UserType(user) switch
+        {
+            "Administrator" => "#9333ea",
+            "Staff" => "#9333ea",
+            "Doctor" => "#0ea5e9",
+            "Beneficiary" => "#05a843",
+            "Pharmacy" => "#f59e0b",
+            "Pharmacist" => "#f59e0b",
+            _ => "#64748b"
+        };
+
+        return $"background:{bg} !important; color:#ffffff !important;";
+    }
+
+    private static string DashboardUrl(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "/admin/dashboard",
+            "Staff" => "/admin/dashboard",
+            "Doctor" => "/doctor/dashboard",
+            "Beneficiary" => "/beneficiary/dashboard",
+            "Pharmacy" => "/pharmacy/dashboard",
+            "Pharmacist" => "/pharmacy/dashboard",
+            _ => "/portal/dashboard"
+        };
+    }
+
+    private static string NotificationUrl(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "/admin/notifications",
+            "Staff" => "/staff/notifications",
+            "Doctor" => "/doctor/notifications",
+            "Beneficiary" => "/portal/notifications",
+            "Pharmacy" => "/pharmacy/notifications",
+            "Pharmacist" => "/pharmacy/notifications",
+            _ => "/portal/notifications"
+        };
+    }
 }
