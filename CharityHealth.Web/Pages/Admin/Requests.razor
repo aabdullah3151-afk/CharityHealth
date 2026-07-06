@@ -6,13 +6,404 @@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
 @using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
 @using CharityHealth.Web.Services
 
 @inject HealthcareUiService Ui
 @inject AuthenticationStateProvider AuthState
+@inject AppDbContext Db
 
 <PageTitle>إدارة الطلبات</PageTitle>
+
+<style>
+    .rq-preview-btn {
+        min-height: 34px !important;
+        border: 0 !important;
+        border-radius: 999px !important;
+        padding: 0 14px !important;
+        background: #eff6ff !important;
+        color: #2563eb !important;
+        font-size: 13px !important;
+        font-weight: 950 !important;
+        cursor: pointer !important;
+    }
+
+    .rq-preview-btn:hover {
+        background: #dbeafe !important;
+    }
+
+    .rq-actions {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        flex-wrap: wrap !important;
+    }
+
+    .rq-preview-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 2147483600 !important;
+        background: rgba(15, 23, 42, .46) !important;
+        backdrop-filter: blur(6px) !important;
+        display: flex !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        direction: rtl !important;
+    }
+
+    .rq-preview-backdrop {
+        position: absolute !important;
+        inset: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        cursor: pointer !important;
+    }
+
+    .rq-preview-panel {
+        position: relative !important;
+        width: min(760px, 96vw) !important;
+        height: 100vh !important;
+        margin-right: auto !important;
+        background: #ffffff !important;
+        color: #111827 !important;
+        box-shadow: -24px 0 55px rgba(15, 23, 42, .24) !important;
+        overflow-y: auto !important;
+        padding: 0 !important;
+        animation: rqPreviewIn .18s ease-out !important;
+    }
+
+    @@keyframes rqPreviewIn {
+        from { transform: translateX(-24px); opacity: .7; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    .rq-preview-head {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 2 !important;
+        min-height: 96px !important;
+        padding: 22px 26px !important;
+        background: linear-gradient(135deg, #05a843 0%, #079f8f 100%) !important;
+        color: #ffffff !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+        gap: 18px !important;
+    }
+
+    .rq-preview-head h2 {
+        margin: 0 !important;
+        color: #ffffff !important;
+        font-size: 30px !important;
+        line-height: 1.18 !important;
+        font-weight: 950 !important;
+    }
+
+    .rq-preview-head p {
+        margin: 8px 0 0 !important;
+        color: rgba(255,255,255,.82) !important;
+        font-size: 14px !important;
+        font-weight: 850 !important;
+    }
+
+    .rq-preview-close {
+        width: 42px !important;
+        height: 42px !important;
+        border: 0 !important;
+        border-radius: 999px !important;
+        background: rgba(255,255,255,.16) !important;
+        color: #ffffff !important;
+        display: grid !important;
+        place-items: center !important;
+        font-size: 22px !important;
+        font-weight: 950 !important;
+        cursor: pointer !important;
+        flex: 0 0 auto !important;
+    }
+
+    .rq-preview-body {
+        padding: 24px 26px 34px !important;
+        display: grid !important;
+        gap: 20px !important;
+    }
+
+    .rq-preview-section {
+        border: 1px solid #e9eef5 !important;
+        border-radius: 24px !important;
+        background: #ffffff !important;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, .055) !important;
+        overflow: hidden !important;
+    }
+
+    .rq-preview-section-title {
+        min-height: 60px !important;
+        padding: 18px 20px !important;
+        border-bottom: 1px solid #edf0f4 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 14px !important;
+    }
+
+    .rq-preview-section-title h3 {
+        margin: 0 !important;
+        color: #101828 !important;
+        font-size: 20px !important;
+        font-weight: 950 !important;
+    }
+
+    .rq-preview-grid {
+        padding: 20px !important;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 14px !important;
+    }
+
+    .rq-preview-field {
+        min-height: 78px !important;
+        border-radius: 18px !important;
+        background: #f8fafc !important;
+        padding: 14px 16px !important;
+        display: grid !important;
+        align-content: center !important;
+        gap: 6px !important;
+    }
+
+    .rq-preview-field span {
+        color: #98a2b3 !important;
+        font-size: 12px !important;
+        font-weight: 900 !important;
+    }
+
+    .rq-preview-field strong {
+        color: #111827 !important;
+        font-size: 15px !important;
+        font-weight: 950 !important;
+        word-break: break-word !important;
+    }
+
+    .rq-preview-description {
+        padding: 20px !important;
+        color: #344054 !important;
+        font-size: 15px !important;
+        line-height: 2 !important;
+        font-weight: 850 !important;
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+    }
+
+    .rq-preview-empty-text {
+        padding: 20px !important;
+        color: #98a2b3 !important;
+        font-size: 14px !important;
+        font-weight: 900 !important;
+        text-align: center !important;
+    }
+
+    .rq-preview-docs {
+        padding: 18px 20px 20px !important;
+        display: grid !important;
+        gap: 12px !important;
+    }
+
+    .rq-preview-doc {
+        min-height: 72px !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 18px !important;
+        background: #f8fafc !important;
+        padding: 12px 14px !important;
+        display: grid !important;
+        grid-template-columns: 46px minmax(0, 1fr) auto !important;
+        align-items: center !important;
+        gap: 12px !important;
+    }
+
+    .rq-preview-doc-icon {
+        width: 46px !important;
+        height: 46px !important;
+        border-radius: 16px !important;
+        background: #ecfdf3 !important;
+        color: #05a843 !important;
+        display: grid !important;
+        place-items: center !important;
+        font-size: 22px !important;
+    }
+
+    .rq-preview-doc strong {
+        display: block !important;
+        color: #111827 !important;
+        font-size: 14px !important;
+        font-weight: 950 !important;
+        word-break: break-word !important;
+    }
+
+    .rq-preview-doc span {
+        display: block !important;
+        margin-top: 4px !important;
+        color: #667085 !important;
+        font-size: 12px !important;
+        font-weight: 850 !important;
+    }
+
+    .rq-preview-doc-open {
+        min-height: 38px !important;
+        border-radius: 999px !important;
+        background: #eff6ff !important;
+        color: #2563eb !important;
+        padding: 0 14px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 12px !important;
+        font-weight: 950 !important;
+        text-decoration: none !important;
+        white-space: nowrap !important;
+    }
+
+    .rq-preview-qr {
+        margin: 20px !important;
+        border: 1px solid #bbf7d0 !important;
+        border-radius: 22px !important;
+        background: #ecfdf3 !important;
+        padding: 18px !important;
+        display: grid !important;
+        gap: 8px !important;
+    }
+
+    .rq-preview-qr strong {
+        color: #047857 !important;
+        font-size: 16px !important;
+        font-weight: 950 !important;
+    }
+
+    .rq-preview-qr span {
+        color: #166534 !important;
+        font-size: 13px !important;
+        font-weight: 850 !important;
+    }
+
+    .rq-preview-footer {
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 2 !important;
+        border-top: 1px solid #edf0f4 !important;
+        background: rgba(255,255,255,.94) !important;
+        backdrop-filter: blur(10px) !important;
+        padding: 16px 26px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 12px !important;
+    }
+
+    .rq-preview-footer-actions {
+        display: flex !important;
+        gap: 10px !important;
+        flex-wrap: wrap !important;
+    }
+
+    .rq-preview-footer .rq-accept,
+    .rq-preview-footer .rq-reject,
+    .rq-preview-footer .rq-view {
+        min-height: 42px !important;
+        padding: 0 18px !important;
+    }
+
+    .rq-preview-loading {
+        min-height: 260px !important;
+        display: grid !important;
+        place-items: center !important;
+        color: #667085 !important;
+        font-size: 16px !important;
+        font-weight: 950 !important;
+    }
+
+    .theme-dark .rq-preview-panel,
+    .theme-dark .rq-preview-section {
+        background: #1f2b3a !important;
+        color: #f8fafc !important;
+        border-color: #334155 !important;
+    }
+
+    .theme-dark .rq-preview-section-title {
+        border-color: #334155 !important;
+    }
+
+    .theme-dark .rq-preview-section-title h3,
+    .theme-dark .rq-preview-field strong,
+    .theme-dark .rq-preview-doc strong {
+        color: #ffffff !important;
+    }
+
+    .theme-dark .rq-preview-field,
+    .theme-dark .rq-preview-doc {
+        background: #172233 !important;
+        border-color: #334155 !important;
+    }
+
+    .theme-dark .rq-preview-description,
+    .theme-dark .rq-preview-doc span {
+        color: #cbd5e1 !important;
+    }
+
+    .theme-dark .rq-preview-footer {
+        background: rgba(31, 43, 58, .94) !important;
+        border-color: #334155 !important;
+    }
+
+    @@media (max-width: 760px) {
+        .rq-preview-overlay {
+            align-items: flex-end !important;
+        }
+
+        .rq-preview-panel {
+            width: 100vw !important;
+            height: calc(100dvh - 72px) !important;
+            border-radius: 28px 28px 0 0 !important;
+            margin: 0 !important;
+        }
+
+        .rq-preview-head {
+            min-height: 84px !important;
+            padding: 18px 18px !important;
+        }
+
+        .rq-preview-head h2 {
+            font-size: 24px !important;
+        }
+
+        .rq-preview-body {
+            padding: 18px 14px 28px !important;
+        }
+
+        .rq-preview-grid {
+            grid-template-columns: 1fr !important;
+            padding: 16px !important;
+        }
+
+        .rq-preview-doc {
+            grid-template-columns: 42px minmax(0, 1fr) !important;
+        }
+
+        .rq-preview-doc-open {
+            grid-column: 1 / -1 !important;
+            width: 100% !important;
+        }
+
+        .rq-preview-footer {
+            display: grid !important;
+            padding: 14px !important;
+        }
+
+        .rq-preview-footer-actions,
+        .rq-preview-footer-actions button {
+            width: 100% !important;
+        }
+    }
+</style>
 
 <div class="requests-page" dir="rtl">
 
@@ -140,9 +531,16 @@
                                     </td>
 
                                     <td>
-                                        @if (CanDecide(item))
-                                        {
-                                            <div class="rq-actions">
+                                        <div class="rq-actions">
+                                            <button class="rq-preview-btn"
+                                                    type="button"
+                                                    disabled="@(previewLoading || busyId == item.Id)"
+                                                    @onclick="() => OpenPreview(item.Id)">
+                                                معاينة
+                                            </button>
+
+                                            @if (CanDecide(item))
+                                            {
                                                 <button class="rq-accept"
                                                         disabled="@(busyId == item.Id)"
                                                         @onclick="() => Approve(item.Id)">
@@ -154,14 +552,8 @@
                                                         @onclick="() => Reject(item.Id)">
                                                     رفض
                                                 </button>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <button class="rq-view" type="button">
-                                                عرض
-                                            </button>
-                                        }
+                                            }
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -173,6 +565,220 @@
     }
 </div>
 
+@if (previewLoading || preview is not null)
+{
+    <div class="rq-preview-overlay">
+        <button type="button"
+                class="rq-preview-backdrop"
+                aria-label="إغلاق المعاينة"
+                @onclick="ClosePreview">
+        </button>
+
+        <aside class="rq-preview-panel" role="dialog" aria-modal="true" aria-label="معاينة الطلب">
+            @if (previewLoading)
+            {
+                <div class="rq-preview-loading">
+                    جارٍ تحميل تفاصيل الطلب...
+                </div>
+            }
+            else if (preview is not null)
+            {
+                <div class="rq-preview-head">
+                    <div>
+                        <h2>معاينة الطلب</h2>
+                        <p>@ShortId(preview.Id) · @preview.StatusAr · @preview.SubmittedAt.ToLocalTime().ToString("dd MMMM yyyy - hh:mm tt", Ar)</p>
+                    </div>
+
+                    <button type="button"
+                            class="rq-preview-close"
+                            @onclick="ClosePreview">
+                        ×
+                    </button>
+                </div>
+
+                <div class="rq-preview-body">
+                    <section class="rq-preview-section">
+                        <div class="rq-preview-section-title">
+                            <h3>بيانات المستفيد</h3>
+                            <span class="rq-status status-@preview.StatusCss">@preview.StatusAr</span>
+                        </div>
+
+                        <div class="rq-preview-grid">
+                            <div class="rq-preview-field">
+                                <span>اسم المستفيد</span>
+                                <strong>@preview.BeneficiaryName</strong>
+                            </div>
+
+                            <div class="rq-preview-field">
+                                <span>رقم الهاتف</span>
+                                <strong>@preview.BeneficiaryPhone</strong>
+                            </div>
+
+                            <div class="rq-preview-field">
+                                <span>البريد الإلكتروني</span>
+                                <strong>@preview.BeneficiaryEmail</strong>
+                            </div>
+
+                            <div class="rq-preview-field">
+                                <span>المدينة</span>
+                                <strong>@preview.City</strong>
+                            </div>
+
+                            <div class="rq-preview-field">
+                                <span>التخصص المطلوب</span>
+                                <strong>@preview.SpecialtyName</strong>
+                            </div>
+
+                            <div class="rq-preview-field">
+                                <span>تاريخ التقديم</span>
+                                <strong>@preview.SubmittedAt.ToLocalTime().ToString("dddd، dd MMMM yyyy - hh:mm tt", Ar)</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="rq-preview-section">
+                        <div class="rq-preview-section-title">
+                            <h3>وصف الحالة المكتوب من المستفيد</h3>
+                        </div>
+
+                        @if (string.IsNullOrWhiteSpace(preview.DescriptionAr))
+                        {
+                            <div class="rq-preview-empty-text">
+                                لا يوجد وصف مكتوب لهذا الطلب.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="rq-preview-description">@preview.DescriptionAr</div>
+                        }
+                    </section>
+
+                    <section class="rq-preview-section">
+                        <div class="rq-preview-section-title">
+                            <h3>قرار الإدارة</h3>
+                        </div>
+
+                        @if (string.IsNullOrWhiteSpace(preview.ReviewNoteAr))
+                        {
+                            <div class="rq-preview-empty-text">
+                                لم يتم تسجيل ملاحظة مراجعة بعد.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="rq-preview-description">@preview.ReviewNoteAr</div>
+                        }
+
+                        <div class="rq-preview-grid">
+                            <div class="rq-preview-field">
+                                <span>تمت المراجعة بواسطة</span>
+                                <strong>@preview.ReviewedBy</strong>
+                            </div>
+
+                            <div class="rq-preview-field">
+                                <span>تاريخ المراجعة</span>
+                                <strong>@(preview.ReviewedAt is null ? "لم تتم المراجعة بعد" : preview.ReviewedAt.Value.ToLocalTime().ToString("dd MMMM yyyy - hh:mm tt", Ar))</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="rq-preview-section">
+                        <div class="rq-preview-section-title">
+                            <h3>التقارير والبطاقة والمرفقات</h3>
+                            <span class="rq-docs">📎 @preview.Documents.Count</span>
+                        </div>
+
+                        @if (preview.Documents.Count == 0)
+                        {
+                            <div class="rq-preview-empty-text">
+                                لا توجد مرفقات مرفوعة مع هذا الطلب.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="rq-preview-docs">
+                                @foreach (var doc in preview.Documents)
+                                {
+                                    <article class="rq-preview-doc">
+                                        <div class="rq-preview-doc-icon">@DocumentIcon(doc.DocumentType)</div>
+
+                                        <div>
+                                            <strong>@doc.FileName</strong>
+                                            <span>@DocumentLabel(doc.DocumentType) · @FileSizeText(doc.FileSizeBytes)</span>
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(doc.FilePath))
+                                        {
+                                            <a class="rq-preview-doc-open"
+                                               href="@DocumentUrl(doc.FilePath)"
+                                               target="_blank"
+                                               rel="noopener">
+                                                فتح الملف
+                                            </a>
+                                        }
+                                    </article>
+                                }
+                            </div>
+                        }
+                    </section>
+
+                    <section class="rq-preview-section">
+                        <div class="rq-preview-section-title">
+                            <h3>رمز QR</h3>
+                        </div>
+
+                        @if (preview.Qr is null)
+                        {
+                            <div class="rq-preview-empty-text">
+                                لم يتم توليد QR لهذا الطلب بعد. يتم توليده عند القبول.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="rq-preview-qr">
+                                <strong>QR متولد لهذا الطلب</strong>
+                                <span>الحالة: @(preview.Qr.IsUsed ? "تم استخدامه" : "صالح للاستخدام")</span>
+                                <span>ينتهي في: @preview.Qr.ExpiresAt.ToLocalTime().ToString("dd MMMM yyyy - hh:mm tt", Ar)</span>
+                                @if (preview.Qr.UsedAt is not null)
+                                {
+                                    <span>تم استخدامه في: @preview.Qr.UsedAt.Value.ToLocalTime().ToString("dd MMMM yyyy - hh:mm tt", Ar)</span>
+                                }
+                            </div>
+                        }
+                    </section>
+                </div>
+
+                <div class="rq-preview-footer">
+                    <span class="rq-status status-@preview.StatusCss">@preview.StatusAr</span>
+
+                    <div class="rq-preview-footer-actions">
+                        @if (CanDecide(preview.Status))
+                        {
+                            <button class="rq-accept"
+                                    disabled="@(busyId == preview.Id)"
+                                    @onclick="() => Approve(preview.Id)">
+                                قبول الطلب
+                            </button>
+
+                            <button class="rq-reject"
+                                    disabled="@(busyId == preview.Id)"
+                                    @onclick="() => Reject(preview.Id)">
+                                رفض الطلب
+                            </button>
+                        }
+
+                        <button class="rq-view"
+                                type="button"
+                                @onclick="ClosePreview">
+                            إغلاق
+                        </button>
+                    </div>
+                </div>
+            }
+        </aside>
+    </div>
+}
+
 @code {
     private readonly CultureInfo Ar = new("ar-EG");
 
@@ -183,6 +789,9 @@
     private string activeFilter = "all";
     private string search = string.Empty;
     private Guid? busyId;
+
+    private bool previewLoading;
+    private RequestPreview? preview;
 
     private List<RequestWorkItem> requests = [];
 
@@ -252,7 +861,83 @@
     }
 
     private static bool CanDecide(RequestWorkItem item) =>
-        item.Status is RequestStatus.Submitted or RequestStatus.UnderReview;
+        CanDecide(item.Status);
+
+    private static bool CanDecide(RequestStatus status) =>
+        status is RequestStatus.Submitted or RequestStatus.UnderReview;
+
+    private async Task OpenPreview(Guid id)
+    {
+        previewLoading = true;
+        preview = null;
+        message = null;
+
+        await LoadPreview(id);
+
+        previewLoading = false;
+    }
+
+    private void ClosePreview()
+    {
+        preview = null;
+        previewLoading = false;
+    }
+
+    private async Task LoadPreview(Guid id)
+    {
+        var request = await Db.MedicalRequests
+            .AsNoTracking()
+            .Include(r => r.Specialty)
+            .Include(r => r.Documents)
+            .Include(r => r.QRCodeToken)
+            .Include(r => r.Beneficiary)
+                .ThenInclude(b => b.User)
+            .FirstOrDefaultAsync(r => r.Id == id);
+
+        if (request is null)
+        {
+            success = false;
+            message = "لم يتم العثور على الطلب المطلوب.";
+            preview = null;
+            return;
+        }
+
+        preview = new RequestPreview(
+            request.Id,
+            request.Beneficiary.User.FullNameAr,
+            request.Beneficiary.User.PhoneNumber ?? "—",
+            request.Beneficiary.User.Email ?? "—",
+            request.Beneficiary.City ?? "—",
+            request.Specialty.NameAr,
+            request.Status,
+            HealthcareUiService.StatusAr(request.Status),
+            HealthcareUiService.StatusCss(request.Status),
+            request.SubmittedAt,
+            request.ReviewedAt,
+            string.IsNullOrWhiteSpace(request.ReviewedBy) ? "لم تتم المراجعة بعد" : request.ReviewedBy,
+            request.DescriptionAr,
+            request.ReviewNoteAr,
+            request.Documents
+                .OrderBy(d => d.DocumentType)
+                .ThenBy(d => d.FileName)
+                .Select(d => new RequestDocumentPreview(
+                    d.Id,
+                    d.FileName,
+                    d.FilePath,
+                    d.FileSizeBytes,
+                    d.DocumentType.ToString()
+                ))
+                .ToList(),
+            request.QRCodeToken is null
+                ? null
+                : new QrPreview(
+                    request.QRCodeToken.Id,
+                    request.QRCodeToken.ExpiresAt,
+                    request.QRCodeToken.IsUsed,
+                    request.QRCodeToken.UsedAt
+                )
+        );
+    }
 
     private async Task Approve(Guid id)
     {
@@ -264,7 +949,7 @@
             "تمت الموافقة من إدارة الطلبات"
         );
 
-        await AfterAction(result);
+        await AfterAction(result, id);
     }
 
     private async Task Reject(Guid id)
@@ -277,16 +962,21 @@
             "تم الرفض من إدارة الطلبات"
         );
 
-        await AfterAction(result);
+        await AfterAction(result, id);
     }
 
-    private async Task AfterAction(UiActionResult result)
+    private async Task AfterAction(UiActionResult result, Guid requestId)
     {
         success = result.Succeeded;
         message = result.Message;
         busyId = null;
 
         await Load();
+
+        if (preview is not null && preview.Id == requestId)
+        {
+            await LoadPreview(requestId);
+        }
     }
 
     private static string Initial(string? value)
@@ -303,4 +993,121 @@
     {
         return $"REQ-{id.ToString("N").Substring(0, 6).ToUpperInvariant()}";
     }
+
+    private static string FileSizeText(long bytes)
+    {
+        if (bytes <= 0)
+        {
+            return "حجم غير محدد";
+        }
+
+        if (bytes < 1024)
+        {
+            return $"{bytes} بايت";
+        }
+
+        if (bytes < 1024 * 1024)
+        {
+            return $"{bytes / 1024d:0.#} KB";
+        }
+
+        return $"{bytes / 1024d / 1024d:0.##} MB";
+    }
+
+    private static string DocumentUrl(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return "#";
+        }
+
+        var value = filePath.Trim();
+
+        if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("/"))
+        {
+            return value;
+        }
+
+        return "/" + value.TrimStart('~', '/');
+    }
+
+    private static string DocumentLabel(string type)
+    {
+        var normalized = type.ToLowerInvariant();
+
+        if (normalized.Contains("identity") || normalized.Contains("national") || normalized.Contains("card") || normalized.Contains("id"))
+        {
+            return "بطاقة / إثبات شخصية";
+        }
+
+        if (normalized.Contains("medical") || normalized.Contains("report"))
+        {
+            return "تقرير طبي";
+        }
+
+        if (normalized.Contains("prescription") || normalized.Contains("recipe"))
+        {
+            return "روشتة / وصفة علاجية";
+        }
+
+        return type;
+    }
+
+    private static string DocumentIcon(string type)
+    {
+        var normalized = type.ToLowerInvariant();
+
+        if (normalized.Contains("identity") || normalized.Contains("national") || normalized.Contains("card") || normalized.Contains("id"))
+        {
+            return "🪪";
+        }
+
+        if (normalized.Contains("medical") || normalized.Contains("report"))
+        {
+            return "📄";
+        }
+
+        if (normalized.Contains("prescription") || normalized.Contains("recipe"))
+        {
+            return "💊";
+        }
+
+        return "📎";
+    }
+
+    private sealed record RequestPreview(
+        Guid Id,
+        string BeneficiaryName,
+        string BeneficiaryPhone,
+        string BeneficiaryEmail,
+        string City,
+        string SpecialtyName,
+        RequestStatus Status,
+        string StatusAr,
+        string StatusCss,
+        DateTime SubmittedAt,
+        DateTime? ReviewedAt,
+        string ReviewedBy,
+        string? DescriptionAr,
+        string? ReviewNoteAr,
+        List<RequestDocumentPreview> Documents,
+        QrPreview? Qr
+    );
+
+    private sealed record RequestDocumentPreview(
+        Guid Id,
+        string FileName,
+        string FilePath,
+        long FileSizeBytes,
+        string DocumentType
+    );
+
+    private sealed record QrPreview(
+        Guid Id,
+        DateTime ExpiresAt,
+        bool IsUsed,
+        DateTime? UsedAt
+    );
 }

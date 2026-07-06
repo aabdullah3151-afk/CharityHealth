@@ -3,6 +3,7 @@
 
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
 
 @inject UiThemeService Theme
 @inject NavigationManager Nav
@@ -200,12 +201,383 @@
         padding: 0 !important;
         position: relative !important;
     }
+
+
+    /* Desktop فقط: إظهار شريحة الاسم والحالة */
+    .top-user-chip-fixed {
+        display: inline-flex !important;
+    }
+
+    /* Mobile: حذف شريحة الاسم والحالة بالكامل */
+    @@media (max-width: 900px) {
+        .top-user-chip-fixed {
+            display: none !important;
+        }
+    }
+
+    /* =========================================================
+       MOBILE DRAWER FIX — Responsive MainLayout
+       Desktop يفضل كما هو. على الموبايل السايدبار يتحول لقائمة 3 شرط.
+       ========================================================= */
+
+    .mobile-menu-btn,
+    .mobile-sidebar-backdrop {
+        display: none !important;
+    }
+
+    .mobile-menu-btn span {
+        width: 22px !important;
+        height: 2.5px !important;
+        border-radius: 999px !important;
+        background: currentColor !important;
+        display: block !important;
+    }
+
+    @@media (max-width: 900px) {
+        html,
+        body {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+        }
+
+        .app-root {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+        }
+
+        .app-topbar-fixed {
+            height: 72px !important;
+            min-height: 72px !important;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .08) !important;
+        }
+
+        .mobile-menu-btn {
+            position: absolute !important;
+            right: 12px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            width: 46px !important;
+            height: 46px !important;
+            border: 0 !important;
+            border-radius: 16px !important;
+            background: #f1f5f9 !important;
+            color: #111827 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-direction: column !important;
+            gap: 5px !important;
+            cursor: pointer !important;
+            z-index: 2147483647 !important;
+            box-shadow: 0 10px 22px rgba(15, 23, 42, .08) !important;
+        }
+
+        .brand-button {
+            right: 68px !important;
+            gap: 8px !important;
+            max-width: calc(100vw - 210px) !important;
+            overflow: hidden !important;
+        }
+
+        .brand-logo {
+            width: 42px !important;
+            height: 42px !important;
+            flex: 0 0 42px !important;
+        }
+
+        .brand-logo .moon-a {
+            width: 25px !important;
+            height: 25px !important;
+            top: 8px !important;
+            left: 7px !important;
+        }
+
+        .brand-logo .moon-b {
+            width: 21px !important;
+            height: 21px !important;
+            top: 8px !important;
+            left: 14px !important;
+        }
+
+        .brand-text {
+            min-width: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .brand-text strong {
+            font-size: 15px !important;
+            line-height: 1.15 !important;
+            max-width: 128px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        .brand-text small {
+            font-size: 11px !important;
+        }
+
+        .top-user-chip-fixed {
+            display: none !important;
+        }
+
+        .topbar-actions {
+            left: 10px !important;
+            gap: 8px !important;
+        }
+
+        .topbar-circle-btn {
+            width: 42px !important;
+            height: 42px !important;
+            font-size: 18px !important;
+        }
+
+        .topbar-logout {
+            width: 42px !important;
+            height: 42px !important;
+            font-size: 0 !important;
+            gap: 0 !important;
+            border-radius: 50% !important;
+            background: #f1f5f9 !important;
+        }
+
+        .topbar-logout > span:first-child {
+            display: none !important;
+        }
+
+        .topbar-logout > span:last-child {
+            width: 42px !important;
+            height: 42px !important;
+            color: #667085 !important;
+            font-size: 23px !important;
+            background: transparent !important;
+        }
+
+        .mobile-sidebar-backdrop {
+            position: fixed !important;
+            inset: 72px 0 0 0 !important;
+            display: block !important;
+            border: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: rgba(15, 23, 42, .45) !important;
+            backdrop-filter: blur(4px) !important;
+            z-index: 2147483644 !important;
+            cursor: pointer !important;
+        }
+
+        .app-sidebar {
+            position: fixed !important;
+            top: 72px !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: min(86vw, 340px) !important;
+            height: calc(100dvh - 72px) !important;
+            padding: 18px 14px 22px !important;
+            margin: 0 !important;
+            background: #ffffff !important;
+            border-left: 1px solid #edf0f4 !important;
+            box-shadow: -18px 0 44px rgba(15, 23, 42, .18) !important;
+            transform: translateX(112%) !important;
+            transition: transform .22s ease !important;
+            z-index: 2147483645 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow-y: auto !important;
+            border-radius: 0 0 0 26px !important;
+        }
+
+        .app-sidebar.mobile-open {
+            transform: translateX(0) !important;
+        }
+
+        .app-sidebar .sidebar-user-card {
+            min-height: 76px !important;
+            margin: 0 0 18px !important;
+            border-radius: 22px !important;
+        }
+
+        .app-sidebar nav a,
+        .app-sidebar .nav-link,
+        .app-sidebar .nav-item a {
+            min-height: 54px !important;
+            font-size: 16px !important;
+            border-radius: 18px !important;
+        }
+
+        .sidebar-footer {
+            margin-top: 22px !important;
+            padding-top: 18px !important;
+        }
+
+        .app-workspace {
+            margin-right: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            padding-top: 72px !important;
+            overflow-x: hidden !important;
+        }
+
+        .page-canvas {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: calc(100vh - 72px) !important;
+            overflow-x: hidden !important;
+        }
+    }
+
+    @@media (max-width: 420px) {
+        .brand-button {
+            right: 62px !important;
+            max-width: calc(100vw - 192px) !important;
+        }
+
+        .brand-text strong {
+            font-size: 14px !important;
+            max-width: 105px !important;
+        }
+
+        .brand-text small {
+            display: none !important;
+        }
+
+        .topbar-actions {
+            left: 8px !important;
+            gap: 6px !important;
+        }
+
+        .topbar-circle-btn,
+        .topbar-logout,
+        .mobile-menu-btn {
+            width: 40px !important;
+            height: 40px !important;
+        }
+    }
+
+    .app-root.theme-dark .mobile-menu-btn,
+    .app-root.dark .mobile-menu-btn,
+    .app-root.dark-mode .mobile-menu-btn,
+    .app-root.is-dark .mobile-menu-btn {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+    }
+
+    .app-root.theme-dark .app-sidebar,
+    .app-root.dark .app-sidebar,
+    .app-root.dark-mode .app-sidebar,
+    .app-root.is-dark .app-sidebar {
+        background: #111827 !important;
+        border-left-color: #334155 !important;
+    }
+
+    .app-root.theme-dark .mobile-sidebar-backdrop,
+    .app-root.dark .mobile-sidebar-backdrop,
+    .app-root.dark-mode .mobile-sidebar-backdrop,
+    .app-root.is-dark .mobile-sidebar-backdrop {
+        background: rgba(2, 6, 23, .62) !important;
+    }
+
+
+    /* =========================================================
+       WhatsApp floating support button
+       يظهر في المشروع كله داخل MainLayout — أسفل اليسار.
+       ========================================================= */
+
+    .whatsapp-float-btn {
+        position: fixed !important;
+        left: 24px !important;
+        bottom: 24px !important;
+        width: 62px !important;
+        height: 62px !important;
+        border-radius: 50% !important;
+        background: #25d366 !important;
+        color: #ffffff !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-decoration: none !important;
+        box-shadow: 0 18px 36px rgba(37, 211, 102, .32) !important;
+        z-index: 2147483000 !important;
+        transition: transform .16s ease, box-shadow .16s ease, filter .16s ease !important;
+    }
+
+    .whatsapp-float-btn:hover {
+        transform: translateY(-3px) scale(1.03) !important;
+        box-shadow: 0 22px 44px rgba(37, 211, 102, .42) !important;
+        filter: brightness(1.02) !important;
+    }
+
+    .whatsapp-float-btn svg {
+        width: 34px !important;
+        height: 34px !important;
+        display: block !important;
+        fill: currentColor !important;
+    }
+
+    .whatsapp-float-btn::after {
+        content: "تواصل معنا" !important;
+        position: absolute !important;
+        left: 76px !important;
+        bottom: 10px !important;
+        min-height: 38px !important;
+        border-radius: 999px !important;
+        background: #111827 !important;
+        color: #ffffff !important;
+        padding: 0 14px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        white-space: nowrap !important;
+        font-size: 13px !important;
+        font-weight: 950 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transform: translateX(-8px) !important;
+        transition: .16s ease !important;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, .20) !important;
+    }
+
+    .whatsapp-float-btn:hover::after {
+        opacity: 1 !important;
+        transform: translateX(0) !important;
+    }
+
+    @@media (max-width: 760px) {
+        .whatsapp-float-btn {
+            left: 16px !important;
+            bottom: 18px !important;
+            width: 56px !important;
+            height: 56px !important;
+        }
+
+        .whatsapp-float-btn svg {
+            width: 31px !important;
+            height: 31px !important;
+        }
+
+        .whatsapp-float-btn::after {
+            display: none !important;
+        }
+    }
+
 </style>
 
 <div class="@($"app-root {Theme.CssClass}")" dir="rtl">
 
     <!-- TOPBAR -->
     <header class="app-topbar-fixed">
+
+        <button type="button"
+                class="mobile-menu-btn"
+                title="القائمة"
+                aria-label="فتح القائمة"
+                aria-expanded="@mobileMenuOpen"
+                @onclick="ToggleMobileMenu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
 
         <!-- BRAND RIGHT -->
         <button type="button"
@@ -225,7 +597,7 @@
         <!-- USER CHIP CENTER -->
         <AuthorizeView>
             <Authorized Context="auth">
-                <div style="@UserChipStyle(auth.User)">
+                <div class="top-user-chip-fixed" style="@UserChipStyle(auth.User)">
                     <span style="
                         width:10px !important;
                         height:10px !important;
@@ -245,7 +617,7 @@
             </Authorized>
 
             <NotAuthorized>
-                <div style="@GuestChipStyle">
+                <div class="top-user-chip-fixed" style="@GuestChipStyle">
                     <span style="
                         width:10px !important;
                         height:10px !important;
@@ -316,8 +688,18 @@
         </div>
     </header>
 
+    <!-- MOBILE OVERLAY -->
+    @if (mobileMenuOpen)
+    {
+        <button type="button"
+                class="mobile-sidebar-backdrop"
+                aria-label="إغلاق القائمة"
+                @onclick="CloseMobileMenu">
+        </button>
+    }
+
     <!-- SIDEBAR -->
-    <aside class="app-sidebar"
+    <aside class="@($"app-sidebar {(mobileMenuOpen ? "mobile-open" : "")}")"
            aria-label="القائمة الجانبية">
 
         <AuthorizeView>
@@ -352,24 +734,45 @@
             @Body
         </main>
     </section>
-
 </div>
 
 @code {
+    private bool mobileMenuOpen;
+
     protected override void OnInitialized()
     {
         Theme.OnChange += StateHasChanged;
+        Nav.LocationChanged += HandleLocationChanged;
     }
 
     public void Dispose()
     {
         Theme.OnChange -= StateHasChanged;
+        Nav.LocationChanged -= HandleLocationChanged;
+    }
+
+    private void ToggleMobileMenu()
+    {
+        mobileMenuOpen = !mobileMenuOpen;
+    }
+
+    private void CloseMobileMenu()
+    {
+        mobileMenuOpen = false;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        mobileMenuOpen = false;
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private async Task GoHome()
     {
         var auth = await AuthState.GetAuthenticationStateAsync();
         var user = auth.User;
+
+        mobileMenuOpen = false;
 
         if (user.Identity?.IsAuthenticated != true)
         {
@@ -482,7 +885,6 @@
             min-height:38px !important;
             border-radius:999px !important;
             padding:0 20px !important;
-            display:inline-flex !important;
             align-items:center !important;
             justify-content:center !important;
             gap:9px !important;
@@ -493,7 +895,6 @@
             font-weight:950 !important;
             white-space:nowrap !important;
             z-index:2147483647 !important;
-            visibility:visible !important;
             opacity:1 !important;";
     }
 
@@ -506,7 +907,6 @@
             min-height:38px !important;
             border-radius:999px !important;
             padding:0 20px !important;
-            display:inline-flex !important;
             align-items:center !important;
             justify-content:center !important;
             gap:9px !important;

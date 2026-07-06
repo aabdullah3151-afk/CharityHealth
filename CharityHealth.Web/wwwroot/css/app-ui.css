@@ -12325,3 +12325,528 @@ html.theme-dark {
 .app-root.is-dark .page-canvas button span[style*="opacity"] {
     opacity: 1 !important;
 }
+
+/* =========================================================
+   CharityHealth MOBILE RESPONSIVE FINAL PATCH
+   ضع هذا البلوك في آخر app-ui.css
+   الهدف:
+   - ضبط الموقع كله على الهاتف.
+   - منع الـ horizontal scroll.
+   - جعل الصفحات والكروت والجداول مناسبة للموبايل.
+   - يعمل مع MainLayout_MobileDrawer.razor.
+   ========================================================= */
+
+@media (max-width: 900px) {
+    html,
+    body {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    body {
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .app-root,
+    .app-workspace,
+    .page-canvas {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow-x: hidden !important;
+    }
+
+    img,
+    svg,
+    video,
+    canvas {
+        max-width: 100% !important;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+        max-width: 100% !important;
+    }
+
+    /* Auth / Login */
+    .auth-layout {
+        min-height: 100dvh !important;
+        padding: 22px 14px !important;
+        align-items: flex-start !important;
+        overflow-x: hidden !important;
+    }
+
+    .login-shell {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 26px !important;
+        direction: rtl !important;
+    }
+
+    .login-card {
+        width: 100% !important;
+        min-height: auto !important;
+        padding: 30px 20px 26px !important;
+        border-radius: 26px !important;
+    }
+
+    .login-title-block h1 {
+        font-size: 32px !important;
+    }
+
+    .demo-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .field-shell {
+        height: 62px !important;
+        border-radius: 22px !important;
+    }
+
+    .login-submit {
+        height: 64px !important;
+        font-size: 20px !important;
+    }
+
+    .login-brand-panel {
+        order: -1 !important;
+        padding: 16px 0 0 !important;
+    }
+
+    .login-brand-panel .brand-mark {
+        width: 96px !important;
+        height: 96px !important;
+        border-radius: 24px !important;
+    }
+
+    .login-brand-panel .brand-mark.large {
+        margin-bottom: 24px !important;
+    }
+
+    .login-brand-panel h2 {
+        font-size: 38px !important;
+        line-height: 1.12 !important;
+    }
+
+    .login-brand-panel p {
+        font-size: 16px !important;
+        margin: 18px 0 22px !important;
+    }
+
+    .brand-metrics {
+        width: 100% !important;
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Register */
+    .auth-card.register-card {
+        width: calc(100% - 20px) !important;
+        margin: 20px auto !important;
+        border-radius: 26px !important;
+    }
+
+    .auth-card.register-card .auth-card-header,
+    .auth-card.register-card form {
+        padding-inline: 20px !important;
+    }
+
+    .auth-card.register-card .form-row,
+    .auth-card.register-card .btn-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* General page wrappers */
+    .admin-db-page,
+    .admin-home-page,
+    .admin-dashboard,
+    .admin-list-page,
+    .admin-pharmacy-page,
+    .requests-page,
+    .doctors-page,
+    .reports-page,
+    .create-doctor-page,
+    .beneficiary-dashboard,
+    .my-requests-page,
+    .beneficiary-notifications-page,
+    .notifications-page,
+    .consult-request-page,
+    .doctor-home-page,
+    .doctor-scan-modern-page,
+    .doctor-history-modern-page,
+    .pharmacy-dashboard,
+    .pharmacy-page {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: calc(100dvh - 72px) !important;
+        padding: 22px 14px 54px !important;
+        margin: 0 !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Head sections */
+    .admin-db-title,
+    .admin-home-header,
+    .admin-list-head,
+    .admin-pharmacy-head,
+    .requests-head,
+    .doctors-head,
+    .reports-head,
+    .create-doctor-head,
+    .my-requests-header,
+    .beneficiary-notifications-head,
+    .doctor-history-modern-head,
+    .doctor-section-title,
+    .doctor-result-head,
+    .doctor-scan-modern-head {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+        align-items: stretch !important;
+    }
+
+    .admin-db-title h1,
+    .admin-home-header h1,
+    .admin-list-head h1,
+    .admin-pharmacy-head h1,
+    .requests-head h1,
+    .doctors-head h1,
+    .reports-head h1,
+    .create-doctor-head h1,
+    .my-requests-header h1,
+    .beneficiary-notifications-head h1,
+    .doctor-history-modern-head h1 {
+        font-size: 32px !important;
+        line-height: 1.18 !important;
+        letter-spacing: -0.03em !important;
+    }
+
+    /* Hero blocks */
+    .beneficiary-hero,
+    .doctor-home-hero {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        padding: 28px 20px !important;
+        border-radius: 28px !important;
+        gap: 20px !important;
+        overflow: hidden !important;
+    }
+
+    .beneficiary-hero h1,
+    .doctor-hero-copy h1 {
+        font-size: 33px !important;
+        line-height: 1.2 !important;
+        word-break: normal !important;
+    }
+
+    .beneficiary-hero p,
+    .doctor-hero-copy p {
+        font-size: 15px !important;
+        line-height: 1.8 !important;
+    }
+
+    .beneficiary-primary-btn,
+    .doctor-hero-qr,
+    .doctor-add-btn,
+    .admin-pharmacy-add-btn,
+    .reports-export-btn,
+    .create-doctor-back,
+    .my-requests-new-btn,
+    .doctor-history-back-btn {
+        width: 100% !important;
+        justify-content: center !important;
+        position: static !important;
+    }
+
+    /* Grids -> one column */
+    .admin-db-stats,
+    .admin-home-stats,
+    .admin-stats-grid,
+    .admin-pharmacy-stats,
+    .beneficiary-stats-grid,
+    .reports-kpis,
+    .doctor-history-summary-grid,
+    .doctor-hero-stats,
+    .doctor-actions-row,
+    .doctor-current-list,
+    .doctor-days-strip,
+    .doctors-grid,
+    .admin-pharmacy-grid,
+    .my-requests-grid,
+    .notifications-grid,
+    .beneficiary-content-grid,
+    .admin-db-analytics,
+    .admin-home-main-grid,
+    .admin-home-bottom-grid,
+    .reports-bottom-grid,
+    .doctor-result-layout,
+    .consult-shell,
+    .consult-shell.fixed-order,
+    .consult-side,
+    .consult-personal-grid,
+    .doctor-form-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Cards */
+    .beneficiary-stat-card,
+    .admin-db-stat,
+    .admin-home-stat-card,
+    .admin-stat-card,
+    .report-kpi,
+    .doctor-history-summary-card,
+    .doctor-card,
+    .admin-pharmacy-card,
+    .my-request-card,
+    .notification-card,
+    .doctor-current-case,
+    .doctor-schedule-card,
+    .doctor-cases-panel,
+    .doctor-result-card,
+    .consult-main-card,
+    .consult-info-card,
+    .consult-steps-card,
+    .create-doctor-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .my-request-card,
+    .notification-card,
+    .beneficiary-request-row,
+    .doctor-current-case,
+    .current-case-head,
+    .current-case-actions {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+    }
+
+    .my-request-open-btn,
+    .notification-open,
+    .doctor-open-btn,
+    .doctor-complete-btn,
+    .request-view-btn,
+    .rq-accept,
+    .rq-reject,
+    .rq-view {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    /* Forms */
+    .doctor-form-actions,
+    .consult-footer-actions,
+    .auth-card.register-card .btn-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    .doctor-input,
+    .consult-case-area,
+    .clean-input,
+    .form-control {
+        font-size: 16px !important;
+    }
+
+    /* Tables stay scrollable instead of breaking the page */
+    .admin-table-wrap,
+    .requests-table-wrap,
+    .admin-db-table-wrap {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    .admin-modern-table,
+    .requests-table,
+    .admin-db-table {
+        min-width: 760px !important;
+    }
+
+    /* Filters */
+    .requests-tabs,
+    .my-requests-filter,
+    .doctor-history-tabs {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        padding-bottom: 8px !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    .requests-tabs button,
+    .my-requests-filter button,
+    .doctor-history-tabs button,
+    .rq-tab {
+        flex: 0 0 auto !important;
+        white-space: nowrap !important;
+    }
+
+    /* New request */
+    .consult-progress {
+        grid-template-columns: 1fr !important;
+    }
+
+    .consult-specialty-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .consult-main-card {
+        padding: 22px !important;
+    }
+
+    .consult-file-item {
+        grid-template-columns: 1fr !important;
+    }
+
+    .consult-file-item select,
+    .consult-remove-file {
+        width: 100% !important;
+    }
+
+    .consult-summary-box dl {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Doctor scan */
+    .doctor-scanner-box {
+        min-height: 360px !important;
+        padding: 26px !important;
+    }
+
+    .scanner-frame {
+        width: 230px !important;
+        height: 230px !important;
+    }
+
+    .patient-info-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 520px) {
+    .admin-db-title h1,
+    .admin-home-header h1,
+    .admin-list-head h1,
+    .admin-pharmacy-head h1,
+    .requests-head h1,
+    .doctors-head h1,
+    .reports-head h1,
+    .create-doctor-head h1,
+    .my-requests-header h1,
+    .beneficiary-notifications-head h1,
+    .doctor-history-modern-head h1,
+    .beneficiary-hero h1,
+    .doctor-hero-copy h1 {
+        font-size: 29px !important;
+    }
+
+    .beneficiary-stat-card strong,
+    .admin-db-stat strong,
+    .admin-home-stat-card strong,
+    .admin-stat-card strong,
+    .report-kpi strong {
+        font-size: 34px !important;
+    }
+
+    .notification-card {
+        grid-template-columns: 1fr !important;
+    }
+
+    .notification-icon {
+        justify-self: start !important;
+    }
+
+    .doctor-meta,
+    .doctor-stats,
+    .pharmacy-info,
+    .admin-pharmacy-info {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* =========================================================
+   GLOBAL WhatsApp floating support button
+   ========================================================= */
+
+.whatsapp-float-btn {
+    position: fixed !important;
+    left: 24px !important;
+    bottom: 24px !important;
+    width: 62px !important;
+    height: 62px !important;
+    border-radius: 50% !important;
+    background: #25d366 !important;
+    color: #ffffff !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-decoration: none !important;
+    box-shadow: 0 18px 36px rgba(37, 211, 102, .32) !important;
+    z-index: 2147483000 !important;
+}
+
+.whatsapp-float-btn:hover {
+    transform: translateY(-3px) scale(1.03) !important;
+    box-shadow: 0 22px 44px rgba(37, 211, 102, .42) !important;
+}
+
+.whatsapp-float-btn svg {
+    width: 34px !important;
+    height: 34px !important;
+    fill: currentColor !important;
+}
+
+.whatsapp-float-btn::after {
+    content: "تواصل واتساب" !important;
+    position: absolute !important;
+    left: 76px !important;
+    bottom: 10px !important;
+    min-height: 38px !important;
+    border-radius: 999px !important;
+    background: #111827 !important;
+    color: #ffffff !important;
+    padding: 0 14px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    white-space: nowrap !important;
+    font-size: 13px !important;
+    font-weight: 950 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateX(-8px) !important;
+    transition: .16s ease !important;
+}
+
+.whatsapp-float-btn:hover::after {
+    opacity: 1 !important;
+    transform: translateX(0) !important;
+}
+
+@media (max-width: 760px) {
+    .whatsapp-float-btn {
+        left: 16px !important;
+        bottom: 18px !important;
+        width: 56px !important;
+        height: 56px !important;
+    }
+
+    .whatsapp-float-btn svg {
+        width: 31px !important;
+        height: 31px !important;
+    }
+
+    .whatsapp-float-btn::after {
+        display: none !important;
+    }
+}
+
