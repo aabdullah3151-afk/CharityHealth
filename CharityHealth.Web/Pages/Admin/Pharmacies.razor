@@ -1,0 +1,349 @@
+@page "/admin/pharmacies"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject NavigationManager Nav
+
+<PageTitle>إدارة الصيدليات</PageTitle>
+
+<div class="admin-pharmacy-page" dir="rtl">
+
+    <header class="admin-pharmacy-head">
+        <div>
+            <div class="admin-pharmacy-kicker">Pharmacies 💊</div>
+            <h1>الصيدليات المتعاونة</h1>
+            <p>إدارة حسابات الصيدليات والصيادلة المتعاونين مع المؤسسة.</p>
+        </div>
+
+        <button type="button"
+                class="admin-pharmacy-add-btn"
+                @onclick='() => Nav.NavigateTo("/admin/pharmacies/create")'>
+            <span>+</span>
+            إضافة صيدلية
+        </button>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="admin-pharmacy-message @(messageOk ? "ok" : "bad")">
+            @message
+        </div>
+    }
+
+    @if (loading)
+    {
+        <section class="admin-pharmacy-state">
+            جارٍ تحميل الصيدليات...
+        </section>
+    }
+    else
+    {
+        <section class="admin-pharmacy-stats">
+            <article>
+                <span>إجمالي الصيدليات</span>
+                <strong>@rows.Count</strong>
+            </article>
+
+            <article>
+                <span>نشطة</span>
+                <strong>@rows.Count(x => x.IsActive)</strong>
+            </article>
+
+            <article>
+                <span>غير نشطة</span>
+                <strong>@rows.Count(x => !x.IsActive)</strong>
+            </article>
+        </section>
+
+        <section class="admin-pharmacy-toolbar">
+            <label>
+                <span>بحث</span>
+                <input @bind="search"
+                       @bind:event="oninput"
+                       placeholder="اسم الصيدلية، البريد، الهاتف..." />
+            </label>
+        </section>
+
+        @if (!FilteredRows.Any())
+        {
+            <section class="admin-pharmacy-empty">
+                <div>💊</div>
+                <h2>لا توجد صيدليات</h2>
+                <p>ابدأ بإضافة صيدلية جديدة، وسيتم إنشاء حساب دخول لها تلقائياً.</p>
+                <button type="button" @onclick='() => Nav.NavigateTo("/admin/pharmacies/create")'>
+                    إضافة صيدلية
+                </button>
+            </section>
+        }
+        else
+        {
+            <section class="admin-pharmacy-grid">
+                @foreach (var item in FilteredRows)
+                {
+                    <article class="admin-pharmacy-card">
+                        <div class="pharmacy-card-top">
+                            <div class="pharmacy-icon">💊</div>
+
+                            <div class="pharmacy-title">
+                                <h2>@item.NameAr</h2>
+                                <p>@item.Email</p>
+                            </div>
+
+                            <span class="pharmacy-status @(item.IsActive ? "active" : "inactive")">
+                                @(item.IsActive ? "نشطة" : "غير نشطة")
+                            </span>
+                        </div>
+
+                        <div class="pharmacy-info">
+                            <div>
+                                <span>الهاتف</span>
+                                <strong>@SafeText(item.PhoneNumber, "غير مسجل")</strong>
+                            </div>
+
+                            <div>
+                                <span>نوع الحساب</span>
+                                <strong>@item.UserTypeText</strong>
+                            </div>
+                        </div>
+
+                        <div class="pharmacy-login-note">
+                            كلمة المرور الافتراضية للحسابات الجديدة: <strong>12345678</strong>
+                        </div>
+
+                        <div class="pharmacy-actions">
+                            <button type="button"
+                                    class="soft"
+                                    disabled="@busy"
+                                    @onclick="() => ResetPassword(item.UserId)">
+                                إعادة الباسورد
+                            </button>
+
+                            <button type="button"
+                                    class="@(item.IsActive ? "danger" : "success")"
+                                    disabled="@busy"
+                                    @onclick="() => ToggleActive(item.UserId)">
+                                @(item.IsActive ? "تعطيل" : "تفعيل")
+                            </button>
+                        </div>
+                    </article>
+                }
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private const string PharmacistRoleName = "Pharmacist";
+    private const string DefaultPassword = "12345678";
+
+    private bool loading = true;
+    private bool busy;
+    private bool messageOk;
+
+    private string search = string.Empty;
+    private string? message;
+
+    private List<PharmacyAdminRow> rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRows();
+    }
+
+    private async Task LoadRows()
+    {
+        loading = true;
+        message = null;
+
+        try
+        {
+            await EnsurePharmacistRole();
+
+            var users = await UserManager.Users
+                .AsNoTracking()
+                .OrderBy(u => u.FullNameAr)
+                .ToListAsync();
+
+            var result = new List<PharmacyAdminRow>();
+
+            foreach (var user in users)
+            {
+                var inPharmacistRole = await UserManager.IsInRoleAsync(user, PharmacistRoleName);
+                var userTypeText = user.UserType.ToString();
+
+                if (!inPharmacistRole && !string.Equals(userTypeText, "Pharmacist", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                result.Add(new PharmacyAdminRow(
+                    user.Id,
+                    SafeText(user.FullNameAr, "صيدلية بدون اسم"),
+                    SafeText(user.Email, "بدون بريد"),
+                    user.PhoneNumber,
+                    user.IsActive,
+                    userTypeText
+                ));
+            }
+
+            rows = result;
+        }
+        catch
+        {
+            messageOk = false;
+            message = "حدث خطأ أثناء تحميل الصيدليات.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private IEnumerable<PharmacyAdminRow> FilteredRows
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(search))
+            {
+                return rows;
+            }
+
+            var term = search.Trim();
+
+            return rows.Where(x =>
+                Contains(x.NameAr, term) ||
+                Contains(x.Email, term) ||
+                Contains(x.PhoneNumber, term) ||
+                Contains(x.UserTypeText, term));
+        }
+    }
+
+    private async Task ToggleActive(string userId)
+    {
+        if (busy)
+        {
+            return;
+        }
+
+        busy = true;
+        message = null;
+
+        try
+        {
+            var user = await UserManager.FindByIdAsync(userId);
+
+            if (user is null)
+            {
+                messageOk = false;
+                message = "لم يتم العثور على الحساب.";
+                return;
+            }
+
+            user.IsActive = !user.IsActive;
+
+            var result = await UserManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                messageOk = false;
+                message = string.Join(" | ", result.Errors.Select(e => e.Description));
+                return;
+            }
+
+            messageOk = true;
+            message = user.IsActive ? "تم تفعيل الصيدلية بنجاح." : "تم تعطيل الصيدلية بنجاح.";
+
+            await LoadRows();
+        }
+        catch
+        {
+            messageOk = false;
+            message = "تعذر تحديث حالة الحساب.";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task ResetPassword(string userId)
+    {
+        if (busy)
+        {
+            return;
+        }
+
+        busy = true;
+        message = null;
+
+        try
+        {
+            var user = await UserManager.FindByIdAsync(userId);
+
+            if (user is null)
+            {
+                messageOk = false;
+                message = "لم يتم العثور على الحساب.";
+                return;
+            }
+
+            var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+            var result = await UserManager.ResetPasswordAsync(user, token, DefaultPassword);
+
+            if (!result.Succeeded)
+            {
+                messageOk = false;
+                message = string.Join(" | ", result.Errors.Select(e => e.Description));
+                return;
+            }
+
+            messageOk = true;
+            message = "تمت إعادة كلمة المرور إلى 12345678.";
+        }
+        catch
+        {
+            messageOk = false;
+            message = "تعذر إعادة كلمة المرور.";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task EnsurePharmacistRole()
+    {
+        if (!await RoleManager.RoleExistsAsync(PharmacistRoleName))
+        {
+            await RoleManager.CreateAsync(new IdentityRole(PharmacistRoleName));
+        }
+    }
+
+    private static bool Contains(string? source, string term)
+    {
+        return !string.IsNullOrWhiteSpace(source)
+            && source.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string SafeText(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private sealed record PharmacyAdminRow(
+        string UserId,
+        string NameAr,
+        string Email,
+        string? PhoneNumber,
+        bool IsActive,
+        string UserTypeText
+    );
+}

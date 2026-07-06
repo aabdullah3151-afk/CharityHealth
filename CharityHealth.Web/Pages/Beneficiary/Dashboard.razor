@@ -1,16 +1,399 @@
-
 @page "/portal/dashboard"
+@page "/beneficiary/dashboard"
+
+@layout MainLayout
 @attribute [Authorize(Roles = "Beneficiary")]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
 @inject HealthcareUiService Ui
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
-@using System.Security.Claims
-@using CharityHealth.Domain.Enums
-@using CharityHealth.Web.Shared.Components
 
 <PageTitle>لوحة المستفيد</PageTitle>
-<div class="page-head"><div><span class="eyebrow">🧍 Patient Portal</span><h2>أهلاً، @userName 👋</h2><p>قدّم طلب كشف مجاني وتابع حالة الطلب حتى الكشف.</p></div><button class="ui-btn primary" @onclick='() => Nav.NavigateTo("/portal/request/new")'>➕ طلب جديد</button></div>
-@if(loading){<div class="loading-card">تحميل...</div>}else{
-<div class="stat-grid"><UiStatCard Icon="📋" Title="كل الطلبات" Value="@rows.Count.ToString()" Tone="blue" /><UiStatCard Icon="⏳" Title="قيد المراجعة" Value="@rows.Count(x=>x.Status==RequestStatus.Submitted||x.Status==RequestStatus.UnderReview).ToString()" Tone="amber" /><UiStatCard Icon="✅" Title="مقبولة" Value="@rows.Count(x=>x.Status==RequestStatus.Approved).ToString()" Tone="green" /><UiStatCard Icon="🏁" Title="مكتملة" Value="@rows.Count(x=>x.Status==RequestStatus.Completed).ToString()" Tone="teal" /></div>
-<section class="ui-card"><div class="card-title-row"><h3>طلباتي</h3><a href="/portal/requests">عرض كل الطلبات</a></div><div class="request-cards compact">@foreach(var r in rows.Take(5)){<article class="request-card"><div class="request-main"><div class="avatar-circle">🏥</div><div><h3>@r.SpecialtyName</h3><p>@r.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy") · 📎 @r.DocumentsCount</p></div></div><StatusPill Text="@r.StatusAr" Tone="@r.StatusCss" /><button class="mini-btn" @onclick='() => Nav.NavigateTo($"/portal/request/{r.Id}")'>تفاصيل</button></article>}</div>@if(rows.Count==0){<div class="empty-state">لا توجد طلبات بعد. ابدأ بطلب جديد.</div>}</section>}
-@code{private bool loading=true; private string userName="مستفيد"; private List<RequestWorkItem> rows=[]; protected override async Task OnInitializedAsync(){var auth=await AuthState.GetAuthenticationStateAsync(); userName=auth.User.FindFirst("FullNameAr")?.Value??auth.User.Identity?.Name??"مستفيد"; var uid=auth.User.FindFirstValue(ClaimTypes.NameIdentifier)??""; rows=await Ui.GetBeneficiaryRequestsAsync(uid); loading=false;}}
+
+<div class="beneficiary-dashboard" dir="rtl">
+
+    <header class="beneficiary-hero">
+        <div>
+            <div class="beneficiary-kicker">👤 Beneficiary Portal</div>
+
+            <h1>مرحباً بك في لوحة المستفيد</h1>
+
+            <p>
+                تابع طلبات الكشف، حالة المراجعة، ونتائج الموافقة من مكان واحد.
+            </p>
+        </div>
+
+        <button type="button"
+                class="beneficiary-primary-btn"
+                @onclick='() => Nav.NavigateTo("/portal/request/new")'>
+            <span>+</span>
+            طلب كشف جديد
+        </button>
+    </header>
+
+    @if (loading)
+    {
+        <section class="beneficiary-state-card">
+            جارٍ تحميل بياناتك...
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMsg))
+    {
+        <section class="beneficiary-alert bad">
+            @errorMsg
+        </section>
+    }
+    else
+    {
+        <section class="beneficiary-stats-grid">
+
+            <article class="beneficiary-stat-card total">
+                <span>إجمالي الطلبات</span>
+                <strong>@TotalRequests</strong>
+                <small>كل الطلبات المسجلة باسمك</small>
+            </article>
+
+            <article class="beneficiary-stat-card pending">
+                <span>قيد المراجعة</span>
+                <strong>@PendingRequests</strong>
+                <small>طلبات بانتظار قرار الإدارة</small>
+            </article>
+
+            <article class="beneficiary-stat-card approved">
+                <span>طلبات مقبولة</span>
+                <strong>@ApprovedRequests</strong>
+                <small>يمكنك التوجه للكشف بعد التنسيق</small>
+            </article>
+
+            <article class="beneficiary-stat-card completed">
+                <span>طلبات مكتملة</span>
+                <strong>@CompletedRequests</strong>
+                <small>تم إنهاء الكشف أو الخدمة</small>
+            </article>
+
+        </section>
+
+        <section class="beneficiary-content-grid">
+
+            <article class="beneficiary-panel large">
+                <div class="panel-head">
+                    <div>
+                        <h2>آخر الطلبات</h2>
+                        <p>أحدث الطلبات التي قمت بتقديمها.</p>
+                    </div>
+
+                    <button type="button"
+                            class="beneficiary-light-btn"
+                            @onclick='() => Nav.NavigateTo("/portal/requests")'>
+                        عرض الكل
+                    </button>
+                </div>
+
+                @if (recentRequests.Count == 0)
+                {
+                    <div class="beneficiary-empty-box">
+                        <div>📝</div>
+
+                        <strong>لا توجد طلبات حتى الآن</strong>
+
+                        <span>
+                            ابدأ بتقديم طلب كشف جديد وسيظهر هنا.
+                        </span>
+
+                        <button type="button"
+                                @onclick='() => Nav.NavigateTo("/portal/request/new")'>
+                            تقديم طلب الآن
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="beneficiary-requests-list">
+                        @foreach (var request in recentRequests)
+                        {
+                            <article class="beneficiary-request-row">
+                                <div class="request-main">
+                                    <div class="request-icon">🩺</div>
+
+                                    <div>
+                                        <h3>@request.SpecialtyName</h3>
+                                        <p>@ShortText(request.DescriptionAr)</p>
+
+                                        <div class="request-meta">
+                                            <span>📍 @request.City</span>
+                                            <span>📅 @request.SubmittedAt.ToLocalTime().ToString("yyyy/MM/dd")</span>
+                                            <span>📎 @request.DocumentsCount ملف</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="request-side">
+                                    <span class="beneficiary-status @request.StatusCss">
+                                        @request.StatusAr
+                                    </span>
+
+                                    <button type="button"
+                                            class="request-view-btn"
+                                            @onclick='() => OpenRequest(request.Id)'>
+                                        التفاصيل
+                                    </button>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+            </article>
+
+            <aside class="beneficiary-side-stack">
+
+                <article class="beneficiary-panel">
+                    <div class="panel-head compact">
+                        <div>
+                            <h2>الخطوة التالية</h2>
+                            <p>اقتراح حسب حالة طلباتك.</p>
+                        </div>
+                    </div>
+
+                    <div class="next-action-card">
+                        <div class="next-action-icon">@NextActionIcon</div>
+
+                        <strong>@NextActionTitle</strong>
+
+                        <span>@NextActionDescription</span>
+
+                        <button type="button"
+                                @onclick="GoToNextAction">
+                            @NextActionButton
+                        </button>
+                    </div>
+                </article>
+
+                <article class="beneficiary-panel">
+                    <div class="panel-head compact">
+                        <div>
+                            <h2>ملخص الحالة</h2>
+                            <p>نسبة توزيع طلباتك الحالية.</p>
+                        </div>
+                    </div>
+
+                    <div class="beneficiary-progress-list">
+
+                        <div class="progress-row">
+                            <div>
+                                <span>قيد المراجعة</span>
+                                <strong>@PendingPercent%</strong>
+                            </div>
+
+                            <div class="progress-track">
+                                <i style="width:@PendingPercent%"></i>
+                            </div>
+                        </div>
+
+                        <div class="progress-row">
+                            <div>
+                                <span>مقبولة</span>
+                                <strong>@ApprovedPercent%</strong>
+                            </div>
+
+                            <div class="progress-track approved">
+                                <i style="width:@ApprovedPercent%"></i>
+                            </div>
+                        </div>
+
+                        <div class="progress-row">
+                            <div>
+                                <span>مكتملة</span>
+                                <strong>@CompletedPercent%</strong>
+                            </div>
+
+                            <div class="progress-track completed">
+                                <i style="width:@CompletedPercent%"></i>
+                            </div>
+                        </div>
+
+                    </div>
+                </article>
+
+            </aside>
+
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private string? errorMsg;
+
+    private List<RequestWorkItem> requests = [];
+    private List<RequestWorkItem> recentRequests = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        errorMsg = null;
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                errorMsg = "تعذر قراءة بيانات المستخدم الحالي. برجاء تسجيل الدخول مرة أخرى.";
+                return;
+            }
+
+            requests = await Ui.GetBeneficiaryRequestsAsync(userId);
+
+            recentRequests = requests
+                .OrderByDescending(r => r.SubmittedAt)
+                .Take(5)
+                .ToList();
+        }
+        catch
+        {
+            errorMsg = "حدث خطأ أثناء تحميل بيانات لوحة المستفيد.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private int TotalRequests => requests.Count;
+
+    private int PendingRequests => requests.Count(r =>
+        r.Status is RequestStatus.Submitted or RequestStatus.UnderReview
+    );
+
+    private int ApprovedRequests => requests.Count(r => r.Status == RequestStatus.Approved);
+
+    private int CompletedRequests => requests.Count(r => r.Status == RequestStatus.Completed);
+
+    private int RejectedRequests => requests.Count(r => r.Status == RequestStatus.Rejected);
+
+    private int PendingPercent => Percent(PendingRequests);
+
+    private int ApprovedPercent => Percent(ApprovedRequests);
+
+    private int CompletedPercent => Percent(CompletedRequests);
+
+    private string NextActionIcon
+    {
+        get
+        {
+            if (TotalRequests == 0) return "📝";
+            if (ApprovedRequests > 0) return "✅";
+            if (PendingRequests > 0) return "⏳";
+            if (RejectedRequests > 0) return "🔁";
+            return "📌";
+        }
+    }
+
+    private string NextActionTitle
+    {
+        get
+        {
+            if (TotalRequests == 0) return "ابدأ بأول طلب";
+            if (ApprovedRequests > 0) return "لديك طلب مقبول";
+            if (PendingRequests > 0) return "طلبك قيد المراجعة";
+            if (RejectedRequests > 0) return "يمكنك تقديم طلب جديد";
+            return "تابع طلباتك";
+        }
+    }
+
+    private string NextActionDescription
+    {
+        get
+        {
+            if (TotalRequests == 0)
+            {
+                return "قم بتقديم طلب كشف جديد وسيتم مراجعته من الإدارة.";
+            }
+
+            if (ApprovedRequests > 0)
+            {
+                return "يوجد طلب تمت الموافقة عليه. راجع التفاصيل لمعرفة الخطوة التالية.";
+            }
+
+            if (PendingRequests > 0)
+            {
+                return "طلبك وصل للإدارة وسيتم اتخاذ قرار بعد المراجعة.";
+            }
+
+            if (RejectedRequests > 0)
+            {
+                return "يمكنك مراجعة سبب الرفض وتقديم طلب جديد ببيانات أوضح.";
+            }
+
+            return "راجع قائمة الطلبات لمعرفة آخر تحديثات حالتك.";
+        }
+    }
+
+    private string NextActionButton
+    {
+        get
+        {
+            if (TotalRequests == 0 || RejectedRequests > 0)
+            {
+                return "طلب كشف جديد";
+            }
+
+            return "عرض الطلبات";
+        }
+    }
+
+    private void GoToNextAction()
+    {
+        if (TotalRequests == 0 || RejectedRequests > 0)
+        {
+            Nav.NavigateTo("/portal/request/new");
+            return;
+        }
+
+        Nav.NavigateTo("/portal/requests");
+    }
+
+    private void OpenRequest(Guid id)
+    {
+        Nav.NavigateTo($"/portal/requests/{id}");
+    }
+
+    private int Percent(int value)
+    {
+        if (TotalRequests == 0)
+        {
+            return 0;
+        }
+
+        return (int)Math.Round((double)value / TotalRequests * 100);
+    }
+
+    private static string ShortText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "لا يوجد وصف مرفق";
+        }
+
+        value = value.Trim();
+
+        if (value.Length <= 85)
+        {
+            return value;
+        }
+
+        return value[..85] + "...";
+    }
+}

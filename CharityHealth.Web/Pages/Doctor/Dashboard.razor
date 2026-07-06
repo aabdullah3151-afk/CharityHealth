@@ -1,13 +1,394 @@
-
 @page "/doctor/dashboard"
+@layout MainLayout
 @attribute [Authorize(Roles = "Doctor")]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
 @inject HealthcareUiService Ui
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
-@using System.Security.Claims
-@using CharityHealth.Web.Shared.Components
 
 <PageTitle>لوحة الطبيب</PageTitle>
-<div class="page-head"><div><span class="eyebrow">🩺 Doctor Desk</span><h2>حالات الكشف المتاحة</h2><p>تظهر هنا الحالات الموافق عليها في تخصص الطبيب.</p></div><button class="ui-btn primary" @onclick='() => Nav.NavigateTo("/doctor/scan")'>🎟️ مسح QR</button></div>
-@if(loading){<div class="loading-card">تحميل...</div>}else{<div class="request-cards">@foreach(var r in queue){<article class="request-card"><div class="request-main"><div class="avatar-circle">@Initial(r.BeneficiaryName)</div><div><h3>@r.BeneficiaryName</h3><p>@r.SpecialtyName · @r.BeneficiaryPhone</p><small>@r.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy")</small></div></div><StatusPill Text="@r.StatusAr" Tone="@r.StatusCss" /><p class="request-desc">@r.DescriptionAr</p><div class="action-row"><button class="mini-btn ok" @onclick='() => Nav.NavigateTo($"/doctor/scan?requestId={r.Id}")'>فتح الحالة</button></div></article>}</div>@if(queue.Count==0){<div class="empty-state ui-card">لا توجد حالات موجهة لتخصصك حاليًا ✅</div>}}
-@code{private bool loading=true; private List<RequestWorkItem> queue=[]; protected override async Task OnInitializedAsync(){var auth=await AuthState.GetAuthenticationStateAsync(); var uid=auth.User.FindFirstValue(ClaimTypes.NameIdentifier)??""; queue=await Ui.GetDoctorQueueAsync(uid); loading=false;} static string Initial(string name)=>string.IsNullOrWhiteSpace(name)?"؟":name.Trim()[0].ToString();}
+
+<div class="doctor-home-page" dir="rtl">
+
+    <section class="doctor-home-hero">
+        <div class="doctor-hero-copy">
+            <span>مرحباً</span>
+            <h1>@doctorName</h1>
+            <p>@doctorSpecialty · @WorkingHoursText</p>
+        </div>
+
+        <button type="button"
+                class="doctor-hero-qr"
+                @onclick='() => Nav.NavigateTo("/doctor/scan")'>
+            <span>⌗</span>
+            مسح QR
+        </button>
+
+        <div class="doctor-hero-stats">
+            <article>
+                <strong>@CompletedCount</strong>
+                <span>مكتملة</span>
+            </article>
+
+            <article>
+                <strong>@BookedCount</strong>
+                <span>محجوزة</span>
+            </article>
+
+            <article>
+                <strong>@PendingCount</strong>
+                <span>طلبات معلقة</span>
+            </article>
+        </div>
+    </section>
+
+    @if (loading)
+    {
+        <section class="doctor-home-state">
+            جارٍ تحميل بيانات الطبيب...
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMsg))
+    {
+        <section class="doctor-home-alert">
+            @errorMsg
+        </section>
+    }
+    else
+    {
+        <section class="doctor-schedule-card">
+            <div class="doctor-section-title">
+                <h2>جدول الأيام القادمة</h2>
+                <p>نظرة سريعة على أيام العمل والحالات المنتظرة.</p>
+            </div>
+
+            <div class="doctor-days-strip">
+                @foreach (var day in UpcomingDays)
+                {
+                    <article class="doctor-day-card @day.CssClass">
+                        <span>@day.DayName</span>
+                        <strong>@day.DayNumber</strong>
+                        <small>@day.MonthName</small>
+                        <em>@day.Label</em>
+                    </article>
+                }
+            </div>
+        </section>
+
+        <section class="doctor-actions-row">
+            <button type="button"
+                    class="doctor-action-card green"
+                    @onclick='() => ScrollToCases()'>
+                <span>☷</span>
+                حالات اليوم
+            </button>
+
+            <button type="button"
+                    class="doctor-action-card blue"
+                    @onclick='() => ScrollToSchedule()'>
+                <span>▣</span>
+                جدول اليوم
+            </button>
+
+            <button type="button"
+                    class="doctor-action-card mint"
+                    @onclick='() => Nav.NavigateTo("/doctor/history")'>
+                <span>✓</span>
+                نتيجة كشف
+            </button>
+
+            <button type="button"
+                    class="doctor-action-card purple"
+                    @onclick='() => Nav.NavigateTo("/doctor/scan")'>
+                <span>⌗</span>
+                مسح QR
+            </button>
+        </section>
+
+        <section id="doctor-cases" class="doctor-cases-panel">
+            <div class="doctor-section-title cases-title">
+                <div>
+                    <h2>الحالات الحالية</h2>
+                    <p>الطلبات المحولة إلى حساب الطبيب.</p>
+                </div>
+
+                <button type="button"
+                        class="doctor-refresh-btn"
+                        @onclick="LoadData">
+                    تحديث
+                </button>
+            </div>
+
+            @if (!ActiveRequests.Any())
+            {
+                <div class="doctor-home-empty">
+                    <div>🩺</div>
+                    <h3>لا توجد حالات حالية</h3>
+                    <p>عند تحويل طلب من الإدارة إلى الطبيب سيظهر هنا.</p>
+                </div>
+            }
+            else
+            {
+                <div class="doctor-current-list">
+                    @foreach (var item in ActiveRequests)
+                    {
+                        <article class="doctor-current-case">
+                            <div class="current-case-head">
+                                <div>
+                                    <h3>@item.BeneficiaryName</h3>
+                                    <p>@item.SpecialtyName · @SafeText(item.City, "بدون مدينة")</p>
+                                </div>
+
+                                <span class="doctor-case-status @StatusClass(item.Status)">
+                                    @item.StatusAr
+                                </span>
+                            </div>
+
+                            <p class="current-case-desc">
+                                @ShortText(item.DescriptionAr)
+                            </p>
+
+                            <div class="current-case-meta">
+                                <span>📞 @SafeText(item.BeneficiaryPhone, "لا يوجد هاتف")</span>
+                                <span>📎 @item.DocumentsCount مستند</span>
+                                <span>📅 @FormatDate(item.SubmittedAt)</span>
+                            </div>
+
+                            <div class="current-case-actions">
+                                <button type="button"
+                                    class="doctor-open-btn"
+                                    @onclick='() => Nav.NavigateTo("/doctor/history")'>
+                                    عرض السجل
+                                </button>
+
+                                <button type="button"
+                                        class="doctor-complete-btn"
+                                        disabled="@busy"
+                                        @onclick="() => CompleteCase(item.Id)">
+                                    إنهاء الكشف
+                                </button>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private bool busy;
+    private string? errorMsg;
+
+    private string doctorUserId = string.Empty;
+    private string doctorName = "د. الطبيب";
+    private string doctorSpecialty = "طبيب";
+
+    private List<RequestWorkItem> queue = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        errorMsg = null;
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+
+            doctorUserId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+            doctorName =
+                auth.User.FindFirst("FullNameAr")?.Value
+                ?? auth.User.Identity?.Name
+                ?? "د. الطبيب";
+
+            doctorSpecialty =
+                auth.User.FindFirst("SpecialtyName")?.Value
+                ?? auth.User.FindFirst("Specialty")?.Value
+                ?? "طبيب";
+
+            if (string.IsNullOrWhiteSpace(doctorUserId))
+            {
+                errorMsg = "تعذر قراءة حساب الطبيب الحالي. برجاء تسجيل الدخول مرة أخرى.";
+                return;
+            }
+
+            queue = (await Ui.GetDoctorQueueAsync(doctorUserId))
+                .OrderByDescending(r => r.SubmittedAt)
+                .ToList();
+        }
+        catch
+        {
+            errorMsg = "حدث خطأ أثناء تحميل بيانات الطبيب.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private IEnumerable<RequestWorkItem> ActiveRequests =>
+        queue.Where(r => r.Status is RequestStatus.Approved or RequestStatus.UnderReview or RequestStatus.Submitted);
+
+    private int PendingCount => queue.Count(r => r.Status is RequestStatus.Submitted or RequestStatus.UnderReview);
+    private int BookedCount => queue.Count(r => r.Status == RequestStatus.Approved);
+    private int CompletedCount => queue.Count(r => r.Status == RequestStatus.Completed);
+
+    private string WorkingHoursText => "9:00 ص — 1:00 م";
+
+    private IEnumerable<DoctorDayView> UpcomingDays
+    {
+        get
+        {
+            var today = DateTime.Today;
+
+            for (var i = 0; i < 7; i++)
+            {
+                var date = today.AddDays(i);
+                var dayRequests = queue.Count(r => r.SubmittedAt.Date == date.Date);
+                var isToday = date.Date == today;
+                var isWeekend = date.DayOfWeek is DayOfWeek.Friday or DayOfWeek.Saturday;
+
+                var label = isWeekend ? "غير متاح" : dayRequests > 0 ? "طلب قيد المراجعة" : "متاح";
+                var css = isToday ? "today" : isWeekend ? "off" : dayRequests > 0 ? "has-request" : "available";
+
+                yield return new DoctorDayView(
+                    DayName: ArabicDay(date.DayOfWeek),
+                    DayNumber: date.Day.ToString(),
+                    MonthName: ArabicMonth(date.Month),
+                    Label: label,
+                    CssClass: css
+                );
+            }
+        }
+    }
+
+    private async Task CompleteCase(Guid requestId)
+    {
+        if (busy)
+        {
+            return;
+        }
+
+        busy = true;
+        errorMsg = null;
+
+        try
+        {
+            var result = await Ui.CompleteRequestAsync(requestId, doctorUserId, "تم إنهاء الكشف من لوحة الطبيب.");
+
+            if (!result.Succeeded)
+            {
+                errorMsg = result.Message;
+                return;
+            }
+
+            await LoadData();
+        }
+        catch
+        {
+            errorMsg = "تعذر إنهاء الكشف حالياً.";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void ScrollToCases()
+    {
+        Nav.NavigateTo("/doctor/dashboard#doctor-cases");
+    }
+
+    private void ScrollToSchedule()
+    {
+        Nav.NavigateTo("/doctor/dashboard");
+    }
+
+    private static string StatusClass(RequestStatus status)
+    {
+        return status switch
+        {
+            RequestStatus.Approved => "approved",
+            RequestStatus.Completed => "completed",
+            RequestStatus.Rejected => "rejected",
+            _ => "pending"
+        };
+    }
+
+    private static string ShortText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "لا يوجد وصف مرفق للحالة.";
+        }
+
+        value = value.Trim();
+        return value.Length <= 120 ? value : value[..120] + "...";
+    }
+
+    private static string FormatDate(DateTime date)
+    {
+        return date.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+    }
+
+    private static string SafeText(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string ArabicDay(DayOfWeek day)
+    {
+        return day switch
+        {
+            DayOfWeek.Saturday => "السبت",
+            DayOfWeek.Sunday => "الأحد",
+            DayOfWeek.Monday => "الإثنين",
+            DayOfWeek.Tuesday => "الثلاثاء",
+            DayOfWeek.Wednesday => "الأربعاء",
+            DayOfWeek.Thursday => "الخميس",
+            DayOfWeek.Friday => "الجمعة",
+            _ => ""
+        };
+    }
+
+    private static string ArabicMonth(int month)
+    {
+        return month switch
+        {
+            1 => "يناير",
+            2 => "فبراير",
+            3 => "مارس",
+            4 => "أبريل",
+            5 => "مايو",
+            6 => "يونيو",
+            7 => "يوليو",
+            8 => "أغسطس",
+            9 => "سبتمبر",
+            10 => "أكتوبر",
+            11 => "نوفمبر",
+            12 => "ديسمبر",
+            _ => ""
+        };
+    }
+
+    private sealed record DoctorDayView(
+        string DayName,
+        string DayNumber,
+        string MonthName,
+        string Label,
+        string CssClass
+    );
+}

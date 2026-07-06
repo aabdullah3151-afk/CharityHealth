@@ -4,17 +4,43 @@
 @inject UiThemeService Theme
 @inject NavigationManager Nav
 
-<div class="@($"app-root {Theme.CssClass}")" dir="rtl">
-    <aside class="app-sidebar" aria-label="القائمة الجانبية">
-        <div class="brand-block" @onclick='() => Nav.NavigateTo("/")'>
-            <div class="brand-copy">
-                <div class="brand-title">مستشفى بلا مستشفى</div>
-                <div class="brand-subtitle">رحمة بلا حدود</div>
-            </div>
+<div class="@($"app-root figma-shell {Theme.CssClass}")" dir="rtl">
+    <header class="app-topbar">
+        <div class="topbar-actions">
+            <a class="topbar-logout" href="/account/logout">
+                <span>خروج</span>
+                <span>↢</span>
+            </a>
 
-            <div class="brand-mark" aria-hidden="true"></div>
+            <button class="theme-toggle"
+                    type="button"
+                    @onclick="Theme.Toggle"
+                    title="تبديل الوضع"
+                    aria-label="تبديل الوضع">
+                <span>@Theme.Icon</span>
+            </button>
         </div>
 
+        <AuthorizeView>
+            <Authorized Context="auth">
+                <div class="top-user-chip">
+                    <span class="chip-dot"></span>
+                    <strong>@(auth.User.FindFirst("FullNameAr")?.Value ?? auth.User.Identity?.Name)</strong>
+                    <span>· @RoleLabel(auth.User.FindFirst("UserType")?.Value)</span>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <div class="topbar-brand" @onclick='() => Nav.NavigateTo("/")'>
+            <div>
+                <strong>مستشفى بلا مستشفى</strong>
+                <span>رحمة بلا حدود</span>
+            </div>
+            <div class="brand-mark" aria-hidden="true"></div>
+        </div>
+    </header>
+
+    <aside class="app-sidebar" aria-label="القائمة الجانبية">
         <AuthorizeView>
             <Authorized Context="auth">
                 <div class="sidebar-user-card">
@@ -41,33 +67,6 @@
     </aside>
 
     <section class="app-workspace">
-        <header class="app-topbar">
-            <div class="topbar-actions">
-                <a class="topbar-logout" href="/account/logout">
-                    <span>خروج</span>
-                    <span>↢</span>
-                </a>
-
-                <button class="theme-toggle"
-                        type="button"
-                        @onclick="Theme.Toggle"
-                        title="تبديل الوضع"
-                        aria-label="تبديل الوضع">
-                    <span>@Theme.Icon</span>
-                </button>
-            </div>
-
-            <AuthorizeView>
-                <Authorized Context="auth">
-                    <div class="top-user-chip">
-                        <span class="chip-dot"></span>
-                        <strong>@(auth.User.FindFirst("FullNameAr")?.Value ?? auth.User.Identity?.Name)</strong>
-                        <span>· @RoleLabel(auth.User.FindFirst("UserType")?.Value)</span>
-                    </div>
-                </Authorized>
-            </AuthorizeView>
-        </header>
-
         <main class="page-canvas">
             @Body
         </main>
@@ -89,7 +88,7 @@
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return "ع";
+            return "ف";
         }
 
         return value.Trim()[0].ToString();
@@ -101,6 +100,6 @@
         "Staff" => "موظف",
         "Doctor" => "طبيب",
         "Beneficiary" => "مستفيد",
-        _ => "إدارة"
+        _ => "مستفيد"
     };
 }

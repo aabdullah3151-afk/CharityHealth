@@ -1,11 +1,16 @@
 ﻿@page "/portal/request/new"
 @attribute [Authorize(Roles = "Beneficiary")]
+
 @using CharityHealth.Application.Features.Requests.Commands
 @using CharityHealth.Domain.Entities
 @using CharityHealth.Domain.Enums
 @using CharityHealth.Domain.Interfaces.Repositories
 @using MediatR
 @using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+
 @inject IMediator Mediator
 @inject IUnitOfWork UoW
 @inject NavigationManager Nav
@@ -13,172 +18,429 @@
 
 <PageTitle>طلب كشف طبي جديد</PageTitle>
 
-<div class="portal-wrap">
+<div class="consult-request-page" dir="rtl">
 
-    <div class="page-header">
-        <button class="btn-back" @onclick='() => Nav.NavigateTo("/portal/dashboard")'>
-            → رجوع
+    <header class="consult-request-head">
+        <button type="button"
+                class="consult-back-btn"
+                @onclick='() => Nav.NavigateTo("/portal/dashboard")'>
+            ›
         </button>
-        <h1 class="page-title">➕ طلب كشف طبي جديد</h1>
-    </div>
 
-    @if (submitted)
-    {
-        <!-- ── Success ─────────────────────────────────── -->
-        <div class="success-card">
-            <div class="success-icon-lg">✅</div>
-            <h2>تم تقديم طلبك بنجاح!</h2>
-            <p>رقم الطلب: <strong class="request-id-display">@newRequestId</strong></p>
-            <p class="success-note">سيتم مراجعة طلبك من قِبل فريق الجمعية وسيصلك إشعار بالنتيجة</p>
-            <div class="success-actions">
-                <button class="btn-primary"
-                        @onclick='() => Nav.NavigateTo($"/portal/request/{newRequestId}")'>
-                    متابعة الطلب
-                </button>
-                <button class="btn-secondary"
-                        @onclick='() => Nav.NavigateTo("/portal/dashboard")'>
-                    العودة للرئيسية
-                </button>
-            </div>
+        <div>
+            <h1>طلب استشارة طبية</h1>
+            <p>الخطوة @currentStep من 3 — @CurrentStepTitle</p>
         </div>
-    }
-    else
-    {
-        <div class="form-card">
-            <EditForm Model="@model" OnValidSubmit="HandleSubmit">
-                <DataAnnotationsValidator />
+    </header>
 
-                <!-- ── Specialty ──────────────────────────── -->
-                <div class="form-section">
-                    <h3 class="form-section-title">🏥 التخصص الطبي المطلوب</h3>
+    <section class="consult-progress">
+        @for (var i = 0; i < wizardSteps.Count; i++)
+        {
+            var stepNo = i + 1;
 
-                    @if (specialties.Any())
-                    {
-                        <div class="specialty-grid">
-                            @foreach (var spec in specialties)
-                            {
-                                <button type="button"
-                                        class="specialty-btn @(model.SpecialtyId == spec.Id ? "selected" : "")"
-                                        @onclick="() => model.SpecialtyId = spec.Id">
-                                    @spec.NameAr
-                                </button>
-                            }
-                        </div>
-                        @if (model.SpecialtyId == Guid.Empty)
-                        {
-                            <span class="field-error">يجب اختيار التخصص</span>
-                        }
-                    }
-                    else
-                    {
-                        <p class="text-muted">جارٍ تحميل التخصصات...</p>
-                    }
-                </div>
+            <button type="button"
+                    class="consult-progress-item @(currentStep >= stepNo ? "active" : "")"
+                    @onclick="() => GoToStep(stepNo)">
+                <span></span>
+                <strong>@wizardSteps[i]</strong>
+            </button>
+        }
+    </section>
 
-                <!-- ── Description ────────────────────────── -->
-                <div class="form-section">
-                    <h3 class="form-section-title">📝 وصف الحالة (اختياري)</h3>
-                    <InputTextArea @bind-Value="model.DescriptionAr"
-                                   class="form-control" rows="4"
-                                   placeholder="اكتب وصفاً مختصراً لحالتك الصحية لمساعدة المراجعين..." />
-                    <small class="char-count">@(model.DescriptionAr?.Length ?? 0) / 2000</small>
-                    <ValidationMessage For="@(() => model.DescriptionAr)" />
-                </div>
+    <section class="consult-shell fixed-order">
 
-                <!-- ── Documents ──────────────────────────── -->
-                <div class="form-section">
-                    <h3 class="form-section-title">📎 المستندات المطلوبة</h3>
-                    <p class="form-hint">يُرجى رفع صورة الهوية الوطنية على الأقل</p>
-                    <DocumentUploader OnFilesSelected="HandleFilesSelected" />
+        <aside class="consult-side">
 
-                    @if (pendingFiles.Any())
-                    {
-                        <div class="files-preview">
-                            @foreach (var f in pendingFiles)
-                            {
-                                <div class="file-item">
-                                    <span class="file-icon">📄</span>
-                                    <div class="file-info">
-                                        <span class="file-name">@f.Name</span>
-                                        <span class="file-size">@FormatSize(f.Size)</span>
-                                    </div>
-                                    <select class="doc-type-select"
-                                            value="@f.DocumentType"
-                                            @onchange="e => f.DocumentType = Enum.Parse<DocumentType>(e.Value!.ToString()!)">
-                                        <option value="@DocumentType.NationalId">بطاقة هوية</option>
-                                        <option value="@DocumentType.MedicalReport">تقرير طبي</option>
-                                        <option value="@DocumentType.IncomeProof">إثبات دخل</option>
-                                        <option value="@DocumentType.Other">أخرى</option>
-                                    </select>
-                                    <button type="button" class="btn-remove"
-                                            @onclick="() => pendingFiles.Remove(f)">✕</button>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
+            <article class="consult-info-card secure">
+                <div class="consult-info-icon">🛡️</div>
+                <h3>بياناتك محمية</h3>
+                <p>نلتزم بسرية بياناتك الصحية واستخدامها فقط لمراجعة طلب الكشف.</p>
+            </article>
 
-                <!-- ── Error ──────────────────────────────── -->
-                @if (!string.IsNullOrEmpty(errorMsg))
+            <article class="consult-steps-card">
+                <h3>خطوات الحصول على الكشف</h3>
+
+                @for (var i = 0; i < wizardSteps.Count; i++)
                 {
-                    <div class="alert alert-danger">@errorMsg</div>
+                    var stepNo = i + 1;
+
+                    <div class="consult-step-row @(currentStep >= stepNo ? "active" : "")">
+                        <span>@stepNo</span>
+                        <strong>@wizardSteps[i]</strong>
+                    </div>
                 }
 
-                <!-- ── Submit ─────────────────────────────── -->
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary btn-lg"
-                            disabled="@(isLoading || model.SpecialtyId == Guid.Empty)">
-                        @if (isLoading)
+                <div class="consult-step-row">
+                    <span>4</span>
+                    <strong>مراجعة الإدارة</strong>
+                </div>
+
+                <div class="consult-step-row">
+                    <span>5</span>
+                    <strong>تحديد الطبيب</strong>
+                </div>
+            </article>
+
+            <article class="consult-info-card warning">
+                <div class="consult-info-icon">!</div>
+                <h3>نظام الحجز</h3>
+                <p>بعد إرسال الطلب سيتم تحويله للإدارة بحالة تم التقديم حتى تتم المراجعة والموافقة.</p>
+            </article>
+
+        </aside>
+
+        <main class="consult-main-card">
+
+            <EditForm Model="@model">
+                <DataAnnotationsValidator />
+
+                @if (currentStep == 1)
+                {
+                    <section class="consult-step-screen">
+                        <div class="consult-card-title">
+                            <h2>المعلومات الشخصية</h2>
+                            <p>بيانات حسابك المسجلة في النظام.</p>
+                        </div>
+
+                        <div class="consult-ok-strip">
+                            <span>✓</span>
+                            <strong>بياناتك الأساسية مسجلة — سيتم إرسال الطلب باسم هذا الحساب</strong>
+                        </div>
+
+                        <div class="consult-personal-grid">
+                            <label>
+                                <span>الاسم الكامل</span>
+                                <input value="@profileName" readonly />
+                            </label>
+
+                            <label>
+                                <span>رقم الجوال</span>
+                                <input value="@profilePhone" readonly />
+                            </label>
+
+                            <label>
+                                <span>نوع الحساب</span>
+                                <input value="مستفيد" readonly />
+                            </label>
+
+                            <label>
+                                <span>حالة الحساب</span>
+                                <input value="نشط" readonly />
+                            </label>
+                        </div>
+                    </section>
+                }
+
+                @if (currentStep == 2)
+                {
+                    <section class="consult-step-screen">
+                        <div class="consult-card-title">
+                            <h2>اختر التخصص الطبي</h2>
+                            <p>اختر التخصص المناسب، وسيتم تحويل الطلب للإدارة للمراجعة.</p>
+                        </div>
+
+                        @if (specialties.Any())
                         {
-                            <span class="spinner-sm"></span>
-                            <span>جارٍ تقديم الطلب...</span>
+                            <div class="consult-specialty-grid">
+                                @foreach (var spec in specialties)
+                                {
+                                    <button type="button"
+                                            class="consult-specialty-card @(model.SpecialtyId == spec.Id ? "selected" : "")"
+                                            @onclick="() => SelectSpecialty(spec)">
+                                        <span>@IconForSpecialty(spec.NameAr)</span>
+                                        <strong>@spec.NameAr</strong>
+                                    </button>
+                                }
+                            </div>
+
+                            @if (showValidation && model.SpecialtyId == Guid.Empty)
+                            {
+                                <div class="consult-field-error">يجب اختيار التخصص الطبي</div>
+                            }
                         }
                         else
                         {
-                            <span>تقديم الطلب ✓</span>
+                            <div class="consult-empty-box">جارٍ تحميل التخصصات...</div>
                         }
+                    </section>
+                }
+
+                @if (currentStep == 3)
+                {
+                    <section class="consult-step-screen">
+                        <div class="consult-card-title">
+                            <h2>وصف الحالة الطبية</h2>
+                            <p>اكتب وصفاً مختصراً للحالة وارفع صورة البطاقة.</p>
+                        </div>
+
+                        <InputTextArea @bind-Value="model.DescriptionAr"
+                                       class="consult-case-area"
+                                       rows="5"
+                                       maxlength="2000"
+                                       placeholder="اكتب وصفاً مختصراً لحالتك الصحية لمساعدة المراجعين..." />
+
+                        <div class="consult-char-count">
+                            @(model.DescriptionAr?.Length ?? 0) / 2000
+                        </div>
+
+                        <section class="consult-summary-box">
+                            <h3>ملخص الطلب</h3>
+
+                            <dl>
+                                <dt>التخصص</dt>
+                                <dd>@SelectedSpecialtyName</dd>
+
+                                <dt>الحالة</dt>
+                                <dd>سيتم تقديم الطلب للإدارة</dd>
+
+                                <dt>المرحلة التالية</dt>
+                                <dd>مراجعة الطلب من الإدارة</dd>
+                            </dl>
+                        </section>
+
+                        <section class="consult-upload-card">
+                            <div class="upload-card-head">
+                                <h3>المستندات المطلوبة</h3>
+                                <p>يرجى رفع صورة الهوية الوطنية على الأقل. يمكنك إضافة تقارير طبية اختيارياً.</p>
+                            </div>
+
+                            <DocumentUploader OnFilesSelected="HandleFilesSelected" />
+
+                            @if (showValidation && !pendingFiles.Any())
+                            {
+                                <div class="consult-field-error">يجب رفع صورة الهوية الوطنية قبل إرسال الطلب</div>
+                            }
+
+                            @if (pendingFiles.Any())
+                            {
+                                <div class="consult-file-list">
+                                    @foreach (var f in pendingFiles)
+                                    {
+                                        <div class="consult-file-item">
+                                            <span>📎</span>
+
+                                            <div>
+                                                <strong>@f.Name</strong>
+                                                <small>@FormatSize(f.Size)</small>
+                                            </div>
+
+                                            <select value="@f.DocumentType"
+                                                    @onchange="e => f.DocumentType = Enum.Parse<DocumentType>(e.Value!.ToString()!)">
+                                                <option value="@DocumentType.NationalId">بطاقة هوية</option>
+                                                <option value="@DocumentType.MedicalReport">تقرير طبي</option>
+                                                <option value="@DocumentType.IncomeProof">إثبات دخل</option>
+                                                <option value="@DocumentType.Other">أخرى</option>
+                                            </select>
+
+                                            <button type="button"
+                                                    class="consult-remove-file"
+                                                    @onclick="() => RemoveFile(f)">
+                                                ✕
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </section>
+                    </section>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(errorMsg))
+                {
+                    <div class="consult-alert danger">
+                        @errorMsg
+                    </div>
+                }
+
+                <footer class="consult-footer-actions">
+                    <button type="button"
+                            class="consult-secondary-btn"
+                            disabled="@(isLoading || currentStep == 1)"
+                            @onclick="PreviousStep">
+                        السابق
                     </button>
-                </div>
+
+                    @if (currentStep < 3)
+                    {
+                        <button type="button"
+                                class="consult-primary-wide"
+                                disabled="@isLoading"
+                                @onclick="NextStep">
+                            التالي
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button"
+                                class="consult-primary-wide"
+                                disabled="@isLoading"
+                                @onclick="HandleSubmit">
+                            @(isLoading ? "جارٍ إرسال الطلب..." : "إرسال الطلب")
+                        </button>
+                    }
+                </footer>
             </EditForm>
-        </div>
-    }
+
+        </main>
+
+    </section>
 </div>
 
 @code {
     private NewRequestModel model = new();
     private List<Specialty> specialties = [];
     private List<PendingFile> pendingFiles = [];
-    private bool isLoading, submitted;
+
+    private bool isLoading;
+    private bool showValidation;
+
+    private int currentStep = 1;
+
     private string? errorMsg;
-    private Guid newRequestId;
     private string userId = string.Empty;
+    private string selectedSpecialtyName = "لم يتم اختيار التخصص";
+
+    private string profileName = "—";
+    private string profilePhone = "غير مسجل";
+
+    private readonly List<string> wizardSteps =
+    [
+        "البيانات الشخصية",
+        "التخصص",
+        "وصف الحالة"
+    ];
+
+    private string CurrentStepTitle => wizardSteps[currentStep - 1];
 
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthState.GetAuthenticationStateAsync();
-        userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
-        specialties = (await UoW.Specialties.FindAsync(s => s.IsActive)).ToList();
+
+        userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        profileName =
+            auth.User.FindFirst("FullNameAr")?.Value
+            ?? auth.User.Identity?.Name
+            ?? "مستفيد";
+
+        profilePhone =
+            auth.User.FindFirst(ClaimTypes.MobilePhone)?.Value
+            ?? auth.User.FindFirst("PhoneNumber")?.Value
+            ?? "غير مسجل";
+
+        specialties = (await UoW.Specialties.FindAsync(s => s.IsActive))
+            .OrderBy(s => s.NameAr)
+            .ToList();
     }
 
-    private void HandleFilesSelected(List<PendingFile> files)
-        => pendingFiles.AddRange(files);
-
-    private async Task HandleSubmit()
+    private void GoToStep(int step)
     {
-        if (model.SpecialtyId == Guid.Empty)
+        if (step < 1 || step > 3)
+        {
+            return;
+        }
+
+        if (step > 2 && model.SpecialtyId == Guid.Empty)
+        {
+            currentStep = 2;
+            showValidation = true;
+            return;
+        }
+
+        currentStep = step;
+    }
+
+    private void NextStep()
+    {
+        showValidation = true;
+        errorMsg = null;
+
+        if (currentStep == 2 && model.SpecialtyId == Guid.Empty)
         {
             errorMsg = "يجب اختيار التخصص الطبي";
             return;
         }
 
+        if (currentStep < 3)
+        {
+            currentStep++;
+        }
+    }
+
+    private void PreviousStep()
+    {
+        errorMsg = null;
+
+        if (currentStep > 1)
+        {
+            currentStep--;
+        }
+    }
+
+    private void SelectSpecialty(Specialty spec)
+    {
+        model.SpecialtyId = spec.Id;
+        selectedSpecialtyName = spec.NameAr;
+        errorMsg = null;
+    }
+
+    private string SelectedSpecialtyName =>
+        model.SpecialtyId == Guid.Empty ? "لم يتم اختيار التخصص" : selectedSpecialtyName;
+
+    private void HandleFilesSelected(List<PendingFile> files)
+    {
+        foreach (var file in files)
+        {
+            if (file.DocumentType == DocumentType.Other && !pendingFiles.Any())
+            {
+                file.DocumentType = DocumentType.NationalId;
+            }
+
+            pendingFiles.Add(file);
+        }
+
+        errorMsg = null;
+    }
+
+    private void RemoveFile(PendingFile file)
+    {
+        pendingFiles.Remove(file);
+    }
+
+    private async Task HandleSubmit()
+    {
+        showValidation = true;
+        errorMsg = null;
+
+        if (model.SpecialtyId == Guid.Empty)
+        {
+            currentStep = 2;
+            errorMsg = "يجب اختيار التخصص الطبي";
+            return;
+        }
+
+        if (!pendingFiles.Any())
+        {
+            currentStep = 3;
+            errorMsg = "يجب رفع صورة الهوية الوطنية قبل إرسال الطلب";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            errorMsg = "تعذر قراءة بيانات المستخدم الحالي. برجاء تسجيل الدخول مرة أخرى.";
+            return;
+        }
+
         isLoading = true;
-        errorMsg  = null;
 
         try
         {
-            // 1. Submit request
             var result = await Mediator.Send(new SubmitRequestCommand(
-                userId, model.SpecialtyId, model.DescriptionAr));
+                userId,
+                model.SpecialtyId,
+                model.DescriptionAr
+            ));
 
             if (!result.Succeeded)
             {
@@ -186,28 +448,31 @@
                 return;
             }
 
-            newRequestId = result.Data;
+            var requestId = result.Data;
 
-            // 2. Upload documents
             foreach (var file in pendingFiles)
             {
                 var uploadResult = await Mediator.Send(new UploadDocumentCommand(
-                    newRequestId, userId,
-                    file.Stream, file.Name, file.Size,
-                    file.DocumentType));
+                    requestId,
+                    userId,
+                    file.Stream,
+                    file.Name,
+                    file.Size,
+                    file.DocumentType
+                ));
 
                 if (!uploadResult.Succeeded)
                 {
-                    // Log but don't block — documents can be uploaded later
-                    errorMsg = $"تحذير: تعذر رفع المستند {file.Name}";
+                    errorMsg = $"تم إرسال الطلب، لكن تعذر رفع المستند: {file.Name}";
+                    return;
                 }
             }
 
-            submitted = true;
+            Nav.NavigateTo("/portal/dashboard", forceLoad: true);
         }
-        catch (Exception ex)
+        catch
         {
-            errorMsg = "حدث خطأ غير متوقع. يرجى المحاولة لاحقاً.";
+            errorMsg = "حدث خطأ غير متوقع أثناء إرسال الطلب. يرجى المحاولة لاحقاً.";
         }
         finally
         {
@@ -215,10 +480,29 @@
         }
     }
 
-    private static string FormatSize(long bytes) =>
-        bytes < 1024 * 1024
-            ? $"{bytes / 1024} KB"
-            : $"{bytes / (1024 * 1024):F1} MB";
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024 * 1024)
+        {
+            return $"{bytes / 1024} KB";
+        }
+
+        return $"{bytes / (1024 * 1024):F1} MB";
+    }
+
+    private static string IconForSpecialty(string name)
+    {
+        if (name.Contains("قلب")) return "♡";
+        if (name.Contains("أسنان")) return "☺";
+        if (name.Contains("عين")) return "◉";
+        if (name.Contains("أطفال")) return "☻";
+        if (name.Contains("عظام")) return "⚕";
+        if (name.Contains("جلد")) return "▱";
+        if (name.Contains("باط")) return "〽";
+        if (name.Contains("نساء")) return "☻";
+        if (name.Contains("نفس")) return "✺";
+        return "✚";
+    }
 
     private class NewRequestModel
     {

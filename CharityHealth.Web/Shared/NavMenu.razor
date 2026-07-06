@@ -1,39 +1,135 @@
 @using Microsoft.AspNetCore.Components.Authorization
 
 <nav class="nav-menu" aria-label="التنقل الرئيسي">
+
     <AuthorizeView Roles="Beneficiary">
         <Authorized>
-            <NavLink href="/portal/dashboard" class="nav-link" ActiveClass="active"><span class="nav-icon">⌂</span><span>التحكم</span></NavLink>
-            <NavLink href="/portal/request/new" class="nav-link" ActiveClass="active"><span class="nav-icon">＋</span><span>طلب جديد</span></NavLink>
-            <NavLink href="/portal/requests" class="nav-link" ActiveClass="active"><span class="nav-icon">▤</span><span>طلباتي</span></NavLink>
-            <NavLink href="/portal/notifications" class="nav-link" ActiveClass="active"><span class="nav-icon">◌</span><span>الإشعارات</span></NavLink>
+            <NavLink href="/portal/dashboard" class="nav-link" ActiveClass="active" Match="NavLinkMatch.All">
+                <span class="nav-icon">⌂</span>
+                <span>الرئيسية</span>
+            </NavLink>
+
+            <NavLink href="/portal/request/new" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">＋</span>
+                <span>طلب استشارة</span>
+            </NavLink>
+
+            <NavLink href="/portal/requests" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">◷</span>
+                <span>طلباتي</span>
+            </NavLink>
+
+            <NavLink href="/portal/notifications" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">♢</span>
+                <span>الإشعارات</span>
+            </NavLink>
+
+            <NavLink href="/portal/requests" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">↺</span>
+                <span>السجل الطبي</span>
+            </NavLink>
         </Authorized>
     </AuthorizeView>
 
     <AuthorizeView Roles="Doctor">
         <Authorized>
-            <NavLink href="/doctor/dashboard" class="nav-link" ActiveClass="active"><span class="nav-icon">⌂</span><span>التحكم</span></NavLink>
-            <NavLink href="/doctor/scan" class="nav-link" ActiveClass="active"><span class="nav-icon">▣</span><span>مسح QR</span></NavLink>
-            <NavLink href="/doctor/history" class="nav-link" ActiveClass="active"><span class="nav-icon">↺</span><span>السجل</span></NavLink>
+            <NavLink href="/doctor/dashboard" class="nav-link" ActiveClass="active" Match="NavLinkMatch.All">
+                <span class="nav-icon">⌂</span>
+                <span>الرئيسية</span>
+            </NavLink>
+
+            <NavLink href="/doctor/scan" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▣</span>
+                <span>مسح QR</span>
+            </NavLink>
+
+            <NavLink href="/doctor/history" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">↺</span>
+                <span>السجل</span>
+            </NavLink>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="Pharmacist">
+        <Authorized>
+            <NavLink href="/pharmacy/dashboard" class="nav-link" ActiveClass="active" Match="NavLinkMatch.All">
+                <span class="nav-icon">⌂</span>
+                <span>الرئيسية</span>
+            </NavLink>
+
+            <NavLink href="/pharmacy/requests" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▤</span>
+                <span>الوصفات</span>
+            </NavLink>
+
+            <NavLink href="/pharmacy/dispense" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▣</span>
+                <span>صرف وصفة</span>
+            </NavLink>
+
+            <NavLink href="/pharmacy/inventory" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▧</span>
+                <span>المخزون</span>
+            </NavLink>
         </Authorized>
     </AuthorizeView>
 
     <AuthorizeView Roles="Staff">
         <Authorized>
-            <NavLink href="/staff/dashboard" class="nav-link" ActiveClass="active"><span class="nav-icon">⌂</span><span>التحكم</span></NavLink>
-            <NavLink href="/staff/requests" class="nav-link" ActiveClass="active"><span class="nav-icon">▤</span><span>الطلبات</span></NavLink>
-            <NavLink href="/staff/reports" class="nav-link" ActiveClass="active"><span class="nav-icon">▥</span><span>التقارير</span></NavLink>
+            <NavLink href="/staff/dashboard" class="nav-link" ActiveClass="active" Match="NavLinkMatch.All">
+                <span class="nav-icon">⌂</span>
+                <span>الرئيسية</span>
+            </NavLink>
+
+            <NavLink href="/staff/requests" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▤</span>
+                <span>الطلبات</span>
+            </NavLink>
+
+            <NavLink href="/staff/reports" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▥</span>
+                <span>التقارير</span>
+            </NavLink>
         </Authorized>
     </AuthorizeView>
 
     <AuthorizeView Roles="Administrator">
         <Authorized>
-            <NavLink href="/admin/dashboard" class="nav-link" ActiveClass="active"><span class="nav-icon">⌂</span><span>التحكم</span></NavLink>
-            <NavLink href="/admin/requests" class="nav-link" ActiveClass="active"><span class="nav-icon">▤</span><span>الطلبات</span></NavLink>
-            <NavLink href="/admin/doctors" class="nav-link" ActiveClass="active"><span class="nav-icon">♧</span><span>الأطباء</span></NavLink>
-            <NavLink href="/admin/specialties" class="nav-link" ActiveClass="active"><span class="nav-icon">□</span><span>التخصصات</span></NavLink>
-            <NavLink href="/admin/reports" class="nav-link" ActiveClass="active"><span class="nav-icon">▥</span><span>التقارير</span></NavLink>
-            <NavLink href="/admin/audit-logs" class="nav-link" ActiveClass="active"><span class="nav-icon">◇</span><span>سجل التدقيق</span></NavLink>
+            <NavLink href="/admin/dashboard" class="nav-link" ActiveClass="active" Match="NavLinkMatch.All">
+                <span class="nav-icon">⌂</span>
+                <span>الرئيسية</span>
+            </NavLink>
+
+            <NavLink href="/admin/requests" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▤</span>
+                <span>الطلبات</span>
+            </NavLink>
+
+            <NavLink href="/admin/doctors" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">♧</span>
+                <span>الأطباء</span>
+            </NavLink>
+
+            <NavLink href="/admin/pharmacies" class="nav-link" ActiveClass="active" Match="NavLinkMatch.Prefix">
+                <span class="nav-icon">💊</span>
+                <span>الصيدليات</span>
+            </NavLink>
+
+            <NavLink href="/admin/specialties" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">□</span>
+                <span>التخصصات</span>
+            </NavLink>
+
+            <NavLink href="/admin/reports" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▥</span>
+                <span>التقارير</span>
+            </NavLink>
+
+            <NavLink href="/admin/audit-logs" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">◇</span>
+                <span>سجل التدقيق</span>
+            </NavLink>
         </Authorized>
     </AuthorizeView>
+
 </nav>

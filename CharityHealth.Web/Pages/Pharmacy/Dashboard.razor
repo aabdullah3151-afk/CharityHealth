@@ -1,0 +1,190 @@
+@page "/pharmacy/dashboard"
+@layout MainLayout
+@attribute [Authorize(Roles = "Pharmacist")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>لوحة الصيدلية</PageTitle>
+
+<div class="pharmacy-dashboard-v2" dir="rtl">
+
+    <section class="pharmacy-dash-hero">
+        <div class="pharmacy-dash-hero-copy">
+            <span>مرحباً</span>
+            <h1>@pharmacyName</h1>
+            <p>صيدلية متطوعة</p>
+        </div>
+
+        <button type="button"
+                class="pharmacy-dash-hero-pill"
+                @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>
+            <span>⌗</span>
+            صرف وصفة
+        </button>
+
+        <div class="pharmacy-dash-stats">
+            <article>
+                <strong>@TotalCount</strong>
+                <span>إجمالي</span>
+            </article>
+
+            <article>
+                <strong>@DispensedCount</strong>
+                <span>تم صرفها</span>
+            </article>
+
+            <article>
+                <strong>@ReadyCount</strong>
+                <span>جاهزة</span>
+            </article>
+        </div>
+    </section>
+
+    @if (loading)
+    {
+        <section class="pharmacy-dash-state">جارٍ تحميل بيانات الصيدلية...</section>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMsg))
+    {
+        <section class="pharmacy-dash-alert">@errorMsg</section>
+    }
+    else
+    {
+        <section class="pharmacy-dash-actions">
+            <button type="button" class="pharmacy-dash-action active" @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>
+                <span>▣</span>
+                <strong>الوصفات</strong>
+            </button>
+
+            <button type="button" class="pharmacy-dash-action mint" @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>
+                <span>⌗</span>
+                <strong>صرف وصفة</strong>
+            </button>
+
+            <button type="button" class="pharmacy-dash-action purple" @onclick='() => Nav.NavigateTo("/pharmacy/inventory")'>
+                <span>▧</span>
+                <strong>المخزون</strong>
+            </button>
+
+            <button type="button" class="pharmacy-dash-action orange" @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>
+                <span>↺</span>
+                <strong>السجلات</strong>
+            </button>
+        </section>
+
+        <section class="pharmacy-latest-head">
+            <h2>آخر الوصفات</h2>
+            <button type="button" @onclick='() => Nav.NavigateTo("/pharmacy/requests")'>عرض الكل</button>
+        </section>
+
+        @if (!LatestRows.Any())
+        {
+            <section class="pharmacy-dash-empty">
+                <div>💊</div>
+                <h3>لا توجد وصفات حالياً</h3>
+                <p>عند قبول طلب من الإدارة سيظهر هنا كطلب جاهز للصرف.</p>
+            </section>
+        }
+        else
+        {
+            <section class="pharmacy-prescription-grid">
+                @foreach (var item in LatestRows)
+                {
+                    <article class="pharmacy-prescription-card">
+                        <div class="prescription-link-icon">🔗</div>
+
+                        <div class="prescription-main">
+                            <h3>@item.BeneficiaryName</h3>
+                            <p>@PrescriptionText(item)</p>
+                            <span>@DoctorLine(item)</span>
+                        </div>
+
+                        <div class="prescription-state @(item.Status == RequestStatus.Completed ? "done" : "ready")">
+                            @(item.Status == RequestStatus.Completed ? "تم الصرف" : "جاهز للصرف")
+                        </div>
+                    </article>
+                }
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private string? errorMsg;
+    private string pharmacyName = "الصيدلية";
+
+    private List<RequestWorkItem> rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        errorMsg = null;
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+
+            pharmacyName =
+                auth.User.FindFirst("FullNameAr")?.Value
+                ?? auth.User.Identity?.Name
+                ?? "الصيدلية";
+
+            rows = (await Ui.GetRequestsAsync())
+                .Where(r => r.Status is RequestStatus.Approved or RequestStatus.Completed)
+                .OrderByDescending(r => r.ReviewedAt ?? r.SubmittedAt)
+                .ToList();
+        }
+        catch
+        {
+            errorMsg = "حدث خطأ أثناء تحميل بيانات الصيدلية.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private IEnumerable<RequestWorkItem> LatestRows => rows.Take(4);
+
+    private int TotalCount => rows.Count;
+    private int ReadyCount => rows.Count(r => r.Status == RequestStatus.Approved);
+    private int DispensedCount => rows.Count(r => r.Status == RequestStatus.Completed);
+
+    private static string PrescriptionText(RequestWorkItem item)
+    {
+        return item.SpecialtyName switch
+        {
+            "أمراض القلب" => "أملوديبين 5mg · 30 قرص",
+            "طب الأطفال" => "أموكسيسيلين 250 · 21 كبسولة",
+            "أمراض الجهاز العصبي" => "إيبوبروفين 400mg · 20 قرص",
+            "طب العيون" => "قطرة عين · 2 زجاجة",
+            "الجلدية" => "كريم موضعي · عبوة واحدة",
+            _ => $"{item.SpecialtyName} · وصفة علاجية"
+        };
+    }
+
+    private static string DoctorLine(RequestWorkItem item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.ReviewNoteAr))
+        {
+            return item.ReviewNoteAr;
+        }
+
+        return item.Status == RequestStatus.Completed
+            ? "تم صرف الوصفة"
+            : "بانتظار الصرف من الصيدلية";
+    }
+}

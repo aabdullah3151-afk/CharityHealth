@@ -1,7 +1,6 @@
 ﻿using CharityHealth.Application.Interfaces.Services;
 using CharityHealth.Domain.Entities;
 using CharityHealth.Domain.Enums;
-using CharityHealth.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -18,9 +17,6 @@ namespace CharityHealth.Web.Controllers
         IAuditService audit,
         ILogger<AccountController> logger) : Controller
     {
-        // ──────────────────────────────────────────────────────
-        // POST /account/login  (Username/Email/Phone + Password)
-        // ──────────────────────────────────────────────────────
         [HttpPost("login")]
         public async Task<IActionResult> Login(
             [FromForm] string credential,
@@ -78,9 +74,6 @@ namespace CharityHealth.Web.Controllers
             return Redirect(GetSafeReturnUrl(returnUrl, user.UserType, roles));
         }
 
-        // ──────────────────────────────────────────────────────
-        // POST /account/send-otp
-        // ──────────────────────────────────────────────────────
         [HttpPost("send-otp")]
         public async Task<IActionResult> SendOtp([FromForm] string phone)
         {
@@ -99,9 +92,6 @@ namespace CharityHealth.Web.Controllers
             return Redirect("/login?tab=otp");
         }
 
-        // ──────────────────────────────────────────────────────
-        // POST /account/verify-otp
-        // ──────────────────────────────────────────────────────
         [HttpPost("verify-otp")]
         public async Task<IActionResult> VerifyOtp(
             [FromForm] string phone,
@@ -148,9 +138,6 @@ namespace CharityHealth.Web.Controllers
             return Redirect(GetSafeReturnUrl(returnUrl, user.UserType, roles));
         }
 
-        // ──────────────────────────────────────────────────────
-        // POST /account/logout
-        // ──────────────────────────────────────────────────────
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
@@ -168,9 +155,6 @@ namespace CharityHealth.Web.Controllers
             return Redirect("/login");
         }
 
-        // ──────────────────────────────────────────────────────
-        // GET /account/logout
-        // ──────────────────────────────────────────────────────
         [HttpGet("logout")]
         public async Task<IActionResult> LogoutGet()
         {
@@ -186,10 +170,6 @@ namespace CharityHealth.Web.Controllers
             return Redirect("/login");
         }
 
-        // ══════════════════════════════════════════════════════
-        // PRIVATE HELPERS
-        // ══════════════════════════════════════════════════════
-
         private async Task SignInUserAsync(ApplicationUser user, IList<string> roles)
         {
             var resolvedUserType = ResolveUserType(user.UserType, roles);
@@ -201,7 +181,7 @@ namespace CharityHealth.Web.Controllers
 
                 new("FullNameAr", user.FullNameAr ?? string.Empty),
                 new("FullNameEn", user.FullNameEn ?? string.Empty),
-                new("UserType", resolvedUserType),
+                new("UserType", resolvedUserType)
             };
 
             var userClaims = await userManager.GetClaimsAsync(user);
@@ -231,12 +211,55 @@ namespace CharityHealth.Web.Controllers
             UserType userType,
             IList<string> roles)
         {
-            if (!string.IsNullOrWhiteSpace(returnUrl)
-                && returnUrl.StartsWith('/')
-                && !returnUrl.StartsWith("//")
-                && !returnUrl.Equals("/", StringComparison.OrdinalIgnoreCase))
+            var fallback = GetDefaultUrl(userType, roles);
+
+            if (string.IsNullOrWhiteSpace(returnUrl)
+                || !returnUrl.StartsWith('/')
+                || returnUrl.StartsWith("//")
+                || returnUrl.Equals("/", StringComparison.OrdinalIgnoreCase))
             {
-                return returnUrl;
+                return fallback;
+            }
+
+            if (returnUrl.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
+                && !HasRole(roles, "Administrator")
+                && !HasRole(roles, "Staff"))
+            {
+                return fallback;
+            }
+
+            if (returnUrl.StartsWith("/staff", StringComparison.OrdinalIgnoreCase)
+                && !HasRole(roles, "Staff"))
+            {
+                return fallback;
+            }
+
+            if (returnUrl.StartsWith("/doctor", StringComparison.OrdinalIgnoreCase)
+                && !HasRole(roles, "Doctor"))
+            {
+                return fallback;
+            }
+
+            if (returnUrl.StartsWith("/portal", StringComparison.OrdinalIgnoreCase)
+                && !HasRole(roles, "Beneficiary"))
+            {
+                return fallback;
+            }
+
+            if (returnUrl.StartsWith("/pharmacy", StringComparison.OrdinalIgnoreCase)
+                && !HasRole(roles, "Pharmacist"))
+            {
+                return fallback;
+            }
+
+            return returnUrl;
+        }
+
+        private static string GetDefaultUrl(UserType userType, IList<string> roles)
+        {
+            if (HasRole(roles, "Pharmacist"))
+            {
+                return "/pharmacy/dashboard";
             }
 
             if (HasRole(roles, "Administrator"))
@@ -271,6 +294,11 @@ namespace CharityHealth.Web.Controllers
 
         private static string ResolveUserType(UserType userType, IList<string> roles)
         {
+            if (HasRole(roles, "Pharmacist"))
+            {
+                return "Pharmacist";
+            }
+
             if (HasRole(roles, "Administrator"))
             {
                 return "Administrator";
