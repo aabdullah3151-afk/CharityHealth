@@ -25,4 +25,5 @@ public class Doctor : BaseEntity
     public ApplicationUser User { get; set; } = null!;
     public Specialty Specialty { get; set; } = null!;
     public ICollection<Consultation> Consultations { get; set; } = [];
+    public ICollection<MedicalRequest> MedicalRequests { get; set; } = [];
 }

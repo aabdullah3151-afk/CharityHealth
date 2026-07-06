@@ -9,7 +9,9 @@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Web.Services
 
+@inject HealthcareUiService Ui
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 
@@ -52,12 +54,13 @@
                     color:rgba(255,255,255,.86);
                     font-size:16px;
                     font-weight:800;">
-                    تابع آخر التنبيهات الخاصة بحسابك ودورك داخل النظام.
+                    إشعارات حقيقية محفوظة في قاعدة البيانات لحسابك الحالي.
                 </p>
             </div>
 
             <button type="button"
                     @onclick="MarkAllRead"
+                    disabled="@loading"
                     style="
                         height:50px;
                         border:0;
@@ -73,6 +76,20 @@
         </div>
     </section>
 
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div style="
+            margin-bottom:18px;
+            border-radius:18px;
+            padding:14px 18px;
+            background:@(success ? "#dcfce7" : "#fee2e2");
+            color:@(success ? "#166534" : "#991b1b");
+            font-size:14px;
+            font-weight:950;">
+            @message
+        </div>
+    }
+
     <section style="
         display:grid;
         grid-template-columns:repeat(3,minmax(0,1fr));
@@ -82,7 +99,7 @@
         <article style="@StatCardStyle">
             <span style="@StatLabelStyle">كل الإشعارات</span>
             <strong style="@StatValueStyle">@notifications.Count</strong>
-            <small style="@StatSmallStyle">إجمالي التنبيهات المتاحة</small>
+            <small style="@StatSmallStyle">إجمالي التنبيهات المسجلة</small>
         </article>
 
         <article style="@StatCardStyle">
@@ -96,7 +113,6 @@
             <strong style="@StatValueStyle">@roleLabel</strong>
             <small style="@StatSmallStyle">الإشعارات حسب صلاحياتك</small>
         </article>
-
     </section>
 
     <section style="
@@ -113,7 +129,8 @@
             display:flex;
             align-items:center;
             justify-content:space-between;
-            gap:16px;">
+            gap:16px;
+            flex-wrap:wrap;">
 
             <div>
                 <h2 style="
@@ -129,7 +146,7 @@
                     color:#98a2b3;
                     font-size:13px;
                     font-weight:850;">
-                    اضغط على أي إشعار لتحديده كمقروء.
+                    اضغط على الإشعار لفتحه وتحديده كمقروء.
                 </p>
             </div>
 
@@ -149,7 +166,20 @@
             </button>
         </div>
 
-        @if (notifications.Count == 0)
+        @if (loading)
+        {
+            <div style="
+                min-height:320px;
+                display:grid;
+                place-items:center;
+                text-align:center;
+                color:#98a2b3;
+                font-size:16px;
+                font-weight:900;">
+                جارٍ تحميل الإشعارات...
+            </div>
+        }
+        else if (notifications.Count == 0)
         {
             <div style="
                 min-height:320px;
@@ -168,7 +198,7 @@
                 @foreach (var item in notifications)
                 {
                     <button type="button"
-                            @onclick="() => MarkRead(item)"
+                            @onclick="() => OpenNotification(item)"
                             style="
                                 width:100%;
                                 border:0;
@@ -207,7 +237,7 @@
                                     color:#111827;
                                     font-size:17px;
                                     font-weight:950;">
-                                    @item.Title
+                                    @item.TitleAr
                                 </h3>
 
                                 <p style="
@@ -216,7 +246,7 @@
                                     font-size:14px;
                                     line-height:1.8;
                                     font-weight:800;">
-                                    @item.Body
+                                    @item.BodyAr
                                 </p>
 
                                 <small style="
@@ -225,7 +255,7 @@
                                     color:#98a2b3;
                                     font-size:12px;
                                     font-weight:850;">
-                                    🕘 @item.TimeText
+                                    🕘 @TimeText(item.CreatedAt)
                                 </small>
                             </div>
                         </div>
@@ -251,32 +281,69 @@
 </div>
 
 @code {
+    private bool loading = true;
+    private bool success;
+    private string? message;
+
+    private string currentUserId = string.Empty;
     private string role = "User";
     private string roleLabel = "مستخدم";
-    private List<NotificationItem> notifications = [];
+    private List<NotificationListItem> notifications = [];
 
     private int UnreadCount => notifications.Count(x => !x.IsRead);
 
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthState.GetAuthenticationStateAsync();
+        currentUserId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
         role = UserType(auth.User);
         roleLabel = RoleLabel(auth.User);
 
-        notifications = BuildNotifications(role);
+        await LoadNotifications();
     }
 
-    private void MarkRead(NotificationItem item)
+    private async Task LoadNotifications()
     {
-        item.IsRead = true;
-    }
+        loading = true;
+        message = null;
 
-    private void MarkAllRead()
-    {
-        foreach (var item in notifications)
+        if (string.IsNullOrWhiteSpace(currentUserId))
         {
-            item.IsRead = true;
+            notifications = [];
+            message = "تعذر قراءة حساب المستخدم الحالي.";
+            success = false;
+            loading = false;
+            return;
         }
+
+        notifications = await Ui.GetNotificationsAsync(currentUserId);
+        loading = false;
+    }
+
+    private async Task OpenNotification(NotificationListItem item)
+    {
+        if (!item.IsRead)
+        {
+            var result = await Ui.MarkNotificationReadAsync(item.Id, currentUserId);
+            success = result.Succeeded;
+            message = result.Succeeded ? null : result.Message;
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.Url))
+        {
+            Nav.NavigateTo(item.Url);
+            return;
+        }
+
+        await LoadNotifications();
+    }
+
+    private async Task MarkAllRead()
+    {
+        var result = await Ui.MarkAllNotificationsReadAsync(currentUserId);
+        success = result.Succeeded;
+        message = result.Message;
+        await LoadNotifications();
     }
 
     private void GoDashboard()
@@ -293,6 +360,18 @@
         };
 
         Nav.NavigateTo(url);
+    }
+
+    private static string TimeText(DateTime value)
+    {
+        var diff = DateTime.UtcNow - value.ToUniversalTime();
+
+        if (diff.TotalMinutes < 1) return "الآن";
+        if (diff.TotalMinutes < 60) return $"منذ {(int)diff.TotalMinutes} دقيقة";
+        if (diff.TotalHours < 24) return $"منذ {(int)diff.TotalHours} ساعة";
+        if (diff.TotalDays < 7) return $"منذ {(int)diff.TotalDays} يوم";
+
+        return value.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
     }
 
     private static string UserType(ClaimsPrincipal user)
@@ -328,88 +407,24 @@
         };
     }
 
-    private static List<NotificationItem> BuildNotifications(string role)
-    {
-        return role switch
-        {
-            "Administrator" =>
-            [
-                new("👥", "#eff6ff", "#2563eb", "طلب جديد يحتاج مراجعة", "تم تقديم طلب كشف جديد من أحد المستفيدين وينتظر قرار الإدارة.", "منذ 5 دقائق", false),
-                new("🩺", "#ecfdf3", "#047857", "طبيب جديد تم إضافته", "تم تسجيل طبيب متطوع جديد داخل النظام.", "منذ ساعة", false),
-                new("📊", "#faf5ff", "#7e22ce", "تقرير يومي جاهز", "يمكنك مراجعة ملخص نشاط المنصة اليوم.", "اليوم", true)
-            ],
+    private static string StatCardStyle =>
+        @"
+            min-height:128px;
+            border:1px solid #edf0f4;
+            border-radius:24px;
+            background:#ffffff;
+            padding:22px;
+            box-shadow:0 14px 32px rgba(15,23,42,.07);
+            display:grid;
+            align-content:center;
+            gap:8px;";
 
-            "Staff" =>
-            [
-                new("📋", "#eff6ff", "#2563eb", "طلب بانتظار الفحص", "يوجد طلب جديد يحتاج استكمال مراجعة البيانات.", "منذ 10 دقائق", false),
-                new("✅", "#ecfdf3", "#047857", "تم تحديث حالة طلب", "تم تغيير حالة أحد الطلبات بنجاح.", "اليوم", true)
-            ],
-
-            "Doctor" =>
-            [
-                new("🩺", "#ecfdf3", "#047857", "حالة جديدة مخصصة لك", "تم إسناد طلب كشف جديد لك من الإدارة.", "منذ 8 دقائق", false),
-                new("📅", "#eff6ff", "#2563eb", "موعد كشف قريب", "لديك موعد كشف مسجل في جدول اليوم.", "اليوم", false),
-                new("✅", "#f8fafc", "#64748b", "تم اعتماد تقريرك", "تم حفظ تقرير الكشف الأخير بنجاح.", "أمس", true)
-            ],
-
-            "Beneficiary" =>
-            [
-                new("📋", "#eff6ff", "#2563eb", "تم استلام طلبك", "طلب الكشف الخاص بك وصل للإدارة وجاري مراجعته.", "منذ 5 دقائق", false),
-                new("⏳", "#fffbeb", "#d97706", "طلبك قيد المراجعة", "سيتم إشعارك فور قبول الطلب أو تحديد موعد الكشف.", "اليوم", false),
-                new("✅", "#ecfdf3", "#047857", "تم تحديث بياناتك", "تم حفظ آخر تعديل على بيانات حسابك.", "أمس", true)
-            ],
-
-            "Pharmacy" or "Pharmacist" =>
-            [
-                new("💊", "#fffbeb", "#d97706", "روشتة جديدة", "تم إرسال وصفة طبية جديدة للصيدلية للمراجعة.", "منذ 12 دقيقة", false),
-                new("📦", "#eff6ff", "#2563eb", "طلب صرف دواء", "يوجد طلب صرف دواء جديد بانتظار التجهيز.", "اليوم", false)
-            ],
-
-            _ =>
-            [
-                new("🔔", "#f8fafc", "#64748b", "إشعار عام", "لا توجد إشعارات مخصصة لهذا النوع من الحسابات حاليًا.", "الآن", true)
-            ]
-        };
-    }
-
-    private string StatCardStyle =>
-        "min-height:130px;border:1px solid #edf0f4;border-radius:26px;background:#ffffff;padding:22px;box-shadow:0 12px 30px rgba(15,23,42,.06);display:grid;align-content:center;gap:8px;";
-
-    private string StatLabelStyle =>
+    private static string StatLabelStyle =>
         "color:#667085;font-size:14px;font-weight:900;";
 
-    private string StatValueStyle =>
-        "color:#111827;font-size:34px;line-height:1;font-weight:950;";
+    private static string StatValueStyle =>
+        "color:#05a843;font-size:34px;line-height:1;font-weight:950;";
 
-    private string StatSmallStyle =>
-        "color:#98a2b3;font-size:13px;line-height:1.6;font-weight:800;";
-
-    private sealed class NotificationItem
-    {
-        public NotificationItem(
-            string icon,
-            string iconBackground,
-            string iconColor,
-            string title,
-            string body,
-            string timeText,
-            bool isRead)
-        {
-            Icon = icon;
-            IconBackground = iconBackground;
-            IconColor = iconColor;
-            Title = title;
-            Body = body;
-            TimeText = timeText;
-            IsRead = isRead;
-        }
-
-        public string Icon { get; set; }
-        public string IconBackground { get; set; }
-        public string IconColor { get; set; }
-        public string Title { get; set; }
-        public string Body { get; set; }
-        public string TimeText { get; set; }
-        public bool IsRead { get; set; }
-    }
+    private static string StatSmallStyle =>
+        "color:#98a2b3;font-size:13px;font-weight:850;";
 }

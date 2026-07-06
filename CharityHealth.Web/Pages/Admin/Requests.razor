@@ -630,6 +630,17 @@
                             </div>
 
                             <div class="rq-preview-field">
+                                <span>الطبيب المختار</span>
+                                <strong>@preview.DoctorName</strong>
+                            </div>
+
+                            <div class="rq-preview-field">
+                                <span>يوم الكشف المختار</span>
+                                <strong>@preview.AppointmentDateText</strong>
+                            </div>
+
+
+                            <div class="rq-preview-field">
                                 <span>تاريخ التقديم</span>
                                 <strong>@preview.SubmittedAt.ToLocalTime().ToString("dddd، dd MMMM yyyy - hh:mm tt", Ar)</strong>
                             </div>
@@ -888,6 +899,8 @@
         var request = await Db.MedicalRequests
             .AsNoTracking()
             .Include(r => r.Specialty)
+            .Include(r => r.Doctor)
+                .ThenInclude(d => d!.User)
             .Include(r => r.Documents)
             .Include(r => r.QRCodeToken)
             .Include(r => r.Beneficiary)
@@ -909,6 +922,8 @@
             request.Beneficiary.User.Email ?? "—",
             request.Beneficiary.City ?? "—",
             request.Specialty.NameAr,
+            request.Doctor is null ? "لم يتم اختيار طبيب" : request.Doctor.User.FullNameAr,
+            request.AppointmentDate is null ? "لم يتم اختيار يوم" : FormatDateOnlyAr(request.AppointmentDate.Value),
             request.Status,
             HealthcareUiService.StatusAr(request.Status),
             HealthcareUiService.StatusCss(request.Status),
@@ -994,6 +1009,14 @@
         return $"REQ-{id.ToString("N").Substring(0, 6).ToUpperInvariant()}";
     }
 
+
+    private string FormatDateOnlyAr(DateOnly date)
+    {
+        return date
+            .ToDateTime(TimeOnly.MinValue)
+            .ToString("dddd، dd MMMM yyyy", Ar);
+    }
+
     private static string FileSizeText(long bytes)
     {
         if (bytes <= 0)
@@ -1021,16 +1044,40 @@
             return "#";
         }
 
-        var value = filePath.Trim();
+        var value = filePath.Trim().Replace("\\", "/");
 
         if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-            || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-            || value.StartsWith("/"))
+            || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
             return value;
         }
 
-        return "/" + value.TrimStart('~', '/');
+        if (value.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            return value;
+        }
+
+        if (value.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "/" + value;
+        }
+
+        if (value.StartsWith("/requests/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "/uploads" + value;
+        }
+
+        if (value.StartsWith("requests/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "/uploads/" + value;
+        }
+
+        if (value.StartsWith("/"))
+        {
+            return value;
+        }
+
+        return "/uploads/" + value.TrimStart('~', '/');
     }
 
     private static string DocumentLabel(string type)
@@ -1084,6 +1131,8 @@
         string BeneficiaryEmail,
         string City,
         string SpecialtyName,
+        string DoctorName,
+        string AppointmentDateText,
         RequestStatus Status,
         string StatusAr,
         string StatusCss,

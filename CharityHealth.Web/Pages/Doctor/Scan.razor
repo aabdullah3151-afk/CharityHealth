@@ -2,17 +2,98 @@
 @layout MainLayout
 @attribute [Authorize(Roles = "Doctor")]
 
+@implements IAsyncDisposable
+
 @using System.Security.Claims
+@using System.Text.RegularExpressions
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
 @using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
 @using CharityHealth.Web.Services
 
 @inject HealthcareUiService Ui
+@inject AppDbContext Db
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>مسح QR</PageTitle>
+
+<style>
+    .scanner-video {
+        width: 285px !important;
+        height: 285px !important;
+        border-radius: 26px !important;
+        object-fit: cover !important;
+        background: #020617 !important;
+    }
+
+    .scanner-manual-box {
+        border: 1px solid #e9eef5 !important;
+        border-radius: 24px !important;
+        background: #ffffff !important;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, .07) !important;
+        padding: 22px !important;
+        display: grid !important;
+        gap: 12px !important;
+    }
+
+    .scanner-manual-box label {
+        color: #344054 !important;
+        font-size: 14px !important;
+        font-weight: 950 !important;
+    }
+
+    .scanner-manual-row {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 150px !important;
+        gap: 12px !important;
+    }
+
+    .scanner-manual-row input {
+        height: 54px !important;
+        border: 1px solid #dfe5ec !important;
+        border-radius: 18px !important;
+        padding: 0 16px !important;
+        direction: ltr !important;
+        text-align: left !important;
+        outline: none !important;
+        color: #101828 !important;
+        font-size: 14px !important;
+        font-weight: 850 !important;
+    }
+
+    .scanner-manual-row button,
+    .doctor-stop-scan-btn {
+        height: 54px !important;
+        border: 0 !important;
+        border-radius: 18px !important;
+        background: #05a843 !important;
+        color: #ffffff !important;
+        font-size: 15px !important;
+        font-weight: 950 !important;
+        cursor: pointer !important;
+    }
+
+    .doctor-stop-scan-btn {
+        background: #f1f5f9 !important;
+        color: #475467 !important;
+    }
+
+    @@media (max-width: 760px) {
+        .scanner-video {
+            width: 235px !important;
+            height: 235px !important;
+        }
+
+        .scanner-manual-row {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
 
 <div class="doctor-scan-modern-page" dir="rtl">
 
@@ -26,8 +107,8 @@
             </button>
 
             <div>
-                <h1>مسح رمز المستفيد</h1>
-                <p>ضع رمز QR في منتصف الإطار. حالياً المسح تجريبي ويتم بمحاكاة القراءة.</p>
+                <h1>مسح QR المستفيد</h1>
+                <p>افتح الكاميرا ووجّهها نحو QR، أو أدخل الكود يدويًا لو الكاميرا غير مدعومة.</p>
             </div>
         </header>
 
@@ -39,23 +120,52 @@
                     <span class="corner bottom-right"></span>
                     <span class="corner bottom-left"></span>
 
-                    <div class="scanner-fake-qr">⌗</div>
+                    <video id="doctorQrVideo"
+                           class="scanner-video"
+                           playsinline
+                           muted>
+                    </video>
                 </div>
 
-                <p>ضع رمز QR في منتصف الإطار</p>
+                <p>@(scannerRunning ? "الكاميرا تعمل الآن. وجّه QR داخل الإطار." : "اضغط بدء المسح لتشغيل الكاميرا")</p>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(message))
             {
-                <div class="doctor-scan-message danger">@message</div>
+                <div class="doctor-scan-message @(success ? "success" : "danger")">@message</div>
             }
 
-            <button type="button"
-                    class="doctor-simulate-scan-btn"
-                    disabled="@loading"
-                    @onclick="SimulateScan">
-                @(loading ? "جارٍ المحاكاة..." : "محاكاة المسح")
-            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <button type="button"
+                        class="doctor-simulate-scan-btn"
+                        disabled="@(loading || scannerRunning)"
+                        @onclick="StartCameraScanner">
+                    @(scannerStarting ? "جارٍ تشغيل الكاميرا..." : "بدء المسح بالكاميرا")
+                </button>
+
+                <button type="button"
+                        class="doctor-stop-scan-btn"
+                        disabled="@(!scannerRunning)"
+                        @onclick="StopCameraScanner">
+                    إيقاف الكاميرا
+                </button>
+            </div>
+
+            <section class="scanner-manual-box">
+                <label>إدخال يدوي عند تعذر الكاميرا</label>
+
+                <div class="scanner-manual-row">
+                    <input @bind="manualQrValue"
+                           @bind:event="oninput"
+                           placeholder="الصق رابط QR أو token هنا" />
+
+                    <button type="button"
+                            disabled="@loading"
+                            @onclick="HandleManualQr">
+                        فحص QR
+                    </button>
+                </div>
+            </section>
         </section>
     }
     else
@@ -69,7 +179,7 @@
 
             <div>
                 <h1>نتيجة الاستشارة</h1>
-                <p>تم قراءة بيانات المستفيد. اكتب ملاحظات الطبيب ثم احفظ النتيجة.</p>
+                <p>تم قراءة QR بنجاح. اكتب ملاحظات الطبيب ثم احفظ النتيجة.</p>
             </div>
         </header>
 
@@ -180,44 +290,244 @@
     private bool scanned;
     private bool saving;
     private bool success;
+    private bool scannerStarting;
+    private bool scannerRunning;
 
     private string? message;
     private string doctorUserId = string.Empty;
     private string doctorNotes = string.Empty;
+    private string manualQrValue = string.Empty;
 
+    private Guid? selectedQrTokenId;
     private ConsultationResult resultType = ConsultationResult.Completed;
-
-    private List<RequestWorkItem> queue = [];
     private RequestWorkItem? selectedRequest;
+
+    private DotNetObjectReference<Scan>? dotNetRef;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDoctorQueue();
+        await InitializeDoctor();
+
+        var tokenFromUrl = ExtractTokenFromRaw(Nav.Uri);
+        if (tokenFromUrl is not null)
+        {
+            await LoadFromQrToken(tokenFromUrl.Value);
+        }
+
+        loading = false;
     }
 
-    private async Task LoadDoctorQueue()
+    private async Task InitializeDoctor()
     {
-        loading = true;
         message = null;
+
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        doctorUserId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(doctorUserId))
+        {
+            message = "تعذر قراءة حساب الطبيب الحالي. برجاء تسجيل الدخول مرة أخرى.";
+            success = false;
+        }
+    }
+
+    private async Task StartCameraScanner()
+    {
+        message = null;
+        success = false;
+        scannerStarting = true;
 
         try
         {
-            var auth = await AuthState.GetAuthenticationStateAsync();
-            doctorUserId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            dotNetRef ??= DotNetObjectReference.Create(this);
 
-            if (string.IsNullOrWhiteSpace(doctorUserId))
-            {
-                message = "تعذر قراءة حساب الطبيب الحالي. برجاء تسجيل الدخول مرة أخرى.";
-                return;
-            }
+            await JS.InvokeVoidAsync(
+                "charityQrScanner.start",
+                "doctorQrVideo",
+                dotNetRef
+            );
 
-            queue = (await Ui.GetDoctorQueueAsync(doctorUserId))
-                .OrderByDescending(r => r.SubmittedAt)
-                .ToList();
+            scannerRunning = true;
         }
         catch
         {
-            message = "حدث خطأ أثناء تحميل الحالات الخاصة بالطبيب.";
+            message = "الكاميرا أو قارئ QR غير مدعوم على هذا المتصفح. استخدم الإدخال اليدوي أو افتح الصفحة من موبايل يدعم الكاميرا.";
+            scannerRunning = false;
+        }
+        finally
+        {
+            scannerStarting = false;
+        }
+    }
+
+    private async Task StopCameraScanner()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("charityQrScanner.stop");
+        }
+        catch
+        {
+            // Ignore JS cleanup errors.
+        }
+
+        scannerRunning = false;
+    }
+
+    [JSInvokable]
+    public async Task OnQrScanned(string rawValue)
+    {
+        await InvokeAsync(async () =>
+        {
+            await StopCameraScanner();
+            await HandleRawQr(rawValue);
+            StateHasChanged();
+        });
+    }
+
+    private async Task HandleManualQr()
+    {
+        await HandleRawQr(manualQrValue);
+    }
+
+    private async Task HandleRawQr(string? rawValue)
+    {
+        message = null;
+        success = false;
+
+        var token = ExtractTokenFromRaw(rawValue);
+
+        if (token is null)
+        {
+            message = "QR غير صالح. تأكد من مسح QR الصحيح أو الصق الرابط كاملًا.";
+            return;
+        }
+
+        await LoadFromQrToken(token.Value);
+    }
+
+    private static Guid? ExtractTokenFromRaw(string? rawValue)
+    {
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            return null;
+        }
+
+        var text = Uri.UnescapeDataString(rawValue.Trim());
+
+        if (Guid.TryParse(text, out var directGuid))
+        {
+            return directGuid;
+        }
+
+        var tokenMatch = Regex.Match(text, @"(?:token=)([0-9a-fA-F-]{36})");
+        if (tokenMatch.Success && Guid.TryParse(tokenMatch.Groups[1].Value, out var queryGuid))
+        {
+            return queryGuid;
+        }
+
+        var anyGuid = Regex.Match(text, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+        if (anyGuid.Success && Guid.TryParse(anyGuid.Value, out var embeddedGuid))
+        {
+            return embeddedGuid;
+        }
+
+        return null;
+    }
+
+    private async Task LoadFromQrToken(Guid qrTokenId)
+    {
+        loading = true;
+        message = null;
+        success = false;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(doctorUserId))
+            {
+                await InitializeDoctor();
+            }
+
+            var doctor = await Db.Doctors
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.UserId == doctorUserId && d.IsAvailable && !d.IsDeleted);
+
+            if (doctor is null)
+            {
+                message = "حساب الطبيب غير متاح أو غير نشط.";
+                return;
+            }
+
+            var qr = await Db.QRCodeTokens
+                .AsNoTracking()
+                .Include(q => q.Request)
+                    .ThenInclude(r => r.Specialty)
+                .Include(q => q.Request)
+                    .ThenInclude(r => r.Documents)
+                .Include(q => q.Request)
+                    .ThenInclude(r => r.Beneficiary)
+                        .ThenInclude(b => b.User)
+                .FirstOrDefaultAsync(q => q.Id == qrTokenId && !q.IsDeleted);
+
+            if (qr is null)
+            {
+                message = "رمز QR غير موجود أو غير صالح.";
+                return;
+            }
+
+            if (qr.IsUsed)
+            {
+                message = "تم استخدام رمز QR من قبل.";
+                return;
+            }
+
+            if (qr.ExpiresAt < DateTime.UtcNow)
+            {
+                message = "انتهت صلاحية رمز QR.";
+                return;
+            }
+
+            var request = qr.Request;
+
+            if (request.Status != RequestStatus.Approved)
+            {
+                message = "هذا الطلب غير معتمد للكشف.";
+                return;
+            }
+
+            if (doctor.SpecialtyId != request.SpecialtyId)
+            {
+                message = "هذا الطلب تابع لتخصص آخر ولا يمكن للطبيب الحالي التعامل معه.";
+                return;
+            }
+
+            selectedQrTokenId = qr.Id;
+            selectedRequest = new RequestWorkItem(
+                request.Id,
+                request.Beneficiary.User.FullNameAr,
+                request.Beneficiary.User.PhoneNumber ?? "—",
+                request.Specialty.NameAr,
+                request.Beneficiary.City ?? "—",
+                request.Status,
+                HealthcareUiService.StatusAr(request.Status),
+                HealthcareUiService.StatusCss(request.Status),
+                request.SubmittedAt,
+                request.ReviewedAt,
+                request.DescriptionAr,
+                request.ReviewNoteAr,
+                request.Documents.Count,
+                true
+            );
+
+            doctorNotes = string.Empty;
+            resultType = ConsultationResult.Completed;
+            scanned = true;
+            success = true;
+            message = "تم قراءة QR بنجاح.";
+        }
+        catch
+        {
+            message = "تعذر قراءة بيانات QR حالياً.";
         }
         finally
         {
@@ -225,35 +535,13 @@
         }
     }
 
-    private async Task SimulateScan()
-    {
-        message = null;
-        success = false;
-
-        if (!queue.Any())
-        {
-            await LoadDoctorQueue();
-        }
-
-        selectedRequest = queue.FirstOrDefault(r =>
-            r.Status is RequestStatus.Approved or RequestStatus.UnderReview or RequestStatus.Submitted);
-
-        if (selectedRequest is null)
-        {
-            message = "لا توجد حالة متاحة للمسح حالياً. وافق على طلب من الإدارة أولاً أو وجّه طلباً للطبيب.";
-            return;
-        }
-
-        doctorNotes = string.Empty;
-        resultType = ConsultationResult.Completed;
-        scanned = true;
-    }
-
     private void ResetScan()
     {
         scanned = false;
         selectedRequest = null;
+        selectedQrTokenId = null;
         doctorNotes = string.Empty;
+        manualQrValue = string.Empty;
         message = null;
         success = false;
     }
@@ -263,7 +551,7 @@
         message = null;
         success = false;
 
-        if (selectedRequest is null)
+        if (selectedRequest is null || selectedQrTokenId is null)
         {
             message = "لا توجد حالة مقروءة حالياً.";
             return;
@@ -281,22 +569,24 @@
         {
             var finalNote = $"{ResultText(resultType)} - ملاحظات الطبيب: {doctorNotes.Trim()}";
 
-            var result = await Ui.CompleteRequestAsync(
-                selectedRequest.Id,
+            var result = await Ui.CompleteRequestByQrAsync(
+                selectedQrTokenId.Value,
                 doctorUserId,
                 finalNote
             );
 
-            if (!result.Succeeded)
+            success = result.Succeeded;
+            message = result.Message;
+
+            if (result.Succeeded && selectedRequest is not null)
             {
-                message = result.Message;
-                return;
+                selectedRequest = selectedRequest with
+                {
+                    Status = RequestStatus.Completed,
+                    StatusAr = HealthcareUiService.StatusAr(RequestStatus.Completed),
+                    StatusCss = HealthcareUiService.StatusCss(RequestStatus.Completed)
+                };
             }
-
-            success = true;
-            message = "تم حفظ نتيجة الاستشارة وتحديث حالة الطلب بنجاح.";
-
-            await LoadDoctorQueue();
         }
         catch
         {
@@ -306,6 +596,20 @@
         {
             saving = false;
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("charityQrScanner.stop");
+        }
+        catch
+        {
+            // Ignore JS cleanup errors.
+        }
+
+        dotNetRef?.Dispose();
     }
 
     private static string ResultText(ConsultationResult value)

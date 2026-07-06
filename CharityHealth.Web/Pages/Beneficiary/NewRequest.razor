@@ -1,4 +1,4 @@
-﻿@page "/portal/request/new"
+@page "/portal/request/new"
 @attribute [Authorize(Roles = "Beneficiary")]
 
 @using CharityHealth.Application.Features.Requests.Commands
@@ -306,7 +306,7 @@
                                             color:@(day.IsAvailable ? "#16a34a" : "#ef4444");
                                             font-size:11px;
                                             font-weight:950;">
-                                            @(day.IsAvailable ? "متاح" : "غير متاح")
+                                            @(day.IsAvailable ? $"متاح ({day.RemainingSlots})" : day.UnavailableReason)
                                         </small>
                                     </button>
                                 }
@@ -451,8 +451,6 @@
 </div>
 
 @code {
-    private const string UnregisteredPhoneLabel = "غير مسجل";
-
     private NewRequestModel model = new();
 
     private List<Specialty> specialties = [];
@@ -686,7 +684,7 @@
                 .Select(d => new DoctorOption(
                     d.Id,
                     d.User.FullNameAr,
-                    d.User.PhoneNumber ?? d.ClinicPhone,
+                    (d.User.PhoneNumber ?? d.ClinicPhone),
                     d.ClinicAddress,
                     d.WorkingDays,
                     d.WorkStartTime,
@@ -701,14 +699,14 @@
         }
     }
 
-    private void SelectDoctor(DoctorOption doctor)
+    private async Task SelectDoctor(DoctorOption doctor)
     {
         model.DoctorId = doctor.Id;
         selectedDoctorName = doctor.NameAr;
         selectedDoctorTime = FormatWorkingTime(doctor.WorkStartTime, doctor.WorkEndTime);
         model.AppointmentDate = null;
 
-        appointmentDays = BuildAppointmentDays(doctor);
+        appointmentDays = await BuildAppointmentDays(doctor);
 
         errorMsg = null;
         showValidation = false;
@@ -727,25 +725,36 @@
         showValidation = false;
     }
 
-    private List<AppointmentDayOption> BuildAppointmentDays(DoctorOption doctor)
+    private async Task<List<AppointmentDayOption>> BuildAppointmentDays(DoctorOption doctor)
     {
         var result = new List<AppointmentDayOption>();
         var allowedDays = ParseDays(doctor.WorkingDays);
-
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         for (var i = 0; i < 21; i++)
         {
             var date = today.AddDays(i);
             var code = CodeForDay(date.DayOfWeek);
-            var isAvailable = allowedDays.Count == 0 || allowedDays.Contains(code);
+            var worksThisDay = allowedDays.Count == 0 || allowedDays.Contains(code);
+
+            var approvedCount = worksThisDay
+                ? await Db.MedicalRequests.CountAsync(r =>
+                    r.DoctorId == doctor.Id &&
+                    r.AppointmentDate == date &&
+                    r.Status == RequestStatus.Approved)
+                : 0;
+
+            var remainingSlots = Math.Max(doctor.MaxDailySlots - approvedCount, 0);
+            var isAvailable = worksThisDay && remainingSlots > 0;
 
             result.Add(new AppointmentDayOption(
                 date,
                 ArabicDayName(date.DayOfWeek),
                 date.Day.ToString(),
                 ArabicMonthName(date.Month),
-                isAvailable
+                isAvailable,
+                remainingSlots,
+                worksThisDay ? "اليوم مكتمل" : "الطبيب لا يعمل في هذا اليوم"
             ));
         }
 
@@ -815,7 +824,9 @@
             var result = await Mediator.Send(new SubmitRequestCommand(
                 userId,
                 model.SpecialtyId,
-                requestDescription
+                requestDescription,
+                model.DoctorId,
+                model.AppointmentDate
             ));
 
             if (!result.Succeeded)
@@ -862,17 +873,23 @@
             ? "لم يتم إدخال وصف للحالة."
             : model.DescriptionAr.Trim();
 
-        return
-$@"بيانات الحجز المختارة:
-الاسم: {model.ProfileName}
-الهاتف: {SafeText(model.ProfilePhone, UnregisteredPhoneLabel)}
-التخصص: {SelectedSpecialtyName}
-الطبيب المختار: {SelectedDoctorName}
-اليوم المختار: {SelectedAppointmentText}
-وقت الطبيب: {SelectedDoctorTime}
+        var phoneText = SafeText(model.ProfilePhone, "غير مسجل");
 
-وصف الحالة:
-{userDescription}";
+        var lines = new List<string>
+        {
+            "بيانات الحجز المختارة:",
+            $"الاسم: {model.ProfileName}",
+            $"الهاتف: {phoneText}",
+            $"التخصص: {SelectedSpecialtyName}",
+            $"الطبيب المختار: {SelectedDoctorName}",
+            $"اليوم المختار: {SelectedAppointmentText}",
+            $"وقت الطبيب: {SelectedDoctorTime}",
+            string.Empty,
+            "وصف الحالة:",
+            userDescription
+        };
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     private void HandleFilesSelected(List<PendingFile> files)
@@ -1057,7 +1074,9 @@ $@"بيانات الحجز المختارة:
         string DayName,
         string DayNumber,
         string MonthName,
-        bool IsAvailable
+        bool IsAvailable,
+        int RemainingSlots,
+        string UnavailableReason
     );
 
     public class PendingFile
