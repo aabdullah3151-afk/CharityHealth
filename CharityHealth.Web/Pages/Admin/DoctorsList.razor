@@ -1,0 +1,366 @@
+﻿@page "/admin/doctors"
+@attribute [Authorize(Roles = "Administrator")]
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Interfaces.Repositories
+@using Microsoft.AspNetCore.Identity
+@inject IUnitOfWork UoW
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+@inject NotificationService Notify
+
+<PageTitle>قائمة الأطباء</PageTitle>
+
+<RadzenStack Gap="1rem">
+
+  
+    <RadzenStack Orientation="Orientation.Horizontal"
+                 JustifyContent="JustifyContent.SpaceBetween"
+                 AlignItems="AlignItems.Center">
+        <RadzenText TextStyle="TextStyle.H5" Style="margin:0;">
+            🩺 قائمة الأطباء
+        </RadzenText>
+        <RadzenButton Text="إضافة دكتور جديد"
+                      Icon="person_add"
+                      ButtonStyle="ButtonStyle.Primary"
+                      Click='@(() => Nav.NavigateTo("/admin/doctors/create"))' />
+    </RadzenStack>
+
+   
+    <RadzenRow Gap="1rem">
+        <RadzenColumn Size="3">
+            <RadzenCard Style="text-align:center; padding:1rem;">
+                <RadzenText TextStyle="TextStyle.H4" Style="color:var(--rz-primary); margin:0;">
+                    @doctors.Count
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">إجمالي الأطباء</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="3">
+            <RadzenCard Style="text-align:center; padding:1rem;">
+                <RadzenText TextStyle="TextStyle.H4" Style="color:var(--rz-success); margin:0;">
+                    @doctors.Count(d => d.IsAvailable && d.IsActive)
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">متاح حالياً</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="3">
+            <RadzenCard Style="text-align:center; padding:1rem;">
+                <RadzenText TextStyle="TextStyle.H4" Style="color:var(--rz-warning); margin:0;">
+                    @doctors.Count(d => !d.IsAvailable)
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">غير متاح</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="3">
+            <RadzenCard Style="text-align:center; padding:1rem;">
+                <RadzenText TextStyle="TextStyle.H4" Style="color:var(--rz-danger); margin:0;">
+                    @doctors.Count(d => !d.IsActive)
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">موقف</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+   
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Wrap="FlexWrap.Wrap">
+            <RadzenFormField Text="بحث" Style="flex:1; min-width:200px;">
+                <RadzenTextBox @bind-Value="searchText"
+                               Placeholder="اسم الطبيب أو رقم الرخصة..."
+                               Change="@(_ => FilterDoctors())"
+                               Style="width:100%;" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="التخصص" Style="min-width:180px;">
+                <RadzenDropDown @bind-Value="selectedSpecialtyId"
+                                Data="@specialties"
+                                TextProperty="NameAr"
+                                ValueProperty="Id"
+                                Placeholder="الكل"
+                                AllowClear="true"
+                                Change="@(_ => FilterDoctors())"
+                                Style="width:100%;" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="الحالة" Style="min-width:140px;">
+               <RadzenDropDown
+    @bind-Value="statusFilter"
+    Data="@statusOptions"
+    TextProperty="Label"
+    ValueProperty="Value"
+    AllowClear="true"
+    Change="@(_ => FilterDoctors())" />
+            </RadzenFormField>
+        </RadzenStack>
+    </RadzenCard>
+
+   
+    <RadzenCard>
+        <RadzenDataGrid Data="@filteredDoctors"
+                        TItem="DoctorRow"
+                        AllowSorting="true"
+                        AllowPaging="true"
+                        PageSize="10"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true"
+                        PagingSummaryFormat="@("عرض {0} - {1} من {2}")"
+                        IsLoading="@isLoading"
+                        EmptyText="لا يوجد أطباء"
+                        Style="border-radius:8px;">
+
+            <Columns>
+
+                <RadzenDataGridColumn TItem="DoctorRow" Title="#" Width="60px">
+                    <Template Context="row">
+                        <RadzenText Style="font-size:0.85rem; color:var(--rz-text-secondary-color);">
+                            @(filteredDoctors.IndexOf(row) + 1)
+                        </RadzenText>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="DoctorRow" Property="FullNameAr" Title="اسم الطبيب">
+                    <Template Context="row">
+                        <RadzenStack Orientation="Orientation.Horizontal"
+                                     AlignItems="AlignItems.Center" Gap="0.75rem">
+                            <RadzenGravatar Email="@row.Email" Size="36"
+                                            Style="border-radius:50%;" />
+                            <div>
+                                <RadzenText Style="font-weight:500; margin:0;">
+                                    د. @row.FullNameAr
+                                </RadzenText>
+                                <RadzenText TextStyle="TextStyle.Caption"
+                                            Style="color:var(--rz-text-secondary-color);">
+                                    @row.PhoneNumber
+                                </RadzenText>
+                            </div>
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="DoctorRow" Property="SpecialtyName" Title="التخصص">
+                    <Template Context="row">
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info"
+                                     Text="@row.SpecialtyName"
+                                     Style="font-size:0.78rem;" />
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="DoctorRow" Property="LicenseNumber"
+                                      Title="رقم الرخصة" Width="140px">
+                    <Template Context="row">
+                        <RadzenText Style="font-family:monospace; font-size:0.85rem;">
+                            @row.LicenseNumber
+                        </RadzenText>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="DoctorRow" Title="الكشوفات اليومية" Width="140px">
+                    <Template Context="row">
+                        <RadzenText Style="text-align:center;">
+                            @row.MaxDailySlots كشف/يوم
+                        </RadzenText>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="DoctorRow" Title="التوفر" Width="110px">
+                    <Template Context="row">
+                        @if (row.IsAvailable)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="متاح" />
+                        }
+                        else
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="غير متاح" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="DoctorRow" Title="الحساب" Width="110px">
+                    <Template Context="row">
+                        @if (row.IsActive)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="فعّال" />
+                        }
+                        else
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="موقف" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="DoctorRow" Title="الإجراءات"
+                                      Width="160px" Sortable="false">
+                    <Template Context="row">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.4rem">
+                            <RadzenButton Icon="edit" Size="ButtonSize.Small"
+                                          ButtonStyle="ButtonStyle.Light"
+                                          Click="@(() => Nav.NavigateTo($"/admin/doctors/{row.DoctorId}/edit"))"
+                                          title="تعديل" />
+
+                            <RadzenButton Icon="@(row.IsActive ? "block" : "check_circle")"
+                                          Size="ButtonSize.Small"
+                                          ButtonStyle="@(row.IsActive ? ButtonStyle.Warning : ButtonStyle.Success)"
+                                          Click="@(() => ToggleStatus(row))"
+                                          title="@(row.IsActive ? "إيقاف الحساب" : "تفعيل الحساب")" />
+
+                            <RadzenButton Icon="lock_reset" Size="ButtonSize.Small"
+                                          ButtonStyle="ButtonStyle.Info"
+                                          Click="@(() => ResetPassword(row))"
+                                          title="إعادة ضبط كلمة المرور" />
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+
+</RadzenStack>
+
+@code {
+    private List<DoctorRow> doctors = [];
+    private List<DoctorRow> filteredDoctors = [];
+    private List<Specialty> specialties = [];
+    private bool isLoading = true;
+
+    private string searchText = string.Empty;
+    private Guid? selectedSpecialtyId = null;
+    private string statusFilter = "all";
+
+   
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            specialties = (await UoW.Specialties.FindAsync(s => s.IsActive)).ToList();
+            await LoadDoctors();
+        }
+        catch (Exception ex)
+        {
+            Notify.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "حدث خطأ أثناء تحميل البيانات",
+                Detail = ex.Message,
+                Duration = 5000
+            });
+        }
+ 
+    }
+    private List<StatusOption> statusOptions =
+   [
+       new() { Label = "الكل", Value = "all" },
+    new() { Label = "فعّال فقط", Value = "active" },
+    new() { Label = "موقف فقط", Value = "inactive" },
+    new() { Label = "متاح للكشف", Value = "available" }
+   ];
+    public class StatusOption
+    {
+        public string Label { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+    }
+    private async Task LoadDoctors()
+    {
+        isLoading = true;
+        var list = await UoW.Doctors.GetAllWithDetailsAsync();
+        
+        doctors = list.Select(d => new DoctorRow
+        {
+            DoctorId = d.Id,
+            UserId = d.UserId,
+            FullNameAr = d.User?.FullNameAr ?? "—",
+            FullNameEn = d.User?.FullNameEn ?? string.Empty,
+            Email = d.User?.Email ?? string.Empty,
+            PhoneNumber = d.User?.PhoneNumber ?? "—",
+            SpecialtyId = d.SpecialtyId,
+            SpecialtyName = d.Specialty?.NameAr ?? "—",
+            LicenseNumber = d.LicenseNumber,
+            MaxDailySlots = d.MaxDailySlots,
+            IsAvailable = d.IsAvailable,
+            IsActive = d.User?.IsActive ?? false,
+        }).ToList();
+
+        FilterDoctors();
+        isLoading = false;
+    }
+
+    private void FilterDoctors()
+    {
+        filteredDoctors = doctors.Where(d =>
+        {
+            var matchSearch = string.IsNullOrWhiteSpace(searchText)
+                || d.FullNameAr.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || d.FullNameEn.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || d.LicenseNumber.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || d.PhoneNumber.Contains(searchText);
+
+            var matchSpecialty = selectedSpecialtyId is null
+                || d.SpecialtyId == selectedSpecialtyId;
+
+            var matchStatus = statusFilter switch
+            {
+                "active" => d.IsActive,
+                "inactive" => !d.IsActive,
+                "available" => d.IsAvailable && d.IsActive,
+                _ => true
+            };
+
+            return matchSearch && matchSpecialty && matchStatus;
+        }).ToList();
+    }
+
+    private async Task ToggleStatus(DoctorRow row)
+    {
+        var user = await UserManager.FindByIdAsync(row.UserId);
+        if (user is null) return;
+
+        user.IsActive = !user.IsActive;
+        await UserManager.UpdateAsync(user);
+
+        row.IsActive = user.IsActive;
+        FilterDoctors();
+
+        Notify.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Success,
+            Summary = row.IsActive ? "تم تفعيل الحساب" : "تم إيقاف الحساب",
+            Duration = 3000
+        });
+    }
+
+    private async Task ResetPassword(DoctorRow row)
+    {
+        var user = await UserManager.FindByIdAsync(row.UserId);
+        if (user is null) return;
+
+        var newPassword = $"Dr{new Random().Next(10000, 99999)}";
+        var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+        var result = await UserManager.ResetPasswordAsync(user, token, newPassword);
+
+        Notify.Notify(new NotificationMessage
+        {
+            Severity = result.Succeeded ? NotificationSeverity.Success : NotificationSeverity.Error,
+            Summary = result.Succeeded
+                ? $"كلمة المرور الجديدة: {newPassword}"
+                : "فشل إعادة ضبط كلمة المرور",
+            Duration = 8000
+        });
+    }
+
+    private class DoctorRow
+    {
+        public Guid DoctorId { get; set; }
+        public string UserId { get; set; } = string.Empty;
+        public string FullNameAr { get; set; } = string.Empty;
+        public string FullNameEn { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public Guid SpecialtyId { get; set; }
+        public string SpecialtyName { get; set; } = string.Empty;
+        public string LicenseNumber { get; set; } = string.Empty;
+        public int MaxDailySlots { get; set; }
+        public bool IsAvailable { get; set; }
+        public bool IsActive { get; set; }
+    }
+}

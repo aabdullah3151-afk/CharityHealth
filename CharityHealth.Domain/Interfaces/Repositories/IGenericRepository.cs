@@ -14,4 +14,5 @@ public interface IGenericRepository<T> where T : BaseEntity
     void Remove(T entity);          // Soft delete
     Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default);
     Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken ct = default);
+
 }

@@ -1,9 +1,10 @@
-using System.Linq.Expressions;
 using CharityHealth.Domain.Common;
+using CharityHealth.Domain.Entities;
 using CharityHealth.Domain.Interfaces.Repositories;
 using CharityHealth.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Linq.Expressions;
 
 namespace CharityHealth.Infrastructure.Repositories;
 
@@ -21,29 +22,32 @@ public class GenericRepository<T>(AppDbContext context) : IGenericRepository<T>
     public async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default)
         => await _set.AsNoTracking().ToListAsync(ct);
 
-    public async Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
+    public async Task<IReadOnlyList<T>> FindAsync(
+        Expression<Func<T, bool>> predicate, CancellationToken ct = default)
         => await _set.AsNoTracking().Where(predicate).ToListAsync(ct);
 
-    public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
+    public async Task<T?> FirstOrDefaultAsync(
+        Expression<Func<T, bool>> predicate, CancellationToken ct = default)
         => await _set.AsNoTracking().FirstOrDefaultAsync(predicate, ct);
 
     public async Task AddAsync(T entity, CancellationToken ct = default)
         => await _set.AddAsync(entity, ct);
 
-    public void Update(T entity)
-        => _set.Update(entity);
+    public void Update(T entity) => _set.Update(entity);
 
     public void Remove(T entity)
     {
-        entity.IsDeleted = true;         // Soft delete
+        entity.IsDeleted = true;
         entity.UpdatedAt = DateTime.UtcNow;
         _set.Update(entity);
     }
 
-    public async Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
+    public async Task<bool> ExistsAsync(
+        Expression<Func<T, bool>> predicate, CancellationToken ct = default)
         => await _set.AnyAsync(predicate, ct);
 
-    public async Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken ct = default)
+    public async Task<int> CountAsync(
+        Expression<Func<T, bool>>? predicate = null, CancellationToken ct = default)
         => predicate is null
             ? await _set.CountAsync(ct)
             : await _set.CountAsync(predicate, ct);
@@ -56,22 +60,39 @@ public class UnitOfWork(AppDbContext context) : IUnitOfWork
 {
     private IDbContextTransaction? _transaction;
 
-    public IGenericRepository<Domain.Entities.Beneficiary> Beneficiaries
-        => new GenericRepository<Domain.Entities.Beneficiary>(context);
-    public IGenericRepository<Domain.Entities.Doctor> Doctors
-        => new GenericRepository<Domain.Entities.Doctor>(context);
-    public IGenericRepository<Domain.Entities.MedicalRequest> MedicalRequests
-        => new GenericRepository<Domain.Entities.MedicalRequest>(context);
-    public IGenericRepository<Domain.Entities.RequestDocument> RequestDocuments
-        => new GenericRepository<Domain.Entities.RequestDocument>(context);
-    public IGenericRepository<Domain.Entities.QRCodeToken> QRCodeTokens
-        => new GenericRepository<Domain.Entities.QRCodeToken>(context);
-    public IGenericRepository<Domain.Entities.Consultation> Consultations
-        => new GenericRepository<Domain.Entities.Consultation>(context);
-    public IGenericRepository<Domain.Entities.Specialty> Specialties
-        => new GenericRepository<Domain.Entities.Specialty>(context);
-    public IGenericRepository<Domain.Entities.OtpRecord> OtpRecords
-        => new GenericRepository<Domain.Entities.OtpRecord>(context);
+    // ✅ كل repository يتعمل مرة واحدة بس (??= caching)
+    private IBeneficiaryRepository? _beneficiaries;
+    private IDoctorRepository? _doctors;
+    private IGenericRepository<MedicalRequest>? _medicalRequests;
+    private IGenericRepository<RequestDocument>? _requestDocuments;
+    private IGenericRepository<QRCodeToken>? _qrCodeTokens;
+    private IGenericRepository<Consultation>? _consultations;
+    private IGenericRepository<Specialty>? _specialties;
+    private IGenericRepository<OtpRecord>? _otpRecords;
+
+    public IBeneficiaryRepository Beneficiaries
+        => _beneficiaries ??= new BeneficiaryRepository(context);
+
+    public IDoctorRepository Doctors
+        => _doctors ??= new DoctorRepository(context);
+
+    public IGenericRepository<MedicalRequest> MedicalRequests
+        => _medicalRequests ??= new GenericRepository<MedicalRequest>(context);
+
+    public IGenericRepository<RequestDocument> RequestDocuments
+        => _requestDocuments ??= new GenericRepository<RequestDocument>(context);
+
+    public IGenericRepository<QRCodeToken> QRCodeTokens
+        => _qrCodeTokens ??= new GenericRepository<QRCodeToken>(context);
+
+    public IGenericRepository<Consultation> Consultations
+        => _consultations ??= new GenericRepository<Consultation>(context);
+
+    public IGenericRepository<Specialty> Specialties
+        => _specialties ??= new GenericRepository<Specialty>(context);
+
+    public IGenericRepository<OtpRecord> OtpRecords
+        => _otpRecords ??= new GenericRepository<OtpRecord>(context);
 
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)
         => await context.SaveChangesAsync(ct);
@@ -94,6 +115,6 @@ public class UnitOfWork(AppDbContext context) : IUnitOfWork
     public void Dispose()
     {
         _transaction?.Dispose();
-        context.Dispose();
+        // ✅ لا تعمل context.Dispose() — الـ DI هو المسؤول عن تنظيفه
     }
 }

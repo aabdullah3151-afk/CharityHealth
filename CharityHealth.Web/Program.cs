@@ -21,9 +21,9 @@ builder.Services.AddControllers();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// ── Blazor Server ─────────────────────────────────────
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+//// ── Blazor Server ─────────────────────────────────────
+//builder.Services.AddRazorComponents()
+//    .AddInteractiveServerComponents();
 
 // ── Radzen ────────────────────────────────────────────
 builder.Services.AddRadzenComponents();
@@ -54,7 +54,7 @@ builder.Services.ConfigureApplicationCookie(opts =>
 {
     opts.LoginPath = "/login";
     opts.AccessDeniedPath = "/access-denied";
-    opts.ExpireTimeSpan = TimeSpan.FromHours(8);
+    opts.ExpireTimeSpan = TimeSpan.FromDays(30);
     opts.SlidingExpiration = true;
     opts.Cookie.HttpOnly = true;
     opts.Cookie.SecurePolicy = CookieSecurePolicy.Always;
@@ -110,10 +110,8 @@ app.MapControllers();
 app.UseAntiforgery();
 
 // ── Blazor & SignalR ──────────────────────────────────
-//app.MapRazorComponents<CharityHealth.Web.App>()
-//    .AddInteractiveServerRenderMode();
 app.MapBlazorHub();
-//app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.MapFallbackToPage("/_Host");
 

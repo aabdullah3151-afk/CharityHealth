@@ -4,8 +4,8 @@ namespace CharityHealth.Domain.Interfaces.Repositories;
 
 public interface IUnitOfWork : IDisposable
 {
-    IGenericRepository<Beneficiary> Beneficiaries { get; }
-    IGenericRepository<Doctor> Doctors { get; }
+    IBeneficiaryRepository Beneficiaries { get; }
+    IDoctorRepository Doctors { get; }
     IGenericRepository<MedicalRequest> MedicalRequests { get; }
     IGenericRepository<RequestDocument> RequestDocuments { get; }
     IGenericRepository<QRCodeToken> QRCodeTokens { get; }

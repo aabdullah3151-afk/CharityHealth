@@ -44,6 +44,8 @@ public static class DependencyInjection
         services.Configure<FileStorageSettings>(configuration.GetSection("FileStorage"));
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
        // services.AddScoped<INotificationSender, NotificationSender>();
+        services.AddScoped<IDoctorRepository, DoctorRepository>();
+        services.AddScoped<IBeneficiaryRepository, BeneficiaryRepository>();
 
         return services;
     }

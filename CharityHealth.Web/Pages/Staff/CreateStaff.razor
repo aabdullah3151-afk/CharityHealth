@@ -1,0 +1,274 @@
+﻿@page "/admin/staff/create"
+@attribute [Authorize(Roles = "Administrator")]
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+@inject NotificationService Notify
+
+<PageTitle>إضافة موظف جديد</PageTitle>
+
+<RadzenStack Gap="1rem">
+
+    {{!-- ── Header ─────────────────────────────────── --}}
+    <RadzenStack Orientation="Orientation.Horizontal"
+                 AlignItems="AlignItems.Center" Gap="0.75rem">
+        <RadzenButton Icon="arrow_forward" ButtonStyle="ButtonStyle.Light"
+                      Size="ButtonSize.Small"
+                      Click='@(() => Nav.NavigateTo("/admin/staff"))' />
+        <RadzenText TextStyle="TextStyle.H5" Style="margin:0;">
+            👤 إضافة موظف جديد
+        </RadzenText>
+    </RadzenStack>
+
+    <RadzenCard>
+        <RadzenText TextStyle="TextStyle.Body2"
+                    Style="color:var(--rz-text-secondary-color); margin-bottom:1.5rem;">
+            يتم إنشاء حساب الموظف بواسطة المدير — سيتمكن من مراجعة طلبات المستفيدين وإدارة سير العمل.
+        </RadzenText>
+
+        {{!-- Success message --}}
+        @if (createdPassword is not null)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" ShowIcon="true"
+                         AllowClose="false" Style="margin-bottom:1.5rem;">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Style="font-weight:600;">✅ تم إنشاء حساب الموظف بنجاح!</RadzenText>
+                    <RadzenText>
+                        اسم المستخدم: <strong>@createdUsername</strong>
+                    </RadzenText>
+                    <RadzenText>
+                        كلمة المرور المؤقتة: <strong style="font-family:monospace; font-size:1.1rem;
+                        background:var(--rz-base-200); padding:2px 8px; border-radius:4px;">
+                            @createdPassword
+                        </strong>
+                    </RadzenText>
+                    <RadzenText TextStyle="TextStyle.Caption"
+                                Style="color:var(--rz-warning-darker);">
+                        ⚠️ احفظ كلمة المرور الآن — لن تظهر مرة أخرى
+                    </RadzenText>
+                </RadzenStack>
+            </RadzenAlert>
+        }
+
+        {{!-- Error --}}
+        @if (errors.Any())
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="true"
+                         Close="@(() => errors.Clear())" Style="margin-bottom:1.5rem;">
+                @foreach (var e in errors)
+                {
+                    <div>• @e</div>
+                }
+            </RadzenAlert>
+        }
+
+        {{!-- Form --}}
+        <RadzenRow Gap="1rem">
+
+            {{!-- Column 1: Personal Info --}}
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenFieldset Text="البيانات الشخصية">
+                    <RadzenStack Gap="1rem" Style="padding:0.5rem;">
+
+                        <RadzenFormField Text="الاسم الكامل (عربي) *" Style="width:100%;">
+                            <RadzenTextBox @bind-Value="model.FullNameAr"
+                                           Placeholder="محمد أحمد الفلاني"
+                                           Style="width:100%;" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="الاسم الكامل (إنجليزي)" Style="width:100%;">
+                            <RadzenTextBox @bind-Value="model.FullNameEn"
+                                           Placeholder="Mohammed Ahmed"
+                                           Style="width:100%; direction:ltr;" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="رقم الهاتف *" Style="width:100%;">
+                            <RadzenTextBox @bind-Value="model.PhoneNumber"
+                                           Placeholder="+96891234567"
+                                           Style="width:100%; direction:ltr; text-align:right;" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="البريد الإلكتروني *" Style="width:100%;">
+                            <RadzenTextBox @bind-Value="model.Email"
+                                           Placeholder="staff@charity.org"
+                                           Style="width:100%; direction:ltr;" />
+                        </RadzenFormField>
+
+                    </RadzenStack>
+                </RadzenFieldset>
+            </RadzenColumn>
+
+            {{!-- Column 2: Account Settings --}}
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenFieldset Text="إعدادات الحساب">
+                    <RadzenStack Gap="1rem" Style="padding:0.5rem;">
+
+                        @* <RadzenFormField Text="اسم المستخدم *" Style="width:100%;">
+                            <RadzenTextBox @bind-Value="@model.UserName"  Placeholder="staff.mohammed" Style="width:100%; direction:ltr;" ></RadzenTextBox>
+                            <Helper>يستخدم لتسجيل الدخول — لا يحتوي مسافات</Helper>
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="كلمة المرور" Style="width:100%;">
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                <RadzenPassword @bind-Value="@model.Password" Placeholder="اتركها فارغة للتوليد التلقائي" Style="width:100%;" ></RadzenPassword>
+                                <RadzenButton Icon="auto_fix_high"
+                                              ButtonStyle="ButtonStyle.Light"
+                                              Size="ButtonSize.Small"
+                                              Click="GeneratePassword"
+                                              />
+                            </RadzenStack>
+                            <Helper>اتركها فارغة لتوليد كلمة مرور تلقائياً</Helper>
+                        </RadzenFormField> *@
+
+                        <div>
+                            <RadzenText TextStyle="TextStyle.Subtitle2"
+                                        Style="margin-bottom:0.5rem;">
+                                الصلاحيات
+                            </RadzenText>
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenCheckBox @bind-Value="model.CanApproveRequests"
+                                                Name="approveReq" />
+                                <RadzenLabel Text="مراجعة وقبول/رفض الطلبات"
+                                             Component="approveReq" />
+
+                                <RadzenCheckBox @bind-Value="model.CanViewReports"
+                                                Name="viewRep" />
+                                <RadzenLabel Text="عرض التقارير"
+                                             Component="viewRep" />
+
+                                <RadzenCheckBox @bind-Value="model.CanRequestDocuments"
+                                                Name="reqDocs" />
+                                <RadzenLabel Text="طلب مستندات إضافية"
+                                             Component="reqDocs" />
+                            </RadzenStack>
+                        </div>
+
+                    </RadzenStack>
+                </RadzenFieldset>
+            </RadzenColumn>
+
+        </RadzenRow>
+
+        {{!-- Actions --}}
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     JustifyContent="JustifyContent.End"
+                     Gap="0.75rem" Style="margin-top:1.5rem;">
+
+            <RadzenButton Text="إلغاء" ButtonStyle="ButtonStyle.Light"
+                          Click='@(() => Nav.NavigateTo("/admin/staff"))' />
+
+            <RadzenButton Text="إنشاء الحساب"
+                          Icon="person_add"
+                          ButtonStyle="ButtonStyle.Primary"
+                          IsBusy="@isLoading"
+                          BusyText="جارٍ الإنشاء..."
+                          Click="HandleSubmit"
+                          Disabled="@(!IsFormValid())" />
+        </RadzenStack>
+
+    </RadzenCard>
+
+</RadzenStack>
+
+@code {
+    private StaffModel model = new();
+    private List<string> errors = [];
+    private bool isLoading;
+    private string? createdPassword;
+    private string? createdUsername;
+
+    private void GeneratePassword()
+    {
+        var rnd = new Random();
+        model.Password = $"Staff{rnd.Next(10000, 99999)}";
+        StateHasChanged();
+    }
+
+    private bool IsFormValid() =>
+        !string.IsNullOrWhiteSpace(model.FullNameAr) &&
+        !string.IsNullOrWhiteSpace(model.PhoneNumber) &&
+        !string.IsNullOrWhiteSpace(model.Email) &&
+        !string.IsNullOrWhiteSpace(model.UserName);
+
+    private async Task HandleSubmit()
+    {
+        errors.Clear();
+        createdPassword = null;
+
+        // Validate
+        if (!IsFormValid())
+        {
+            errors.Add("يرجى تعبئة جميع الحقول المطلوبة");
+            return;
+        }
+
+        isLoading = true;
+
+        try
+        {
+            // Auto-generate password if empty
+            var password = string.IsNullOrWhiteSpace(model.Password)
+                ? $"Staff{new Random().Next(10000, 99999)}"
+                : model.Password;
+
+            var user = new ApplicationUser
+            {
+                UserName             = model.UserName.Trim(),
+                Email                = model.Email.Trim(),
+                PhoneNumber          = model.PhoneNumber.Trim(),
+                FullNameAr           = model.FullNameAr.Trim(),
+                FullNameEn           = model.FullNameEn?.Trim() ?? string.Empty,
+                UserType             = UserType.Staff,
+                IsActive             = true,
+                EmailConfirmed       = true,
+                PhoneNumberConfirmed = true,
+            };
+
+            var result = await UserManager.CreateAsync(user, password);
+
+            if (!result.Succeeded)
+            {
+                errors = result.Errors.Select(e => e.Description).ToList();
+                return;
+            }
+
+            await UserManager.AddToRoleAsync(user, "Staff");
+
+            createdPassword = password;
+            createdUsername = model.UserName;
+
+            // Reset form
+            model = new();
+
+            Notify.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary  = "تم إنشاء حساب الموظف بنجاح",
+                Duration = 4000
+            });
+        }
+        catch (Exception ex)
+        {
+            errors.Add($"خطأ غير متوقع: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private class StaffModel
+    {
+        public string FullNameAr            { get; set; } = string.Empty;
+        public string FullNameEn            { get; set; } = string.Empty;
+        public string PhoneNumber           { get; set; } = string.Empty;
+        public string Email                 { get; set; } = string.Empty;
+        public string UserName              { get; set; } = string.Empty;
+        public string Password              { get; set; } = string.Empty;
+        public bool   CanApproveRequests    { get; set; } = true;
+        public bool   CanViewReports        { get; set; } = true;
+        public bool   CanRequestDocuments   { get; set; } = true;
+    }
+}

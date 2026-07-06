@@ -1,0 +1,340 @@
+﻿@page "/admin/staff"
+@attribute [Authorize(Roles = "Administrator")]
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+@inject NotificationService Notify
+@inject DialogService Dialog
+
+<PageTitle>قائمة الموظفين</PageTitle>
+
+<RadzenStack Gap="1rem">
+
+    
+    <RadzenStack Orientation="Orientation.Horizontal"
+                 JustifyContent="JustifyContent.SpaceBetween"
+                 AlignItems="AlignItems.Center">
+        <RadzenText TextStyle="TextStyle.H5" Style="margin:0;">
+            👥 قائمة الموظفين
+        </RadzenText>
+        <RadzenButton Text="إضافة موظف جديد"
+                      Icon="person_add"
+                      ButtonStyle="ButtonStyle.Primary"
+                      Click='@(() => Nav.NavigateTo("/admin/staff/create"))' />
+    </RadzenStack>
+
+    
+    <RadzenRow Gap="1rem">
+        <RadzenColumn Size="4">
+            <RadzenCard Style="text-align:center; padding:1rem;">
+                <RadzenText TextStyle="TextStyle.H4"
+                            Style="color:var(--rz-primary); margin:0;">@staff.Count</RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">إجمالي الموظفين</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="4">
+            <RadzenCard Style="text-align:center; padding:1rem;">
+                <RadzenText TextStyle="TextStyle.H4"
+                            Style="color:var(--rz-success); margin:0;">
+                    @staff.Count(s => s.IsActive)
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">فعّال</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="4">
+            <RadzenCard Style="text-align:center; padding:1rem;">
+                <RadzenText TextStyle="TextStyle.H4"
+                            Style="color:var(--rz-danger); margin:0;">
+                    @staff.Count(s => !s.IsActive)
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">موقف</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Wrap="FlexWrap.Wrap">
+            <RadzenFormField Text="بحث" Style="flex:1; min-width:200px;">
+                <RadzenTextBox @bind-Value="searchText"
+                               Placeholder="اسم الموظف أو البريد أو الهاتف..."
+                               Change="@(_ => FilterStaff())"
+                               Style="width:100%;" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="الحالة" Style="min-width:150px;">
+               @*  <RadzenDropDown @bind-Value="statusFilter"
+                                Data="@statusOptions"
+                                TextProperty="Label"
+                                ValueProperty="Value"
+                                Change="@(_ => FilterStaff())"
+                                Style="width:100%;" /> *@
+            </RadzenFormField>
+        </RadzenStack>
+    </RadzenCard>
+
+ 
+    <RadzenCard>
+        <RadzenDataGrid Data="@filteredStaff"
+                        TItem="StaffRow"
+                        AllowSorting="true"
+                        AllowPaging="true"
+                        PageSize="10"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true"
+                        PagingSummaryFormat="@("عرض {0} - {1} من {2}")"
+                        IsLoading="@isLoading"
+                        EmptyText="لا يوجد موظفون">
+
+            <Columns>
+
+                <RadzenDataGridColumn TItem="StaffRow" Title="#" Width="60px">
+                    <Template Context="row">
+                        <RadzenText Style="font-size:0.85rem;
+                            color:var(--rz-text-secondary-color);">
+                            @(filteredStaff.IndexOf(row) + 1)
+                        </RadzenText>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="StaffRow" Property="FullNameAr" Title="اسم الموظف">
+                    <Template Context="row">
+                        <RadzenStack Orientation="Orientation.Horizontal"
+                                     AlignItems="AlignItems.Center" Gap="0.75rem">
+                            <RadzenGravatar Email="@row.Email" Size="36"
+                                            Style="border-radius:50%;" />
+                            <div>
+                                <RadzenText Style="font-weight:500; margin:0;">
+                                    @row.FullNameAr
+                                </RadzenText>
+                                <RadzenText TextStyle="TextStyle.Caption"
+                                            Style="color:var(--rz-text-secondary-color);">
+                                    @row.UserName
+                                </RadzenText>
+                            </div>
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="StaffRow" Property="Email" Title="البريد الإلكتروني">
+                    <Template Context="row">
+                        <RadzenText Style="direction:ltr; text-align:right; font-size:0.88rem;">
+                            @row.Email
+                        </RadzenText>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="StaffRow" Property="PhoneNumber"
+                                      Title="رقم الهاتف" Width="140px">
+                    <Template Context="row">
+                        <RadzenText Style="direction:ltr; font-size:0.88rem;">
+                            @row.PhoneNumber
+                        </RadzenText>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="StaffRow" Property="CreatedAt"
+                                      Title="تاريخ الإضافة" Width="130px">
+                    <Template Context="row">
+                        <RadzenText Style="font-size:0.85rem;">
+                            @row.CreatedAt.ToString("dd/MM/yyyy")
+                        </RadzenText>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="StaffRow" Title="الحالة" Width="100px">
+                    <Template Context="row">
+                        @if (row.IsActive)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="فعّال" />
+                        }
+                        else
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="موقف" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="StaffRow" Title="الإجراءات"
+                                      Width="170px" Sortable="false">
+                    <Template Context="row">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.4rem">
+
+                            <RadzenButton Icon="edit"
+                                          Size="ButtonSize.Small"
+                                          ButtonStyle="ButtonStyle.Light"
+                                          Click="@(() => Nav.NavigateTo($"/admin/staff/{row.UserId}/edit"))"
+                                          title="تعديل البيانات" />
+
+                            <RadzenButton Icon="@(row.IsActive ? "block" : "check_circle")"
+                                          Size="ButtonSize.Small"
+                                          ButtonStyle="@(row.IsActive ? ButtonStyle.Warning : ButtonStyle.Success)"
+                                          Click="@(() => ToggleStatus(row))"
+                                          title="@(row.IsActive ? "إيقاف الحساب" : "تفعيل الحساب")" />
+
+                            <RadzenButton Icon="lock_reset"
+                                          Size="ButtonSize.Small"
+                                          ButtonStyle="ButtonStyle.Info"
+                                          Click="@(() => ResetPassword(row))"
+                                          title="إعادة ضبط كلمة المرور" />
+
+                            <RadzenButton Icon="delete"
+                                          Size="ButtonSize.Small"
+                                          ButtonStyle="ButtonStyle.Danger"
+                                          Click="@(() => ConfirmDelete(row))"
+                                          title="حذف الحساب" />
+
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+
+</RadzenStack>
+
+@code {
+    private List<StaffRow> staff = [];
+    private List<StaffRow> filteredStaff = [];
+    private bool isLoading = true;
+
+    private string searchText = string.Empty;
+    private string statusFilter = "all";
+
+    private List<(string Label, string Value)> statusOptions =
+    [
+        ("الكل",        "all"),
+        ("فعّال فقط",  "active"),
+        ("موقف فقط",   "inactive"),
+    ];
+
+    protected override async Task OnInitializedAsync() => await LoadStaff();
+
+    private async Task LoadStaff()
+    {
+        isLoading = true;
+
+        var staffUsers = UserManager.Users
+            .Where(u => u.UserType == UserType.Staff)
+            .OrderByDescending(u => u.CreatedAt)
+            .ToList();
+
+        staff = staffUsers.Select(u => new StaffRow
+        {
+            UserId = u.Id,
+            FullNameAr = u.FullNameAr,
+            FullNameEn = u.FullNameEn,
+            UserName = u.UserName ?? string.Empty,
+            Email = u.Email ?? string.Empty,
+            PhoneNumber = u.PhoneNumber ?? string.Empty,
+            IsActive = u.IsActive,
+            CreatedAt = u.CreatedAt,
+        }).ToList();
+
+        FilterStaff();
+        isLoading = false;
+    }
+
+    private void FilterStaff()
+    {
+        filteredStaff = staff.Where(s =>
+        {
+            var matchSearch = string.IsNullOrWhiteSpace(searchText)
+                || s.FullNameAr.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || s.Email.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || s.PhoneNumber.Contains(searchText)
+                || s.UserName.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+
+            var matchStatus = statusFilter switch
+            {
+                "active" => s.IsActive,
+                "inactive" => !s.IsActive,
+                _ => true
+            };
+
+            return matchSearch && matchStatus;
+        }).ToList();
+    }
+
+    private async Task ToggleStatus(StaffRow row)
+    {
+        var user = await UserManager.FindByIdAsync(row.UserId);
+        if (user is null) return;
+
+        user.IsActive = !user.IsActive;
+        await UserManager.UpdateAsync(user);
+        row.IsActive = user.IsActive;
+        FilterStaff();
+
+        Notify.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Success,
+            Summary = row.IsActive ? "✅ تم تفعيل الحساب" : "⛔ تم إيقاف الحساب",
+            Duration = 3000
+        });
+    }
+
+    private async Task ResetPassword(StaffRow row)
+    {
+        var user = await UserManager.FindByIdAsync(row.UserId);
+        if (user is null) return;
+
+        var newPwd = $"Staff{new Random().Next(10000, 99999)}";
+        var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+        var result = await UserManager.ResetPasswordAsync(user, token, newPwd);
+
+        Notify.Notify(new NotificationMessage
+        {
+            Severity = result.Succeeded ? NotificationSeverity.Success : NotificationSeverity.Error,
+            Summary = result.Succeeded
+                ? $"كلمة المرور الجديدة لـ {row.FullNameAr}: {newPwd}"
+                : "فشل إعادة ضبط كلمة المرور",
+            Duration = 10000
+        });
+    }
+
+    private async Task ConfirmDelete(StaffRow row)
+    {
+        var confirmed = await Dialog.Confirm(
+            $"هل أنت متأكد من حذف حساب الموظف \"{row.FullNameAr}\"؟\nهذا الإجراء لا يمكن التراجع عنه.",
+            "تأكيد الحذف",
+            new ConfirmOptions
+            {
+                OkButtonText = "نعم، احذف",
+                CancelButtonText = "إلغاء",
+                CloseDialogOnEsc = true,
+            });
+
+        if (confirmed != true) return;
+
+        var user = await UserManager.FindByIdAsync(row.UserId);
+        if (user is null) return;
+
+        // Soft delete — deactivate instead of hard delete
+        user.IsActive = false;
+        await UserManager.UpdateAsync(user);
+        await LoadStaff();
+
+        Notify.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Warning,
+            Summary = $"تم إيقاف حساب {row.FullNameAr}",
+            Duration = 4000
+        });
+    }
+
+    private class StaffRow
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string FullNameAr { get; set; } = string.Empty;
+        public string FullNameEn { get; set; } = string.Empty;
+        public string UserName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+}
