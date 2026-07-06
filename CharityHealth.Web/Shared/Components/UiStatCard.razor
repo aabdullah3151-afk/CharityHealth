@@ -1,0 +1,19 @@
+<div class="ui-card stat-panel @Tone">
+    <div class="stat-head">
+        <div class="stat-icon">@Icon</div>
+        @if (!string.IsNullOrWhiteSpace(Delta))
+        {
+            <span class="stat-delta">@Delta ↗</span>
+        }
+    </div>
+    <div class="stat-number">@Value</div>
+    <div class="stat-label">@Title</div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = "0";
+    [Parameter] public string Icon { get; set; } = "▥";
+    [Parameter] public string Tone { get; set; } = string.Empty;
+    [Parameter] public string? Delta { get; set; }
+}

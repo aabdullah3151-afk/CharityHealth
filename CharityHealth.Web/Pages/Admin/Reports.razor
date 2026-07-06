@@ -1,0 +1,213 @@
+@page "/admin/reports"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+
+<PageTitle>التقارير</PageTitle>
+
+<div class="reports-page" dir="rtl">
+
+    <header class="reports-head">
+        <div>
+            <div class="reports-kicker">Analytics 📊</div>
+            <h1>التقارير</h1>
+            <p>مؤشرات تشغيلية مختصرة مبنية على بيانات النظام الحالية.</p>
+        </div>
+
+        <button type="button" class="reports-export-btn">
+            <span>⬇</span>
+            تصدير
+        </button>
+    </header>
+
+    @if (loading)
+    {
+        <div class="reports-empty">جارٍ تحميل التقارير...</div>
+    }
+    else
+    {
+        <section class="reports-kpis">
+
+            <article class="report-kpi">
+                <i class="dot green"></i>
+                <strong>@Format(stats.TotalBeneficiaries)</strong>
+                <span>المستفيدون</span>
+            </article>
+
+            <article class="report-kpi">
+                <i class="dot teal"></i>
+                <strong>@AcceptanceRate%</strong>
+                <span>معدل القبول</span>
+            </article>
+
+            <article class="report-kpi">
+                <i class="dot amber"></i>
+                <strong>@Format(stats.CompletedRequests)</strong>
+                <span>استشارات مكتملة</span>
+            </article>
+
+            <article class="report-kpi">
+                <i class="dot blue"></i>
+                <strong>@AverageReviewDays يوم</strong>
+                <span>متوسط وقت المراجعة</span>
+            </article>
+
+        </section>
+
+        <section class="reports-chart-card">
+            <div class="reports-card-head">
+                <h2>الاستشارات المكتملة شهرياً</h2>
+            </div>
+
+            <div class="reports-bar-chart">
+                @foreach (var point in monthly)
+                {
+                    <div class="bar-item">
+                        <div class="bar-track">
+                            <div class="bar-fill" style="height:@BarHeight(point.Completed)%"></div>
+                        </div>
+                        <span>@point.Month</span>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="reports-bottom-grid">
+
+            <article class="reports-card">
+                <h2>الطلبات حسب التخصص</h2>
+
+                <div class="reports-specialties">
+                    @if (specialties.Count == 0)
+                    {
+                        <div class="reports-mini-empty">لا توجد بيانات تخصصات</div>
+                    }
+                    else
+                    {
+                        @foreach (var item in specialties)
+                        {
+                            <div class="specialty-row">
+                                <div class="specialty-row-head">
+                                    <span>@item.Percent%</span>
+                                    <strong>@item.Name</strong>
+                                </div>
+
+                                <div class="specialty-progress">
+                                    <i style="width:@item.Percent%; background:@item.ColorHex"></i>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </article>
+
+            <article class="reports-card">
+                <h2>تقرير سريع</h2>
+
+                <div class="quick-report">
+                    <div>
+                        <span class="qr-icon blue">📋</span>
+                        <strong>@Format(stats.TotalRequests)</strong>
+                        <p>كل الطلبات</p>
+                    </div>
+
+                    <div>
+                        <span class="qr-icon amber">⏳</span>
+                        <strong>@Format(stats.PendingRequests)</strong>
+                        <p>قيد المراجعة</p>
+                    </div>
+
+                    <div>
+                        <span class="qr-icon green">✅</span>
+                        <strong>@Format(stats.ApprovedRequests)</strong>
+                        <p>طلبات مقبولة</p>
+                    </div>
+
+                    <div>
+                        <span class="qr-icon red">✖</span>
+                        <strong>@Format(stats.RejectedRequests)</strong>
+                        <p>طلبات مرفوضة</p>
+                    </div>
+
+                    <div>
+                        <span class="qr-icon teal">🩺</span>
+                        <strong>@Format(stats.TotalDoctors)</strong>
+                        <p>الأطباء</p>
+                    </div>
+
+                    <div>
+                        <span class="qr-icon purple">◼</span>
+                        <strong>@Format(stats.SpecialtiesCount)</strong>
+                        <p>التخصصات</p>
+                    </div>
+                </div>
+            </article>
+
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+
+    private DashboardStatsDto stats = new(0, 0, 0, 0, 0, 0, 0, 0);
+    private List<RequestWorkItem> requests = [];
+    private List<MonthlyDashboardPoint> monthly = [];
+    private List<SpecialtyDashboardPoint> specialties = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        stats = await Ui.GetStatsAsync();
+        requests = await Ui.GetRequestsAsync();
+        monthly = await Ui.GetMonthlyDashboardAsync(6);
+        specialties = await Ui.GetSpecialtyDashboardAsync();
+
+        loading = false;
+    }
+
+    private int AcceptanceRate
+    {
+        get
+        {
+            if (stats.TotalRequests == 0)
+            {
+                return 0;
+            }
+
+            return (int)Math.Round((double)stats.ApprovedRequests / stats.TotalRequests * 100);
+        }
+    }
+
+    private double AverageReviewDays
+    {
+        get
+        {
+            var reviewed = requests
+                .Where(r => r.ReviewedAt.HasValue)
+                .Select(r => (r.ReviewedAt!.Value - r.SubmittedAt).TotalDays)
+                .Where(days => days >= 0)
+                .ToList();
+
+            if (reviewed.Count == 0)
+            {
+                return 0;
+            }
+
+            return Math.Round(reviewed.Average(), 1);
+        }
+    }
+
+    private double BarHeight(int value)
+    {
+        var max = monthly.Count == 0 ? 1 : Math.Max(1, monthly.Max(x => x.Completed));
+        return Math.Max(8, (double)value / max * 100);
+    }
+
+    private static string Format(int value) =>
+        value.ToString("N0", CultureInfo.InvariantCulture);
+}

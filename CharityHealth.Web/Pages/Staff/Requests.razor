@@ -1,0 +1,129 @@
+
+@page "/staff/requests"
+@attribute [Authorize(Roles = "Staff")]
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@using System.Security.Claims
+@using CharityHealth.Web.Shared.Components
+
+<PageTitle>إدارة الطلبات</PageTitle>
+
+<div class="page-head">
+    <div><span class="eyebrow">📋 Workflow</span><h2>الطلبات الواردة للموظف</h2><p>مراجعة، قبول، رفض، وتوليد QR للحالات المقبولة.</p></div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="notice @(success ? "ok" : "bad")">@message</div>
+}
+
+<section class="ui-card toolbar-card">
+    <div class="filter-row">
+        <button class="filter-chip @(filter is null ? "active" : "")" @onclick="() => SetFilter(null)">الكل</button>
+        <button class="filter-chip @(filter == RequestStatus.Submitted ? "active" : "")" @onclick="() => SetFilter(RequestStatus.Submitted)">جديدة</button>
+        <button class="filter-chip @(filter == RequestStatus.UnderReview ? "active" : "")" @onclick="() => SetFilter(RequestStatus.UnderReview)">قيد المراجعة</button>
+        <button class="filter-chip @(filter == RequestStatus.Approved ? "active" : "")" @onclick="() => SetFilter(RequestStatus.Approved)">مقبولة</button>
+        <button class="filter-chip @(filter == RequestStatus.Rejected ? "active" : "")" @onclick="() => SetFilter(RequestStatus.Rejected)">مرفوضة</button>
+    </div>
+</section>
+
+<section class="ui-card">
+@if (loading)
+{
+    <div class="loading-card">جارٍ تحميل الطلبات...</div>
+}
+else if (requests.Count == 0)
+{
+    <div class="empty-state">📭 لا توجد طلبات مطابقة</div>
+}
+else
+{
+    <div class="request-cards">
+        @foreach (var r in requests)
+        {
+            <article class="request-card">
+                <div class="request-main">
+                    <div class="avatar-circle">@Initial(r.BeneficiaryName)</div>
+                    <div>
+                        <h3>@r.BeneficiaryName</h3>
+                        <p>@r.SpecialtyName · @r.City · @r.BeneficiaryPhone</p>
+                        <small>@r.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · 📎 @r.DocumentsCount</small>
+                    </div>
+                </div>
+                <StatusPill Text="@r.StatusAr" Tone="@r.StatusCss" />
+                @if (!string.IsNullOrWhiteSpace(r.DescriptionAr))
+                {
+                    <p class="request-desc">@r.DescriptionAr</p>
+                }
+                <div class="inline-note">
+                    <input class="ui-input" placeholder="ملاحظة القرار" @bind="reviewNote" />
+                </div>
+                <div class="action-row">
+                    <button class="mini-btn" @onclick="() => StartReview(r.Id)">بدء مراجعة</button>
+                    <button class="mini-btn ok" @onclick="() => Approve(r.Id)">قبول + QR</button>
+                    <button class="mini-btn danger" @onclick="() => Reject(r.Id)">رفض</button>
+                </div>
+            </article>
+        }
+    </div>
+}
+</section>
+
+@code {
+    private bool loading = true;
+    private bool success;
+    private string? message;
+    private string? reviewerId;
+    private string? reviewNote;
+    private RequestStatus? filter;
+    private List<RequestWorkItem> requests = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        reviewerId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "system";
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        loading = true;
+        requests = await Ui.GetRequestsAsync(filter);
+        loading = false;
+    }
+
+    private async Task SetFilter(RequestStatus? value)
+    {
+        filter = value;
+        await Load();
+    }
+
+    private async Task StartReview(Guid id)
+    {
+        var result = await Ui.MarkUnderReviewAsync(id, reviewerId ?? "system");
+        await AfterAction(result);
+    }
+
+    private async Task Approve(Guid id)
+    {
+        var result = await Ui.ApproveRequestAsync(id, reviewerId ?? "system", reviewNote);
+        reviewNote = null;
+        await AfterAction(result);
+    }
+
+    private async Task Reject(Guid id)
+    {
+        var result = await Ui.RejectRequestAsync(id, reviewerId ?? "system", reviewNote);
+        reviewNote = null;
+        await AfterAction(result);
+    }
+
+    private async Task AfterAction(UiActionResult result)
+    {
+        success = result.Succeeded;
+        message = result.Message;
+        await Load();
+    }
+
+    private static string Initial(string name) => string.IsNullOrWhiteSpace(name) ? "؟" : name.Trim()[0].ToString();
+}

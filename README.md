@@ -59,3 +59,7 @@ dotnet add src/CharityHealth.Infrastructure/CharityHealth.Infrastructure.csproj 
 # ═══════════════════════════════════════════════════
 # Email:    mm0115810@gmail.com             
 # Password: Admin@123456!
+
+
+## UI Migration Patch
+تم إضافة واجهة Blazor RTL حديثة وربطها بخدمات قراءة/تحديث بيانات النظام داخل CharityHealth.Web. راجع UI_MIGRATION_NOTES.md.

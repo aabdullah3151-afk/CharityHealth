@@ -1,0 +1,23 @@
+
+@page "/staff/dashboard"
+@attribute [Authorize(Roles = "Staff")]
+@inject HealthcareUiService Ui
+@inject NavigationManager Nav
+@using CharityHealth.Web.Shared.Components
+
+<PageTitle>لوحة الموظف</PageTitle>
+
+<div class="page-head"><div><span class="eyebrow">📥 Staff Desk</span><h2>لوحة متابعة الطلبات</h2><p>التركيز هنا على الطلبات الجديدة وقيد المراجعة.</p></div><button class="ui-btn primary" @onclick='() => Nav.NavigateTo("/staff/requests")'>فتح الطلبات</button></div>
+
+@if (loading) { <div class="loading-card">تحميل...</div> }
+else {
+<div class="stat-grid">
+    <UiStatCard Icon="📥" Title="قيد المراجعة" Value="@stats.PendingRequests.ToString()" Tone="amber" />
+    <UiStatCard Icon="✅" Title="مقبولة" Value="@stats.ApprovedRequests.ToString()" Tone="green" />
+    <UiStatCard Icon="❌" Title="مرفوضة" Value="@stats.RejectedRequests.ToString()" Tone="red" />
+    <UiStatCard Icon="🏁" Title="مكتملة" Value="@stats.CompletedRequests.ToString()" Tone="teal" />
+</div>
+<section class="ui-card"><div class="card-title-row"><h3>أولوية اليوم</h3><a href="/staff/requests">إدارة</a></div><FakeChart /></section>
+}
+
+@code { private bool loading=true; private DashboardStatsDto stats=new(0,0,0,0,0,0,0,0); protected override async Task OnInitializedAsync(){ stats=await Ui.GetStatsAsync(); loading=false; } }

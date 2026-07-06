@@ -1,0 +1,305 @@
+@page "/doctor/history"
+@layout MainLayout
+@attribute [Authorize(Roles = "Doctor")]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>سجل الكشوفات</PageTitle>
+
+<div class="doctor-history-modern-page" dir="rtl">
+
+    <header class="doctor-history-modern-head">
+        <div>
+            <div class="doctor-history-kicker">🕘 History</div>
+            <h1>سجل الكشوفات</h1>
+            <p>كل الحالات التي تم تحويلها للطبيب مع حالة الكشف وبيانات المستفيد.</p>
+        </div>
+
+        <button type="button"
+                class="doctor-history-back-btn"
+                @onclick='() => Nav.NavigateTo("/doctor/dashboard")'>
+            العودة للرئيسية
+        </button>
+    </header>
+
+    @if (loading)
+    {
+        <section class="doctor-history-state">
+            جارٍ تحميل سجل الكشوفات...
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMsg))
+    {
+        <section class="doctor-history-alert">
+            @errorMsg
+        </section>
+    }
+    else
+    {
+        <section class="doctor-history-summary-grid">
+            <article class="doctor-history-summary-card green">
+                <span>إجمالي الحالات</span>
+                <strong>@rows.Count</strong>
+                <small>كل الحالات المرتبطة بالطبيب</small>
+            </article>
+
+            <article class="doctor-history-summary-card blue">
+                <span>مكتملة</span>
+                <strong>@CompletedCount</strong>
+                <small>تم إنهاء الكشف</small>
+            </article>
+
+            <article class="doctor-history-summary-card orange">
+                <span>قيد التنفيذ</span>
+                <strong>@ActiveCount</strong>
+                <small>مقبولة أو قيد المراجعة</small>
+            </article>
+
+            <article class="doctor-history-summary-card purple">
+                <span>مستندات</span>
+                <strong>@DocumentsCount</strong>
+                <small>إجمالي المرفقات</small>
+            </article>
+        </section>
+
+        <section class="doctor-history-toolbar">
+            <div class="doctor-history-tabs">
+                <button type="button"
+                        class="@(filter == HistoryFilter.All ? "active" : "")"
+                        @onclick="() => SetFilter(HistoryFilter.All)">
+                    الكل
+                    <strong>@rows.Count</strong>
+                </button>
+
+                <button type="button"
+                        class="@(filter == HistoryFilter.Completed ? "active" : "")"
+                        @onclick="() => SetFilter(HistoryFilter.Completed)">
+                    مكتملة
+                    <strong>@CompletedCount</strong>
+                </button>
+
+                <button type="button"
+                        class="@(filter == HistoryFilter.Active ? "active" : "")"
+                        @onclick="() => SetFilter(HistoryFilter.Active)">
+                    قيد التنفيذ
+                    <strong>@ActiveCount</strong>
+                </button>
+            </div>
+
+            <label class="doctor-history-search">
+                <span>بحث</span>
+                <input @bind="search"
+                       @bind:event="oninput"
+                       placeholder="ابحث باسم المستفيد، التخصص، الهاتف..." />
+            </label>
+        </section>
+
+        @if (!FilteredRows.Any())
+        {
+            <section class="doctor-history-empty">
+                <div>📁</div>
+                <h2>لا توجد حالات مطابقة</h2>
+                <p>عند تحويل أو إنهاء كشف جديد سيظهر في هذه الصفحة.</p>
+            </section>
+        }
+        else
+        {
+            <section class="doctor-history-list">
+                @foreach (var item in FilteredRows)
+                {
+                    <article class="doctor-history-item">
+                        <div class="history-item-status-side">
+                            <span class="doctor-history-status @StatusClass(item.Status)">
+                                @item.StatusAr
+                            </span>
+
+                            <small>@RequestCode(item.Id)</small>
+                        </div>
+
+                        <div class="history-item-main">
+                            <div class="history-item-title">
+                                <div>
+                                    <h2>@item.BeneficiaryName</h2>
+                                    <p>@item.SpecialtyName · @SafeText(item.City, "غير محدد")</p>
+                                </div>
+
+                                <div class="history-item-date">
+                                    <span>@FormatDate(item.ReviewedAt ?? item.SubmittedAt)</span>
+                                    <small>@DateLabel(item)</small>
+                                </div>
+                            </div>
+
+                            <div class="history-item-description">
+                                @ShortText(item.DescriptionAr)
+                            </div>
+
+                            <div class="history-item-meta">
+                                <span>📞 @SafeText(item.BeneficiaryPhone, "غير مسجل")</span>
+                                <span>📎 @item.DocumentsCount مستند</span>
+                                <span>@(item.HasQrCode ? "⌗ QR متاح" : "QR غير متاح")</span>
+                                <span>تاريخ الطلب: @FormatDate(item.SubmittedAt)</span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(item.ReviewNoteAr))
+                            {
+                                <div class="history-item-note">
+                                    <strong>ملاحظة:</strong>
+                                    <span>@item.ReviewNoteAr</span>
+                                </div>
+                            }
+                        </div>
+                    </article>
+                }
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private string? errorMsg;
+    private string search = string.Empty;
+    private HistoryFilter filter = HistoryFilter.All;
+
+    private List<RequestWorkItem> rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        errorMsg = null;
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var doctorUserId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(doctorUserId))
+            {
+                errorMsg = "تعذر قراءة حساب الطبيب الحالي. برجاء تسجيل الدخول مرة أخرى.";
+                return;
+            }
+
+            rows = (await Ui.GetDoctorQueueAsync(doctorUserId))
+                .OrderByDescending(r => r.ReviewedAt ?? r.SubmittedAt)
+                .ToList();
+        }
+        catch
+        {
+            errorMsg = "حدث خطأ أثناء تحميل سجل الكشوفات.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private IEnumerable<RequestWorkItem> FilteredRows
+    {
+        get
+        {
+            IEnumerable<RequestWorkItem> query = filter switch
+            {
+                HistoryFilter.Completed => rows.Where(r => r.Status == RequestStatus.Completed),
+                HistoryFilter.Active => rows.Where(r => r.Status is RequestStatus.Approved or RequestStatus.UnderReview or RequestStatus.Submitted),
+                _ => rows
+            };
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+
+                query = query.Where(r =>
+                    Contains(r.BeneficiaryName, term) ||
+                    Contains(r.BeneficiaryPhone, term) ||
+                    Contains(r.SpecialtyName, term) ||
+                    Contains(r.City, term) ||
+                    Contains(r.DescriptionAr, term) ||
+                    Contains(r.StatusAr, term));
+            }
+
+            return query;
+        }
+    }
+
+    private int CompletedCount => rows.Count(r => r.Status == RequestStatus.Completed);
+
+    private int ActiveCount => rows.Count(r =>
+        r.Status is RequestStatus.Approved or RequestStatus.UnderReview or RequestStatus.Submitted);
+
+    private int DocumentsCount => rows.Sum(r => r.DocumentsCount);
+
+    private void SetFilter(HistoryFilter value)
+    {
+        filter = value;
+    }
+
+    private static bool Contains(string? source, string term)
+    {
+        return !string.IsNullOrWhiteSpace(source)
+            && source.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string StatusClass(RequestStatus status)
+    {
+        return status switch
+        {
+            RequestStatus.Approved => "approved",
+            RequestStatus.Completed => "completed",
+            RequestStatus.Rejected => "rejected",
+            RequestStatus.UnderReview => "pending",
+            RequestStatus.Submitted => "pending",
+            _ => "pending"
+        };
+    }
+
+    private static string FormatDate(DateTime date)
+    {
+        return date.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+    }
+
+    private static string DateLabel(RequestWorkItem item)
+    {
+        return item.ReviewedAt.HasValue ? "آخر تحديث" : "تاريخ التقديم";
+    }
+
+    private static string RequestCode(Guid id)
+    {
+        return $"REQ-{id.ToString("N")[..6].ToUpperInvariant()}";
+    }
+
+    private static string SafeText(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string ShortText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "لا يوجد وصف مرفق للحالة.";
+        }
+
+        value = value.Trim();
+        return value.Length <= 180 ? value : value[..180] + "...";
+    }
+
+    private enum HistoryFilter
+    {
+        All,
+        Completed,
+        Active
+    }
+}

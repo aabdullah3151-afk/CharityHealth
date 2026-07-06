@@ -1,0 +1,191 @@
+@page "/pharmacy/dispense"
+@layout MainLayout
+@attribute [Authorize(Roles = "Pharmacist")]
+
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject NavigationManager Nav
+
+<PageTitle>صرف وصفة</PageTitle>
+
+<div class="ph-page" dir="rtl">
+    <header class="ph-page-head compact">
+        <div>
+            <h1>صرف وصفة طبية</h1>
+            <p>امسح QR الوصفة أو استخدم محاكاة المسح حالياً لحين ربط القارئ الحقيقي.</p>
+        </div>
+
+        <button type="button" class="ph-round-back" @onclick='() => Nav.NavigateTo("/pharmacy/dashboard")'>
+            ‹
+        </button>
+    </header>
+
+    @if (loading)
+    {
+        <section class="ph-state-card">جارٍ تجهيز صفحة الصرف...</section>
+    }
+    else if (!scanned)
+    {
+        <section class="ph-scan-wrap">
+            <article class="ph-scan-card">
+                <h2>مسح وصفة المستفيد</h2>
+
+                <div class="ph-scanner-box">
+                    <div class="ph-scan-corners"></div>
+                    <div class="ph-qr-icon">⌗</div>
+                    <p>امسح رمز QR للوصفة</p>
+                </div>
+
+                <button type="button" class="ph-primary-btn" @onclick="SimulateScan">
+                    محاكاة المسح
+                </button>
+            </article>
+        </section>
+    }
+    else
+    {
+        <section class="ph-dispense-layout">
+            <article class="ph-dispense-card">
+                <div class="ph-card-title">
+                    <h2>بيانات الوصفة</h2>
+                    <span class="ph-status ready">جاهز للصرف</span>
+                </div>
+
+                <dl class="ph-details">
+                    <dt>المستفيد</dt>
+                    <dd>@current.BeneficiaryName</dd>
+
+                    <dt>رقم الوصفة</dt>
+                    <dd>@Code(current.Id)</dd>
+
+                    <dt>التخصص</dt>
+                    <dd>@current.SpecialtyName</dd>
+
+                    <dt>الدواء</dt>
+                    <dd>@MedicineName(current)</dd>
+
+                    <dt>الكمية</dt>
+                    <dd>@MedicineQty(current)</dd>
+
+                    <dt>الهاتف</dt>
+                    <dd>@SafeText(current.BeneficiaryPhone, "غير مسجل")</dd>
+                </dl>
+
+                <div class="ph-note-box">
+                    <strong>ملاحظة تشغيلية</strong>
+                    <p>هذه نسخة وهمية حالياً. عند ربط جدول الوصفات والمخزون سيتم خصم الكمية وتسجيل عملية الصرف فعلياً.</p>
+                </div>
+
+                @if (dispensed)
+                {
+                    <div class="ph-success">تم تسجيل الصرف محلياً في الواجهة الحالية ✅</div>
+                }
+
+                <div class="ph-actions-row">
+                    <button type="button" class="ph-secondary-btn" @onclick="ResetScan">مسح وصفة أخرى</button>
+                    <button type="button" class="ph-primary-btn" @onclick="ConfirmDispense" disabled="@dispensed">
+                        تأكيد الصرف
+                    </button>
+                </div>
+            </article>
+
+            <aside class="ph-side-summary">
+                <div>💊</div>
+                <h3>تعليمات الصرف</h3>
+                <p>راجع اسم المستفيد والدواء والكمية قبل تأكيد الصرف.</p>
+            </aside>
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private bool scanned;
+    private bool dispensed;
+
+    private RequestWorkItem current = default!;
+    private List<RequestWorkItem> rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            rows = (await Ui.GetRequestsAsync())
+                .Where(r => r.Status == RequestStatus.Approved)
+                .OrderByDescending(r => r.ReviewedAt ?? r.SubmittedAt)
+                .ToList();
+
+            current = rows.FirstOrDefault() ?? new RequestWorkItem(
+                Guid.NewGuid(),
+                "مستفيد تجريبي",
+                "01000000000",
+                "أمراض القلب",
+                "—",
+                RequestStatus.Approved,
+                "مقبول",
+                "approved",
+                DateTime.UtcNow,
+                DateTime.UtcNow,
+                "حالة تجريبية لاختبار الصرف",
+                null,
+                1,
+                true
+            );
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void SimulateScan()
+    {
+        scanned = true;
+        dispensed = false;
+    }
+
+    private void ResetScan()
+    {
+        scanned = false;
+        dispensed = false;
+    }
+
+    private void ConfirmDispense()
+    {
+        dispensed = true;
+    }
+
+    private static string Code(Guid id) => $"RX-{id.ToString("N")[..3].ToUpper()}";
+
+    private static string SafeText(string? value, string fallback)
+        => string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private static string MedicineName(RequestWorkItem item)
+    {
+        return item.SpecialtyName switch
+        {
+            "أمراض القلب" => "أملوديبين 5mg",
+            "طب الأطفال" => "أموكسيسيلين 250",
+            "أمراض الجهاز العصبي" => "إيبوبروفين 400mg",
+            "طب العيون" => "قطرة عين",
+            "الجلدية" => "كريم موضعي",
+            _ => "وصفة علاجية"
+        };
+    }
+
+    private static string MedicineQty(RequestWorkItem item)
+    {
+        return item.SpecialtyName switch
+        {
+            "أمراض القلب" => "30 قرص",
+            "طب الأطفال" => "21 كبسولة",
+            "أمراض الجهاز العصبي" => "20 قرص",
+            "طب العيون" => "2 زجاجة",
+            "الجلدية" => "1 عبوة",
+            _ => "حسب الوصفة"
+        };
+    }
+}
