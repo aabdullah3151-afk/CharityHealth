@@ -8,95 +8,217 @@
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
 
-<div class="@($"app-root {Theme.CssClass}")"
-     dir="rtl"
-     style="min-height:100vh !important; background:#f8fafc !important; direction:rtl !important;">
+<style>
+    /*
+        Layout emergency restore
+        الهدف: الشريط العلوي ثابت، والصفحة تبدأ تحته، والسايدبار يبدأ مباشرة تحت الشريط.
+    */
+
+    .app-root {
+        min-height: 100vh !important;
+        background: #f8fafc !important;
+        direction: rtl !important;
+    }
+
+    .app-topbar-fixed {
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 76px !important;
+        background: #ffffff !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, .08) !important;
+        z-index: 2147483647 !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+    }
+
+    .app-sidebar {
+        position: fixed !important;
+        top: 76px !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 300px !important;
+        height: calc(100vh - 76px) !important;
+        background: #ffffff !important;
+        border-left: 1px solid #edf0f4 !important;
+        padding: 24px 18px !important;
+        margin: 0 !important;
+        overflow-y: auto !important;
+        z-index: 1000 !important;
+        box-sizing: border-box !important;
+    }
+
+    .app-sidebar .sidebar-user-card {
+        margin-top: 0 !important;
+        margin-bottom: 22px !important;
+    }
+
+    .app-sidebar .sidebar-footer {
+        margin-top: 28px !important;
+    }
+
+    .app-workspace {
+        margin-right: 300px !important;
+        width: calc(100% - 300px) !important;
+        min-height: 100vh !important;
+        padding-top: 100px !important;
+        background: #f8fafc !important;
+        box-sizing: border-box !important;
+    }
+
+    .page-canvas {
+        min-height: calc(100vh - 100px) !important;
+        background: #f8fafc !important;
+        box-sizing: border-box !important;
+    }
+
+    .page-canvas > .beneficiary-dashboard,
+    .page-canvas > .admin-dashboard,
+    .page-canvas > .admin-list-page,
+    .page-canvas > .admin-pharmacy-page,
+    .page-canvas > .doctors-page,
+    .page-canvas > .consult-request-page,
+    .page-canvas > .notifications-page {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+
+    .brand-button {
+        position: absolute !important;
+        right: 32px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        border: 0 !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        z-index: 2147483647 !important;
+    }
+
+    .brand-logo {
+        width: 48px !important;
+        height: 48px !important;
+        border-radius: 50% !important;
+        background: #05a843 !important;
+        position: relative !important;
+        display: inline-block !important;
+        box-shadow: 0 10px 22px rgba(5, 168, 67, .22) !important;
+        flex: 0 0 auto !important;
+    }
+
+    .brand-logo .moon-a {
+        position: absolute !important;
+        width: 29px !important;
+        height: 29px !important;
+        border-radius: 50% !important;
+        background: #ffffff !important;
+        top: 9px !important;
+        left: 8px !important;
+        display: block !important;
+    }
+
+    .brand-logo .moon-b {
+        position: absolute !important;
+        width: 24px !important;
+        height: 24px !important;
+        border-radius: 50% !important;
+        background: #05a843 !important;
+        top: 9px !important;
+        left: 16px !important;
+        display: block !important;
+    }
+
+    .brand-text {
+        display: grid !important;
+        gap: 2px !important;
+        text-align: right !important;
+    }
+
+    .brand-text strong {
+        color: #111827 !important;
+        font-size: 21px !important;
+        line-height: 1.1 !important;
+        font-weight: 950 !important;
+        white-space: nowrap !important;
+    }
+
+    .brand-text small {
+        color: #047857 !important;
+        font-size: 13px !important;
+        line-height: 1.1 !important;
+        font-weight: 900 !important;
+        white-space: nowrap !important;
+    }
+
+    .topbar-actions {
+        position: absolute !important;
+        left: 32px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 14px !important;
+        direction: ltr !important;
+        z-index: 2147483647 !important;
+    }
+
+    .topbar-logout {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 12px !important;
+        color: #667085 !important;
+        text-decoration: none !important;
+        font-size: 22px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+        direction: rtl !important;
+        font-family: inherit !important;
+    }
+
+    .topbar-circle-btn {
+        width: 48px !important;
+        height: 48px !important;
+        border: 0 !important;
+        border-radius: 50% !important;
+        background: #f1f5f9 !important;
+        color: #475467 !important;
+        display: grid !important;
+        place-items: center !important;
+        cursor: pointer !important;
+        font-size: 20px !important;
+        padding: 0 !important;
+        position: relative !important;
+    }
+</style>
+
+<div class="@($"app-root {Theme.CssClass}")" dir="rtl">
 
     <!-- TOPBAR -->
-    <header style="
-        position:fixed !important;
-        top:0 !important;
-        right:0 !important;
-        left:0 !important;
-        width:100vw !important;
-        height:76px !important;
-        background:#ffffff !important;
-        border-bottom:1px solid #e5e7eb !important;
-        box-shadow:0 4px 14px rgba(15,23,42,.08) !important;
-        z-index:2147483647 !important;
-        display:block !important;
-        visibility:visible !important;
-        opacity:1 !important;
-        overflow:visible !important;">
+    <header class="app-topbar-fixed">
 
         <!-- BRAND RIGHT -->
         <button type="button"
-                @onclick="GoHome"
-                style="
-                    position:absolute !important;
-                    right:32px !important;
-                    top:50% !important;
-                    transform:translateY(-50%) !important;
-                    display:inline-flex !important;
-                    align-items:center !important;
-                    gap:12px !important;
-                    border:0 !important;
-                    background:transparent !important;
-                    padding:0 !important;
-                    margin:0 !important;
-                    cursor:pointer !important;
-                    z-index:2147483647 !important;">
-
-            <span style="
-                width:48px !important;
-                height:48px !important;
-                border-radius:50% !important;
-                background:#05a843 !important;
-                position:relative !important;
-                display:inline-block !important;
-                box-shadow:0 10px 22px rgba(5,168,67,.22) !important;">
-
-                <span style="
-                    position:absolute !important;
-                    width:29px !important;
-                    height:29px !important;
-                    border-radius:50% !important;
-                    background:#ffffff !important;
-                    top:9px !important;
-                    left:8px !important;
-                    display:block !important;">
-                </span>
-
-                <span style="
-                    position:absolute !important;
-                    width:24px !important;
-                    height:24px !important;
-                    border-radius:50% !important;
-                    background:#05a843 !important;
-                    top:9px !important;
-                    left:16px !important;
-                    display:block !important;">
-                </span>
+                class="brand-button"
+                @onclick="GoHome">
+            <span class="brand-logo">
+                <span class="moon-a"></span>
+                <span class="moon-b"></span>
             </span>
 
-            <span style="display:grid !important; gap:2px !important; text-align:right !important;">
-                <strong style="
-                    color:#111827 !important;
-                    font-size:21px !important;
-                    line-height:1.1 !important;
-                    font-weight:950 !important;
-                    white-space:nowrap !important;">
-                    مستشفى بلا مستشفى
-                </strong>
-
-                <small style="
-                    color:#047857 !important;
-                    font-size:13px !important;
-                    line-height:1.1 !important;
-                    font-weight:900 !important;
-                    white-space:nowrap !important;">
-                    رحمة بلا حدود
-                </small>
+            <span class="brand-text">
+                <strong>مستشفى بلا مستشفى</strong>
+                <small>رحمة بلا حدود</small>
             </span>
         </button>
 
@@ -139,41 +261,11 @@
         </AuthorizeView>
 
         <!-- ACTIONS LEFT -->
-        <div style="
-            position:absolute !important;
-            left:32px !important;
-            top:50% !important;
-            transform:translateY(-50%) !important;
-            display:inline-flex !important;
-            align-items:center !important;
-            gap:14px !important;
-            direction:ltr !important;
-            z-index:2147483647 !important;">
+        <div class="topbar-actions">
 
-            <!-- LOGOUT -->
             <a href="/account/logout"
-               style="
-                    display:inline-flex !important;
-                    align-items:center !important;
-                    justify-content:center !important;
-                    gap:12px !important;
-                    color:#667085 !important;
-                    text-decoration:none !important;
-                    font-size:22px !important;
-                    font-weight:900 !important;
-                    line-height:1 !important;
-                    white-space:nowrap !important;
-                    direction:rtl !important;
-                    font-family:inherit !important;">
-
-                <span style="
-                    display:inline-block !important;
-                    color:#667085 !important;
-                    font-size:22px !important;
-                    font-weight:900 !important;
-                    line-height:1 !important;">
-                    خروج
-                </span>
+               class="topbar-logout">
+                <span>خروج</span>
 
                 <span style="
                     display:inline-grid !important;
@@ -189,27 +281,14 @@
                 </span>
             </a>
 
-            <!-- NOTIFICATIONS -->
             <AuthorizeView>
                 <Authorized Context="auth">
                     <button type="button"
                             @onclick='() => Nav.NavigateTo(NotificationUrl(auth.User))'
                             title="الإشعارات"
                             aria-label="الإشعارات"
-                            style="
-                                width:48px !important;
-                                height:48px !important;
-                                border:0 !important;
-                                border-radius:50% !important;
-                                background:#f1f5f9 !important;
-                                color:#667085 !important;
-                                display:grid !important;
-                                place-items:center !important;
-                                cursor:pointer !important;
-                                font-size:22px !important;
-                                padding:0 !important;
-                                position:relative !important;">
-
+                            class="topbar-circle-btn"
+                            style="font-size:22px !important;">
                         <span style="line-height:1 !important;">🔔</span>
 
                         <span style="
@@ -227,23 +306,11 @@
                 </Authorized>
             </AuthorizeView>
 
-            <!-- THEME -->
             <button type="button"
                     @onclick="Theme.Toggle"
                     title="تبديل الوضع"
                     aria-label="تبديل الوضع"
-                    style="
-                        width:48px !important;
-                        height:48px !important;
-                        border:0 !important;
-                        border-radius:50% !important;
-                        background:#f1f5f9 !important;
-                        color:#475467 !important;
-                        display:grid !important;
-                        place-items:center !important;
-                        cursor:pointer !important;
-                        font-size:20px !important;
-                        padding:0 !important;">
+                    class="topbar-circle-btn">
                 <span>@Theme.Icon</span>
             </button>
         </div>
@@ -251,19 +318,7 @@
 
     <!-- SIDEBAR -->
     <aside class="app-sidebar"
-           aria-label="القائمة الجانبية"
-           style="
-                position:fixed !important;
-                top:76px !important;
-                right:0 !important;
-                bottom:0 !important;
-                width:300px !important;
-                height:calc(100vh - 76px) !important;
-                background:#ffffff !important;
-                border-left:1px solid #edf0f4 !important;
-                padding:24px 18px !important;
-                overflow-y:auto !important;
-                z-index:1000 !important;">
+           aria-label="القائمة الجانبية">
 
         <AuthorizeView>
             <Authorized Context="auth">
@@ -292,18 +347,8 @@
     </aside>
 
     <!-- CONTENT -->
-    <section class="app-workspace"
-             style="
-                margin-right:300px !important;
-                width:calc(100% - 300px) !important;
-                min-height:100vh !important;
-                padding-top:76px !important;
-                background:#f8fafc !important;">
-
-        <main class="page-canvas"
-              style="
-                min-height:calc(100vh - 76px) !important;
-                background:#f8fafc !important;">
+    <section class="app-workspace">
+        <main class="page-canvas">
             @Body
         </main>
     </section>

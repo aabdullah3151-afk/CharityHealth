@@ -5,14 +5,19 @@
 @using CharityHealth.Domain.Entities
 @using CharityHealth.Domain.Enums
 @using CharityHealth.Domain.Interfaces.Repositories
+@using CharityHealth.Infrastructure.Persistence
 @using MediatR
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
 
 @inject IMediator Mediator
 @inject IUnitOfWork UoW
+@inject AppDbContext Db
+@inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
 
@@ -23,13 +28,13 @@
     <header class="consult-request-head">
         <button type="button"
                 class="consult-back-btn"
-                @onclick='() => Nav.NavigateTo("/portal/dashboard")'>
+                @onclick="GoBack">
             ›
         </button>
 
         <div>
             <h1>طلب استشارة طبية</h1>
-            <p>الخطوة @currentStep من 3 — @CurrentStepTitle</p>
+            <p>الخطوة @currentStep من @wizardSteps.Count — @CurrentStepTitle</p>
         </div>
     </header>
 
@@ -58,7 +63,7 @@
             </article>
 
             <article class="consult-steps-card">
-                <h3>خطوات الحصول على الكشف</h3>
+                <h3>خطوات الحصول على الاستشارة</h3>
 
                 @for (var i = 0; i < wizardSteps.Count; i++)
                 {
@@ -69,22 +74,12 @@
                         <strong>@wizardSteps[i]</strong>
                     </div>
                 }
-
-                <div class="consult-step-row">
-                    <span>4</span>
-                    <strong>مراجعة الإدارة</strong>
-                </div>
-
-                <div class="consult-step-row">
-                    <span>5</span>
-                    <strong>تحديد الطبيب</strong>
-                </div>
             </article>
 
             <article class="consult-info-card warning">
                 <div class="consult-info-icon">!</div>
                 <h3>نظام الحجز</h3>
-                <p>بعد إرسال الطلب سيتم تحويله للإدارة بحالة تم التقديم حتى تتم المراجعة والموافقة.</p>
+                <p>اختيار الطبيب واليوم يتم تسجيله داخل الطلب، ثم تراجعه الإدارة قبل التأكيد النهائي.</p>
             </article>
 
         </aside>
@@ -99,23 +94,28 @@
                     <section class="consult-step-screen">
                         <div class="consult-card-title">
                             <h2>المعلومات الشخصية</h2>
-                            <p>بيانات حسابك المسجلة في النظام.</p>
+                            <p>راجع بياناتك وعدّل الاسم أو رقم الجوال قبل إرسال الطلب.</p>
                         </div>
 
                         <div class="consult-ok-strip">
                             <span>✓</span>
-                            <strong>بياناتك الأساسية مسجلة — سيتم إرسال الطلب باسم هذا الحساب</strong>
+                            <strong>يمكنك تعديل بياناتك الأساسية من هنا قبل متابعة الطلب</strong>
                         </div>
 
                         <div class="consult-personal-grid">
                             <label>
                                 <span>الاسم الكامل</span>
-                                <input value="@profileName" readonly />
+                                <input @bind="model.ProfileName"
+                                       @bind:event="oninput"
+                                       placeholder="اكتب الاسم الكامل" />
                             </label>
 
                             <label>
                                 <span>رقم الجوال</span>
-                                <input value="@profilePhone" readonly />
+                                <input @bind="model.ProfilePhone"
+                                       @bind:event="oninput"
+                                       dir="ltr"
+                                       placeholder="01000000000" />
                             </label>
 
                             <label>
@@ -128,6 +128,11 @@
                                 <input value="نشط" readonly />
                             </label>
                         </div>
+
+                        @if (showValidation && string.IsNullOrWhiteSpace(model.ProfileName))
+                        {
+                            <div class="consult-field-error">الاسم الكامل مطلوب</div>
+                        }
                     </section>
                 }
 
@@ -136,7 +141,7 @@
                     <section class="consult-step-screen">
                         <div class="consult-card-title">
                             <h2>اختر التخصص الطبي</h2>
-                            <p>اختر التخصص المناسب، وسيتم تحويل الطلب للإدارة للمراجعة.</p>
+                            <p>بعد اختيار التخصص سيتم عرض الأطباء المتاحين في نفس التخصص.</p>
                         </div>
 
                         @if (specialties.Any())
@@ -169,6 +174,156 @@
                 {
                     <section class="consult-step-screen">
                         <div class="consult-card-title">
+                            <h2>اختر الطبيب</h2>
+                            <p>@(doctors.Any() ? $"{doctors.Count} طبيب متاح في تخصص {SelectedSpecialtyName}" : $"لا يوجد أطباء متاحون حالياً في تخصص {SelectedSpecialtyName}")</p>
+                        </div>
+
+                        @if (model.SpecialtyId == Guid.Empty)
+                        {
+                            <div class="consult-empty-box">اختر التخصص أولاً.</div>
+                        }
+                        else if (loadingDoctors)
+                        {
+                            <div class="consult-empty-box">جارٍ تحميل الأطباء...</div>
+                        }
+                        else if (!doctors.Any())
+                        {
+                            <div class="consult-empty-box">لا يوجد أطباء متاحون حالياً لهذا التخصص.</div>
+                        }
+                        else
+                        {
+                            <div style="display:grid;gap:16px;">
+                                @foreach (var doctor in doctors)
+                                {
+                                    <button type="button"
+                                            @onclick="() => SelectDoctor(doctor)"
+                                            style="
+                                                width:100%;
+                                                border:1px solid @(model.DoctorId == doctor.Id ? "#22c55e" : "#e5e7eb");
+                                                border-radius:22px;
+                                                background:#ffffff;
+                                                padding:20px;
+                                                cursor:pointer;
+                                                text-align:right;
+                                                display:grid;
+                                                gap:12px;
+                                                box-shadow:0 10px 26px rgba(15,23,42,.05);">
+
+                                        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;">
+                                            <div>
+                                                <strong style="display:block;color:#111827;font-size:22px;font-weight:950;">@doctor.NameAr</strong>
+                                                <span style="display:block;margin-top:5px;color:#05a843;font-size:14px;font-weight:950;">@SelectedSpecialtyName</span>
+                                            </div>
+
+                                            <span style="
+                                                width:56px;
+                                                height:56px;
+                                                border-radius:18px;
+                                                display:inline-flex;
+                                                align-items:center;
+                                                justify-content:center;
+                                                background:#dcfce7;
+                                                color:#059669;
+                                                font-size:26px;">
+                                                🩺
+                                            </span>
+                                        </div>
+
+                                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#98a2b3;font-size:13px;font-weight:850;">
+                                            <span>أيام العمل: @FormatWorkingDays(doctor.WorkingDays)</span>
+                                            <span>•</span>
+                                            <span>الوقت: @FormatWorkingTime(doctor.WorkStartTime, doctor.WorkEndTime)</span>
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(doctor.ClinicAddress))
+                                        {
+                                            <div style="color:#667085;font-size:13px;font-weight:850;">📍 @doctor.ClinicAddress</div>
+                                        }
+
+                                        <span style="
+                                            width:max-content;
+                                            border-radius:999px;
+                                            padding:7px 12px;
+                                            background:@(model.DoctorId == doctor.Id ? "#dcfce7" : "#f1f5f9");
+                                            color:@(model.DoctorId == doctor.Id ? "#16a34a" : "#667085");
+                                            font-size:12px;
+                                            font-weight:950;">
+                                            @(model.DoctorId == doctor.Id ? "تم اختيار الطبيب" : "اختيار الطبيب")
+                                        </span>
+                                    </button>
+                                }
+                            </div>
+
+                            @if (showValidation && model.DoctorId == Guid.Empty)
+                            {
+                                <div class="consult-field-error">يجب اختيار الطبيب</div>
+                            }
+                        }
+                    </section>
+                }
+
+                @if (currentStep == 4)
+                {
+                    <section class="consult-step-screen">
+                        <div class="consult-card-title">
+                            <h2>اختر يوم الكشف</h2>
+                            <p>@SelectedDoctorName — @SelectedDoctorTime</p>
+                        </div>
+
+                        @if (model.DoctorId == Guid.Empty)
+                        {
+                            <div class="consult-empty-box">اختر الطبيب أولاً.</div>
+                        }
+                        else
+                        {
+                            <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px;">
+                                @foreach (var day in appointmentDays)
+                                {
+                                    <button type="button"
+                                            disabled="@(!day.IsAvailable)"
+                                            @onclick="() => SelectAppointmentDay(day)"
+                                            style="
+                                                min-height:128px;
+                                                border:1px solid @(model.AppointmentDate == day.Date ? "#22c55e" : "#e5e7eb");
+                                                border-radius:18px;
+                                                background:@(day.IsAvailable ? "#ffffff" : "#f8fafc");
+                                                opacity:@(day.IsAvailable ? "1" : ".55");
+                                                cursor:@(day.IsAvailable ? "pointer" : "not-allowed");
+                                                padding:14px 10px;
+                                                display:grid;
+                                                place-items:center;
+                                                text-align:center;
+                                                box-shadow:0 10px 24px rgba(15,23,42,.04);">
+
+                                        <span style="color:#98a2b3;font-size:13px;font-weight:950;">@day.DayName</span>
+                                        <strong style="color:#111827;font-size:26px;font-weight:950;line-height:1;">@day.DayNumber</strong>
+                                        <span style="color:#98a2b3;font-size:13px;font-weight:850;">@day.MonthName</span>
+
+                                        <small style="
+                                            border-radius:999px;
+                                            padding:5px 10px;
+                                            background:@(day.IsAvailable ? "#dcfce7" : "#fee2e2");
+                                            color:@(day.IsAvailable ? "#16a34a" : "#ef4444");
+                                            font-size:11px;
+                                            font-weight:950;">
+                                            @(day.IsAvailable ? "متاح" : "غير متاح")
+                                        </small>
+                                    </button>
+                                }
+                            </div>
+
+                            @if (showValidation && model.AppointmentDate is null)
+                            {
+                                <div class="consult-field-error">يجب اختيار يوم الكشف</div>
+                            }
+                        }
+                    </section>
+                }
+
+                @if (currentStep == 5)
+                {
+                    <section class="consult-step-screen">
+                        <div class="consult-card-title">
                             <h2>وصف الحالة الطبية</h2>
                             <p>اكتب وصفاً مختصراً للحالة وارفع صورة البطاقة.</p>
                         </div>
@@ -187,11 +342,20 @@
                             <h3>ملخص الطلب</h3>
 
                             <dl>
+                                <dt>الاسم</dt>
+                                <dd>@model.ProfileName</dd>
+
+                                <dt>الهاتف</dt>
+                                <dd>@SafeText(model.ProfilePhone, "غير مسجل")</dd>
+
                                 <dt>التخصص</dt>
                                 <dd>@SelectedSpecialtyName</dd>
 
-                                <dt>الحالة</dt>
-                                <dd>سيتم تقديم الطلب للإدارة</dd>
+                                <dt>الطبيب</dt>
+                                <dd>@SelectedDoctorName</dd>
+
+                                <dt>اليوم المختار</dt>
+                                <dd>@SelectedAppointmentText</dd>
 
                                 <dt>المرحلة التالية</dt>
                                 <dd>مراجعة الطلب من الإدارة</dd>
@@ -255,12 +419,12 @@
                 <footer class="consult-footer-actions">
                     <button type="button"
                             class="consult-secondary-btn"
-                            disabled="@(isLoading || currentStep == 1)"
+                            disabled="@isLoading"
                             @onclick="PreviousStep">
                         السابق
                     </button>
 
-                    @if (currentStep < 3)
+                    @if (currentStep < wizardSteps.Count)
                     {
                         <button type="button"
                                 class="consult-primary-wide"
@@ -287,30 +451,51 @@
 </div>
 
 @code {
+    private const string UnregisteredPhoneLabel = "غير مسجل";
+
     private NewRequestModel model = new();
+
     private List<Specialty> specialties = [];
+    private List<DoctorOption> doctors = [];
+    private List<AppointmentDayOption> appointmentDays = [];
     private List<PendingFile> pendingFiles = [];
 
     private bool isLoading;
     private bool showValidation;
+    private bool loadingDoctors;
 
     private int currentStep = 1;
 
     private string? errorMsg;
     private string userId = string.Empty;
     private string selectedSpecialtyName = "لم يتم اختيار التخصص";
-
-    private string profileName = "—";
-    private string profilePhone = "غير مسجل";
+    private string selectedDoctorName = "لم يتم اختيار الطبيب";
+    private string selectedDoctorTime = "غير محدد";
 
     private readonly List<string> wizardSteps =
     [
         "البيانات الشخصية",
         "التخصص",
+        "اختيار الطبيب",
+        "تحديد اليوم",
         "وصف الحالة"
     ];
 
     private string CurrentStepTitle => wizardSteps[currentStep - 1];
+
+    private string SelectedSpecialtyName =>
+        model.SpecialtyId == Guid.Empty ? "لم يتم اختيار التخصص" : selectedSpecialtyName;
+
+    private string SelectedDoctorName =>
+        model.DoctorId == Guid.Empty ? "لم يتم اختيار الطبيب" : selectedDoctorName;
+
+    private string SelectedDoctorTime =>
+        model.DoctorId == Guid.Empty ? "غير محدد" : selectedDoctorTime;
+
+    private string SelectedAppointmentText =>
+        model.AppointmentDate is null
+            ? "لم يتم اختيار اليوم"
+            : FormatArabicDate(model.AppointmentDate.Value);
 
     protected override async Task OnInitializedAsync()
     {
@@ -318,50 +503,77 @@
 
         userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
-        profileName =
-            auth.User.FindFirst("FullNameAr")?.Value
+        var currentUser = string.IsNullOrWhiteSpace(userId)
+            ? null
+            : await UserManager.FindByIdAsync(userId);
+
+        model.ProfileName =
+            currentUser?.FullNameAr
+            ?? auth.User.FindFirst("FullNameAr")?.Value
             ?? auth.User.Identity?.Name
             ?? "مستفيد";
 
-        profilePhone =
-            auth.User.FindFirst(ClaimTypes.MobilePhone)?.Value
+        model.ProfilePhone =
+            currentUser?.PhoneNumber
+            ?? auth.User.FindFirst(ClaimTypes.MobilePhone)?.Value
             ?? auth.User.FindFirst("PhoneNumber")?.Value
-            ?? "غير مسجل";
+            ?? string.Empty;
 
         specialties = (await UoW.Specialties.FindAsync(s => s.IsActive))
             .OrderBy(s => s.NameAr)
             .ToList();
     }
 
-    private void GoToStep(int step)
+    private async Task GoToStep(int step)
     {
-        if (step < 1 || step > 3)
+        if (step < 1 || step > wizardSteps.Count)
         {
             return;
         }
 
-        if (step > 2 && model.SpecialtyId == Guid.Empty)
+        if (step <= currentStep)
         {
-            currentStep = 2;
-            showValidation = true;
+            currentStep = step;
+            errorMsg = null;
             return;
         }
 
-        currentStep = step;
+        while (currentStep < step)
+        {
+            var ok = await ValidateCurrentStepForNext();
+
+            if (!ok)
+            {
+                return;
+            }
+
+            currentStep++;
+        }
     }
 
-    private void NextStep()
+    private void GoBack()
     {
-        showValidation = true;
         errorMsg = null;
 
-        if (currentStep == 2 && model.SpecialtyId == Guid.Empty)
+        if (currentStep <= 1)
         {
-            errorMsg = "يجب اختيار التخصص الطبي";
+            Nav.NavigateTo("/portal/dashboard");
             return;
         }
 
-        if (currentStep < 3)
+        currentStep--;
+    }
+
+    private async Task NextStep()
+    {
+        var ok = await ValidateCurrentStepForNext();
+
+        if (!ok)
+        {
+            return;
+        }
+
+        if (currentStep < wizardSteps.Count)
         {
             currentStep++;
         }
@@ -369,42 +581,175 @@
 
     private void PreviousStep()
     {
-        errorMsg = null;
-
-        if (currentStep > 1)
-        {
-            currentStep--;
-        }
+        GoBack();
     }
 
-    private void SelectSpecialty(Specialty spec)
+    private async Task<bool> ValidateCurrentStepForNext()
+    {
+        showValidation = true;
+        errorMsg = null;
+
+        if (currentStep == 1)
+        {
+            if (string.IsNullOrWhiteSpace(model.ProfileName))
+            {
+                errorMsg = "الاسم الكامل مطلوب.";
+                return false;
+            }
+
+            return await SaveProfileData();
+        }
+
+        if (currentStep == 2 && model.SpecialtyId == Guid.Empty)
+        {
+            errorMsg = "يجب اختيار التخصص الطبي.";
+            return false;
+        }
+
+        if (currentStep == 3 && model.DoctorId == Guid.Empty)
+        {
+            errorMsg = "يجب اختيار الطبيب.";
+            return false;
+        }
+
+        if (currentStep == 4 && model.AppointmentDate is null)
+        {
+            errorMsg = "يجب اختيار يوم الكشف.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task<bool> SaveProfileData()
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            errorMsg = "تعذر قراءة بيانات المستخدم الحالي. برجاء تسجيل الدخول مرة أخرى.";
+            return false;
+        }
+
+        var user = await UserManager.FindByIdAsync(userId);
+
+        if (user is null)
+        {
+            errorMsg = "تعذر العثور على حساب المستخدم الحالي.";
+            return false;
+        }
+
+        user.FullNameAr = model.ProfileName.Trim();
+        user.PhoneNumber = string.IsNullOrWhiteSpace(model.ProfilePhone) ? null : model.ProfilePhone.Trim();
+        user.UpdatedAt = DateTime.UtcNow;
+
+        var result = await UserManager.UpdateAsync(user);
+
+        if (!result.Succeeded)
+        {
+            errorMsg = string.Join(" | ", result.Errors.Select(e => e.Description));
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task SelectSpecialty(Specialty spec)
     {
         model.SpecialtyId = spec.Id;
         selectedSpecialtyName = spec.NameAr;
+
+        model.DoctorId = Guid.Empty;
+        selectedDoctorName = "لم يتم اختيار الطبيب";
+        selectedDoctorTime = "غير محدد";
+        model.AppointmentDate = null;
+        doctors = [];
+        appointmentDays = [];
+
         errorMsg = null;
+        showValidation = false;
+
+        await LoadDoctorsForSpecialty(spec.Id);
+
+        currentStep = 3;
     }
 
-    private string SelectedSpecialtyName =>
-        model.SpecialtyId == Guid.Empty ? "لم يتم اختيار التخصص" : selectedSpecialtyName;
-
-    private void HandleFilesSelected(List<PendingFile> files)
+    private async Task LoadDoctorsForSpecialty(Guid specialtyId)
     {
-        foreach (var file in files)
-        {
-            if (file.DocumentType == DocumentType.Other && !pendingFiles.Any())
-            {
-                file.DocumentType = DocumentType.NationalId;
-            }
+        loadingDoctors = true;
 
-            pendingFiles.Add(file);
+        try
+        {
+            doctors = await Db.Doctors
+                .AsNoTracking()
+                .Include(d => d.User)
+                .Where(d => d.SpecialtyId == specialtyId && d.IsAvailable && !d.IsDeleted)
+                .OrderBy(d => d.User.FullNameAr)
+                .Select(d => new DoctorOption(
+                    d.Id,
+                    d.User.FullNameAr,
+                    d.User.PhoneNumber ?? d.ClinicPhone,
+                    d.ClinicAddress,
+                    d.WorkingDays,
+                    d.WorkStartTime,
+                    d.WorkEndTime,
+                    d.MaxDailySlots
+                ))
+                .ToListAsync();
+        }
+        finally
+        {
+            loadingDoctors = false;
+        }
+    }
+
+    private void SelectDoctor(DoctorOption doctor)
+    {
+        model.DoctorId = doctor.Id;
+        selectedDoctorName = doctor.NameAr;
+        selectedDoctorTime = FormatWorkingTime(doctor.WorkStartTime, doctor.WorkEndTime);
+        model.AppointmentDate = null;
+
+        appointmentDays = BuildAppointmentDays(doctor);
+
+        errorMsg = null;
+        showValidation = false;
+        currentStep = 4;
+    }
+
+    private void SelectAppointmentDay(AppointmentDayOption day)
+    {
+        if (!day.IsAvailable)
+        {
+            return;
         }
 
+        model.AppointmentDate = day.Date;
         errorMsg = null;
+        showValidation = false;
     }
 
-    private void RemoveFile(PendingFile file)
+    private List<AppointmentDayOption> BuildAppointmentDays(DoctorOption doctor)
     {
-        pendingFiles.Remove(file);
+        var result = new List<AppointmentDayOption>();
+        var allowedDays = ParseDays(doctor.WorkingDays);
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        for (var i = 0; i < 21; i++)
+        {
+            var date = today.AddDays(i);
+            var code = CodeForDay(date.DayOfWeek);
+            var isAvailable = allowedDays.Count == 0 || allowedDays.Contains(code);
+
+            result.Add(new AppointmentDayOption(
+                date,
+                ArabicDayName(date.DayOfWeek),
+                date.Day.ToString(),
+                ArabicMonthName(date.Month),
+                isAvailable
+            ));
+        }
+
+        return result;
     }
 
     private async Task HandleSubmit()
@@ -412,17 +757,38 @@
         showValidation = true;
         errorMsg = null;
 
+        if (string.IsNullOrWhiteSpace(model.ProfileName))
+        {
+            currentStep = 1;
+            errorMsg = "الاسم الكامل مطلوب.";
+            return;
+        }
+
         if (model.SpecialtyId == Guid.Empty)
         {
             currentStep = 2;
-            errorMsg = "يجب اختيار التخصص الطبي";
+            errorMsg = "يجب اختيار التخصص الطبي.";
+            return;
+        }
+
+        if (model.DoctorId == Guid.Empty)
+        {
+            currentStep = 3;
+            errorMsg = "يجب اختيار الطبيب.";
+            return;
+        }
+
+        if (model.AppointmentDate is null)
+        {
+            currentStep = 4;
+            errorMsg = "يجب اختيار يوم الكشف.";
             return;
         }
 
         if (!pendingFiles.Any())
         {
-            currentStep = 3;
-            errorMsg = "يجب رفع صورة الهوية الوطنية قبل إرسال الطلب";
+            currentStep = 5;
+            errorMsg = "يجب رفع صورة الهوية الوطنية قبل إرسال الطلب.";
             return;
         }
 
@@ -436,10 +802,20 @@
 
         try
         {
+            var profileSaved = await SaveProfileData();
+
+            if (!profileSaved)
+            {
+                currentStep = 1;
+                return;
+            }
+
+            var requestDescription = BuildRequestDescription();
+
             var result = await Mediator.Send(new SubmitRequestCommand(
                 userId,
                 model.SpecialtyId,
-                model.DescriptionAr
+                requestDescription
             ));
 
             if (!result.Succeeded)
@@ -480,6 +856,45 @@
         }
     }
 
+    private string BuildRequestDescription()
+    {
+        var userDescription = string.IsNullOrWhiteSpace(model.DescriptionAr)
+            ? "لم يتم إدخال وصف للحالة."
+            : model.DescriptionAr.Trim();
+
+        return
+$@"بيانات الحجز المختارة:
+الاسم: {model.ProfileName}
+الهاتف: {SafeText(model.ProfilePhone, UnregisteredPhoneLabel)}
+التخصص: {SelectedSpecialtyName}
+الطبيب المختار: {SelectedDoctorName}
+اليوم المختار: {SelectedAppointmentText}
+وقت الطبيب: {SelectedDoctorTime}
+
+وصف الحالة:
+{userDescription}";
+    }
+
+    private void HandleFilesSelected(List<PendingFile> files)
+    {
+        foreach (var file in files)
+        {
+            if (file.DocumentType == DocumentType.Other && !pendingFiles.Any())
+            {
+                file.DocumentType = DocumentType.NationalId;
+            }
+
+            pendingFiles.Add(file);
+        }
+
+        errorMsg = null;
+    }
+
+    private void RemoveFile(PendingFile file)
+    {
+        pendingFiles.Remove(file);
+    }
+
     private static string FormatSize(long bytes)
     {
         if (bytes < 1024 * 1024)
@@ -504,11 +919,146 @@
         return "✚";
     }
 
+    private static string FormatWorkingTime(TimeOnly? start, TimeOnly? end)
+    {
+        if (start is null && end is null)
+        {
+            return "غير محدد";
+        }
+
+        if (start is not null && end is not null)
+        {
+            return $"{start.Value:HH\\:mm} - {end.Value:HH\\:mm}";
+        }
+
+        if (start is not null)
+        {
+            return $"من {start.Value:HH\\:mm}";
+        }
+
+        return $"حتى {end!.Value:HH\\:mm}";
+    }
+
+    private static string FormatWorkingDays(string? days)
+    {
+        if (string.IsNullOrWhiteSpace(days))
+        {
+            return "كل الأيام المتاحة";
+        }
+
+        var map = new Dictionary<string, string>
+        {
+            ["Sat"] = "السبت",
+            ["Sun"] = "الأحد",
+            ["Mon"] = "الاثنين",
+            ["Tue"] = "الثلاثاء",
+            ["Wed"] = "الأربعاء",
+            ["Thu"] = "الخميس",
+            ["Fri"] = "الجمعة"
+        };
+
+        var result = days
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(d => map.TryGetValue(d, out var ar) ? ar : d)
+            .ToList();
+
+        return result.Count == 0 ? "كل الأيام المتاحة" : string.Join("، ", result);
+    }
+
+    private static HashSet<string> ParseDays(string? days)
+    {
+        if (string.IsNullOrWhiteSpace(days))
+        {
+            return new HashSet<string>();
+        }
+
+        return days
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet();
+    }
+
+    private static string CodeForDay(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Saturday => "Sat",
+        DayOfWeek.Sunday => "Sun",
+        DayOfWeek.Monday => "Mon",
+        DayOfWeek.Tuesday => "Tue",
+        DayOfWeek.Wednesday => "Wed",
+        DayOfWeek.Thursday => "Thu",
+        DayOfWeek.Friday => "Fri",
+        _ => string.Empty
+    };
+
+    private static string ArabicDayName(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Saturday => "السبت",
+        DayOfWeek.Sunday => "الأحد",
+        DayOfWeek.Monday => "الاثنين",
+        DayOfWeek.Tuesday => "الثلاثاء",
+        DayOfWeek.Wednesday => "الأربعاء",
+        DayOfWeek.Thursday => "الخميس",
+        DayOfWeek.Friday => "الجمعة",
+        _ => string.Empty
+    };
+
+    private static string ArabicMonthName(int month) => month switch
+    {
+        1 => "يناير",
+        2 => "فبراير",
+        3 => "مارس",
+        4 => "أبريل",
+        5 => "مايو",
+        6 => "يونيو",
+        7 => "يوليو",
+        8 => "أغسطس",
+        9 => "سبتمبر",
+        10 => "أكتوبر",
+        11 => "نوفمبر",
+        12 => "ديسمبر",
+        _ => string.Empty
+    };
+
+    private static string FormatArabicDate(DateOnly date)
+    {
+        var dayName = ArabicDayName(date.DayOfWeek);
+        var monthName = ArabicMonthName(date.Month);
+
+        return $"{dayName} {date.Day} {monthName} {date.Year}";
+    }
+
+    private static string SafeText(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
     private class NewRequestModel
     {
+        public string ProfileName { get; set; } = string.Empty;
+        public string? ProfilePhone { get; set; }
         public Guid SpecialtyId { get; set; } = Guid.Empty;
+        public Guid DoctorId { get; set; } = Guid.Empty;
+        public DateOnly? AppointmentDate { get; set; }
         public string? DescriptionAr { get; set; }
     }
+
+    private sealed record DoctorOption(
+        Guid Id,
+        string NameAr,
+        string? PhoneNumber,
+        string? ClinicAddress,
+        string? WorkingDays,
+        TimeOnly? WorkStartTime,
+        TimeOnly? WorkEndTime,
+        int MaxDailySlots
+    );
+
+    private sealed record AppointmentDayOption(
+        DateOnly Date,
+        string DayName,
+        string DayNumber,
+        string MonthName,
+        bool IsAvailable
+    );
 
     public class PendingFile
     {

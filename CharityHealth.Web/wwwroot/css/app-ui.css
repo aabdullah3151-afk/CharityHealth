@@ -10656,3 +10656,1672 @@ body {
         width: 100% !important;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   CharityHealth Global Dark Mode Fix
+   Add this at the END of: CharityHealth.Web/wwwroot/css/app-ui.css
+   ========================================================= */
+
+   :root {
+    --ch-bg: #f6f8fb;
+    --ch-bg-soft: #eef3f8;
+    --ch-surface: #ffffff;
+    --ch-surface-2: #f8fafc;
+    --ch-card: #ffffff;
+    --ch-card-soft: #f8fafc;
+    --ch-border: #e5e7eb;
+    --ch-border-strong: #d8dee9;
+    --ch-text: #101828;
+    --ch-text-2: #344054;
+    --ch-muted: #667085;
+    --ch-muted-2: #98a2b3;
+    --ch-green: #05a843;
+    --ch-green-2: #16a34a;
+    --ch-green-soft: #e9fbef;
+    --ch-danger: #dc2626;
+    --ch-danger-soft: #fef2f2;
+    --ch-warning: #d97706;
+    --ch-warning-soft: #fff7ed;
+    --ch-purple: #7c3aed;
+    --ch-purple-soft: #f4ecff;
+    --ch-shadow: 0 18px 44px rgba(15, 23, 42, .08);
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+
+    --ch-bg: #0f172a;
+    --ch-bg-soft: #111c2f;
+    --ch-surface: #162235;
+    --ch-surface-2: #1b2a40;
+    --ch-card: #162235;
+    --ch-card-soft: #1b2a40;
+    --ch-border: #2b3a52;
+    --ch-border-strong: #3a4b66;
+    --ch-text: #f8fafc;
+    --ch-text-2: #e5e7eb;
+    --ch-muted: #cbd5e1;
+    --ch-muted-2: #94a3b8;
+    --ch-green: #22c55e;
+    --ch-green-2: #4ade80;
+    --ch-green-soft: rgba(34, 197, 94, .14);
+    --ch-danger: #fb7185;
+    --ch-danger-soft: rgba(248, 113, 113, .14);
+    --ch-warning: #f59e0b;
+    --ch-warning-soft: rgba(245, 158, 11, .14);
+    --ch-purple: #c084fc;
+    --ch-purple-soft: rgba(168, 85, 247, .14);
+    --ch-shadow: 0 18px 44px rgba(0, 0, 0, .28);
+}
+
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+    background: var(--ch-bg) !important;
+    color: var(--ch-text) !important;
+}
+
+/* Main containers */
+html[data-theme="dark"] .page,
+html[data-theme="dark"] .main,
+html[data-theme="dark"] main,
+html[data-theme="dark"] .content,
+html[data-theme="dark"] .app-shell,
+html[data-theme="dark"] .app-main,
+html[data-theme="dark"] .layout-main,
+html[data-theme="dark"] .portal-layout,
+html[data-theme="dark"] .portal-main,
+html[data-theme="dark"] .beneficiary-dashboard,
+html[data-theme="dark"] .consult-request-page,
+html[data-theme="dark"] .admin-list-page,
+html[data-theme="dark"] .admin-pharmacy-page,
+html[data-theme="dark"] .doctors-page,
+html[data-theme="dark"] .create-doctor-page {
+    background: var(--ch-bg) !important;
+    color: var(--ch-text) !important;
+}
+
+/* Topbar / sidebar */
+html[data-theme="dark"] .top-row,
+html[data-theme="dark"] .app-topbar,
+html[data-theme="dark"] .main-topbar,
+html[data-theme="dark"] .layout-topbar,
+html[data-theme="dark"] header.app-header,
+html[data-theme="dark"] .sidebar,
+html[data-theme="dark"] .nav-scrollable,
+html[data-theme="dark"] .beneficiary-side,
+html[data-theme="dark"] .portal-sidebar,
+html[data-theme="dark"] .layout-sidebar {
+    background: var(--ch-surface) !important;
+    border-color: var(--ch-border) !important;
+    color: var(--ch-text) !important;
+    box-shadow: var(--ch-shadow) !important;
+}
+
+/* Cards */
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .admin-stat-card,
+html[data-theme="dark"] .admin-table-card,
+html[data-theme="dark"] .admin-pharmacy-card,
+html[data-theme="dark"] .doctor-card,
+html[data-theme="dark"] .create-doctor-card,
+html[data-theme="dark"] .consult-main-card,
+html[data-theme="dark"] .consult-info-card,
+html[data-theme="dark"] .consult-steps-card,
+html[data-theme="dark"] .consult-summary-box,
+html[data-theme="dark"] .consult-upload-card,
+html[data-theme="dark"] .consult-specialty-card,
+html[data-theme="dark"] .beneficiary-card,
+html[data-theme="dark"] .dashboard-card,
+html[data-theme="dark"] .request-card,
+html[data-theme="dark"] .medical-card {
+    background: var(--ch-card) !important;
+    border-color: var(--ch-border) !important;
+    color: var(--ch-text) !important;
+    box-shadow: var(--ch-shadow) !important;
+}
+
+/* Text normalization */
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] strong,
+html[data-theme="dark"] .title,
+html[data-theme="dark"] .nav-title,
+html[data-theme="dark"] .doctor-main-info h2,
+html[data-theme="dark"] .consult-card-title h2,
+html[data-theme="dark"] .admin-table-title h2,
+html[data-theme="dark"] .pharmacy-title h2 {
+    color: var(--ch-text) !important;
+}
+
+html[data-theme="dark"] p,
+html[data-theme="dark"] small,
+html[data-theme="dark"] span,
+html[data-theme="dark"] label,
+html[data-theme="dark"] .muted,
+html[data-theme="dark"] .doctor-main-info strong,
+html[data-theme="dark"] .consult-card-title p,
+html[data-theme="dark"] .pharmacy-title p {
+    color: var(--ch-muted) !important;
+}
+
+/* Inputs */
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .doctor-input,
+html[data-theme="dark"] .consult-case-area {
+    background: var(--ch-surface-2) !important;
+    color: var(--ch-text) !important;
+    border-color: var(--ch-border-strong) !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+    color: var(--ch-muted-2) !important;
+}
+
+/* Navigation links */
+html[data-theme="dark"] a,
+html[data-theme="dark"] .nav-link,
+html[data-theme="dark"] .sidebar a,
+html[data-theme="dark"] .portal-sidebar a {
+    color: var(--ch-muted) !important;
+}
+
+html[data-theme="dark"] a.active,
+html[data-theme="dark"] .nav-link.active,
+html[data-theme="dark"] .portal-sidebar a.active,
+html[data-theme="dark"] .sidebar a.active {
+    background: var(--ch-green-soft) !important;
+    color: var(--ch-green-2) !important;
+}
+
+/* Progress and stepper */
+html[data-theme="dark"] .consult-progress-item span {
+    background: #334155 !important;
+}
+
+html[data-theme="dark"] .consult-progress-item.active span {
+    background: var(--ch-green) !important;
+}
+
+html[data-theme="dark"] .consult-progress-item strong {
+    color: var(--ch-muted-2) !important;
+}
+
+html[data-theme="dark"] .consult-progress-item.active strong {
+    color: var(--ch-green-2) !important;
+}
+
+html[data-theme="dark"] .consult-step-row {
+    color: var(--ch-muted) !important;
+}
+
+html[data-theme="dark"] .consult-step-row span {
+    background: var(--ch-surface-2) !important;
+    color: var(--ch-muted) !important;
+}
+
+html[data-theme="dark"] .consult-step-row.active span {
+    background: var(--ch-green) !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="dark"] .consult-step-row.active strong {
+    color: var(--ch-green-2) !important;
+}
+
+/* Status chips / alerts */
+html[data-theme="dark"] .consult-ok-strip,
+html[data-theme="dark"] .doctor-status.available,
+html[data-theme="dark"] .pharmacy-status.active,
+html[data-theme="dark"] .admin-status-pill.ok {
+    background: var(--ch-green-soft) !important;
+    border-color: rgba(34, 197, 94, .45) !important;
+    color: var(--ch-green-2) !important;
+}
+
+html[data-theme="dark"] .consult-info-card.warning,
+html[data-theme="dark"] .doctor-password-note,
+html[data-theme="dark"] .pharmacy-login-note {
+    background: var(--ch-warning-soft) !important;
+    border-color: rgba(245, 158, 11, .38) !important;
+    color: var(--ch-warning) !important;
+}
+
+html[data-theme="dark"] .consult-alert.danger,
+html[data-theme="dark"] .doctor-form-alert.bad,
+html[data-theme="dark"] .admin-pharmacy-message.bad {
+    background: var(--ch-danger-soft) !important;
+    border-color: rgba(248, 113, 113, .38) !important;
+    color: var(--ch-danger) !important;
+}
+
+/* Buttons */
+html[data-theme="dark"] button,
+html[data-theme="dark"] .consult-secondary-btn,
+html[data-theme="dark"] .doctor-secondary-btn {
+    border-color: var(--ch-border) !important;
+}
+
+html[data-theme="dark"] .consult-secondary-btn,
+html[data-theme="dark"] .doctor-secondary-btn {
+    background: var(--ch-surface-2) !important;
+    color: var(--ch-text-2) !important;
+}
+
+html[data-theme="dark"] .consult-primary-wide,
+html[data-theme="dark"] .doctor-primary-btn,
+html[data-theme="dark"] .doctor-add-btn,
+html[data-theme="dark"] .admin-pharmacy-add-btn {
+    background: var(--ch-green) !important;
+    color: #ffffff !important;
+}
+
+/* Tables */
+html[data-theme="dark"] table,
+html[data-theme="dark"] .admin-modern-table {
+    background: var(--ch-card) !important;
+    color: var(--ch-text) !important;
+}
+
+html[data-theme="dark"] th,
+html[data-theme="dark"] td {
+    border-color: var(--ch-border) !important;
+    color: var(--ch-text-2) !important;
+}
+
+html[data-theme="dark"] thead,
+html[data-theme="dark"] th {
+    background: var(--ch-surface-2) !important;
+    color: var(--ch-muted) !important;
+}
+
+/* Figma-like beneficiary dashboard areas */
+html[data-theme="dark"] .beneficiary-hero,
+html[data-theme="dark"] .hero-card {
+    background: linear-gradient(135deg, #059669, #05a843) !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="dark"] .beneficiary-hero *,
+html[data-theme="dark"] .hero-card * {
+    color: #ffffff !important;
+}
+
+html[data-theme="dark"] .specialty-section,
+html[data-theme="dark"] .specialties-panel {
+    background: var(--ch-surface) !important;
+    border-color: var(--ch-border) !important;
+}
+
+/* Scrollbar */
+html[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: var(--ch-bg) !important;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: #334155 !important;
+    border-radius: 999px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   CharityHealth SAFE Global Dark Mode
+  
+     dark / dark-mode / theme-dark / is-dark
+   ========================================================= */
+
+/* Tokens */
+.app-root.dark,
+.app-root.dark-mode,
+.app-root.theme-dark,
+.app-root.is-dark,
+body.dark,
+body.dark-mode,
+body.theme-dark,
+html.dark,
+html.dark-mode,
+html.theme-dark {
+    --safe-bg: #0f172a;
+    --safe-surface: #162235;
+    --safe-surface-2: #1b2a40;
+    --safe-card: #1e293b;
+    --safe-card-2: #233247;
+    --safe-border: #334155;
+    --safe-border-soft: #24344c;
+    --safe-text: #f8fafc;
+    --safe-text-2: #e5e7eb;
+    --safe-muted: #cbd5e1;
+    --safe-muted-2: #94a3b8;
+    --safe-green: #22c55e;
+    --safe-green-2: #4ade80;
+    --safe-green-soft: rgba(34, 197, 94, .14);
+    --safe-blue-soft: rgba(59, 130, 246, .14);
+    --safe-purple-soft: rgba(168, 85, 247, .16);
+    --safe-amber-soft: rgba(245, 158, 11, .14);
+    --safe-red-soft: rgba(248, 113, 113, .14);
+}
+
+/* Root background فقط بدون Layout positioning */
+.app-root.dark,
+.app-root.dark-mode,
+.app-root.theme-dark,
+.app-root.is-dark {
+    background: var(--safe-bg) !important;
+    color: var(--safe-text) !important;
+}
+
+/* Topbar / Sidebar colors فقط */
+.app-root.dark header,
+.app-root.dark-mode header,
+.app-root.theme-dark header,
+.app-root.is-dark header,
+.app-root.dark .app-sidebar,
+.app-root.dark-mode .app-sidebar,
+.app-root.theme-dark .app-sidebar,
+.app-root.is-dark .app-sidebar {
+    background: var(--safe-surface) !important;
+    border-color: var(--safe-border) !important;
+    color: var(--safe-text) !important;
+}
+
+/* Workspace background فقط */
+.app-root.dark .app-workspace,
+.app-root.dark-mode .app-workspace,
+.app-root.theme-dark .app-workspace,
+.app-root.is-dark .app-workspace,
+.app-root.dark .page-canvas,
+.app-root.dark-mode .page-canvas,
+.app-root.theme-dark .page-canvas,
+.app-root.is-dark .page-canvas {
+    background: var(--safe-bg) !important;
+    color: var(--safe-text) !important;
+}
+
+/* Common page wrappers */
+.app-root.dark .beneficiary-dashboard,
+.app-root.dark-mode .beneficiary-dashboard,
+.app-root.theme-dark .beneficiary-dashboard,
+.app-root.is-dark .beneficiary-dashboard,
+.app-root.dark .admin-dashboard,
+.app-root.dark-mode .admin-dashboard,
+.app-root.theme-dark .admin-dashboard,
+.app-root.is-dark .admin-dashboard,
+.app-root.dark .consult-request-page,
+.app-root.dark-mode .consult-request-page,
+.app-root.theme-dark .consult-request-page,
+.app-root.is-dark .consult-request-page,
+.app-root.dark .notifications-page,
+.app-root.dark-mode .notifications-page,
+.app-root.theme-dark .notifications-page,
+.app-root.is-dark .notifications-page,
+.app-root.dark .admin-list-page,
+.app-root.dark-mode .admin-list-page,
+.app-root.theme-dark .admin-list-page,
+.app-root.is-dark .admin-list-page,
+.app-root.dark .admin-pharmacy-page,
+.app-root.dark-mode .admin-pharmacy-page,
+.app-root.theme-dark .admin-pharmacy-page,
+.app-root.is-dark .admin-pharmacy-page,
+.app-root.dark .doctors-page,
+.app-root.dark-mode .doctors-page,
+.app-root.theme-dark .doctors-page,
+.app-root.is-dark .doctors-page,
+.app-root.dark .create-doctor-page,
+.app-root.dark-mode .create-doctor-page,
+.app-root.theme-dark .create-doctor-page,
+.app-root.is-dark .create-doctor-page {
+    background: var(--safe-bg) !important;
+    color: var(--safe-text) !important;
+}
+
+/* Cards */
+.app-root.dark .card,
+.app-root.dark-mode .card,
+.app-root.theme-dark .card,
+.app-root.is-dark .card,
+.app-root.dark article,
+.app-root.dark-mode article,
+.app-root.theme-dark article,
+.app-root.is-dark article,
+.app-root.dark .admin-stat-card,
+.app-root.dark-mode .admin-stat-card,
+.app-root.theme-dark .admin-stat-card,
+.app-root.is-dark .admin-stat-card,
+.app-root.dark .admin-table-card,
+.app-root.dark-mode .admin-table-card,
+.app-root.theme-dark .admin-table-card,
+.app-root.is-dark .admin-table-card,
+.app-root.dark .admin-pharmacy-card,
+.app-root.dark-mode .admin-pharmacy-card,
+.app-root.theme-dark .admin-pharmacy-card,
+.app-root.is-dark .admin-pharmacy-card,
+.app-root.dark .doctor-card,
+.app-root.dark-mode .doctor-card,
+.app-root.theme-dark .doctor-card,
+.app-root.is-dark .doctor-card,
+.app-root.dark .create-doctor-card,
+.app-root.dark-mode .create-doctor-card,
+.app-root.theme-dark .create-doctor-card,
+.app-root.is-dark .create-doctor-card,
+.app-root.dark .consult-main-card,
+.app-root.dark-mode .consult-main-card,
+.app-root.theme-dark .consult-main-card,
+.app-root.is-dark .consult-main-card,
+.app-root.dark .consult-info-card,
+.app-root.dark-mode .consult-info-card,
+.app-root.theme-dark .consult-info-card,
+.app-root.is-dark .consult-info-card,
+.app-root.dark .consult-steps-card,
+.app-root.dark-mode .consult-steps-card,
+.app-root.theme-dark .consult-steps-card,
+.app-root.is-dark .consult-steps-card,
+.app-root.dark .consult-summary-box,
+.app-root.dark-mode .consult-summary-box,
+.app-root.theme-dark .consult-summary-box,
+.app-root.is-dark .consult-summary-box,
+.app-root.dark .consult-upload-card,
+.app-root.dark-mode .consult-upload-card,
+.app-root.theme-dark .consult-upload-card,
+.app-root.is-dark .consult-upload-card,
+.app-root.dark .consult-specialty-card,
+.app-root.dark-mode .consult-specialty-card,
+.app-root.theme-dark .consult-specialty-card,
+.app-root.is-dark .consult-specialty-card,
+.app-root.dark .dashboard-card,
+.app-root.dark-mode .dashboard-card,
+.app-root.theme-dark .dashboard-card,
+.app-root.is-dark .dashboard-card,
+.app-root.dark .request-card,
+.app-root.dark-mode .request-card,
+.app-root.theme-dark .request-card,
+.app-root.is-dark .request-card {
+    background: var(--safe-card) !important;
+    border-color: var(--safe-border) !important;
+    color: var(--safe-text) !important;
+}
+
+/* Text */
+.app-root.dark h1,
+.app-root.dark-mode h1,
+.app-root.theme-dark h1,
+.app-root.is-dark h1,
+.app-root.dark h2,
+.app-root.dark-mode h2,
+.app-root.theme-dark h2,
+.app-root.is-dark h2,
+.app-root.dark h3,
+.app-root.dark-mode h3,
+.app-root.theme-dark h3,
+.app-root.is-dark h3,
+.app-root.dark h4,
+.app-root.dark-mode h4,
+.app-root.theme-dark h4,
+.app-root.is-dark h4,
+.app-root.dark strong,
+.app-root.dark-mode strong,
+.app-root.theme-dark strong,
+.app-root.is-dark strong {
+    color: var(--safe-text) !important;
+}
+
+.app-root.dark p,
+.app-root.dark-mode p,
+.app-root.theme-dark p,
+.app-root.is-dark p,
+.app-root.dark small,
+.app-root.dark-mode small,
+.app-root.theme-dark small,
+.app-root.is-dark small,
+.app-root.dark label,
+.app-root.dark-mode label,
+.app-root.theme-dark label,
+.app-root.is-dark label,
+.app-root.dark span,
+.app-root.dark-mode span,
+.app-root.theme-dark span,
+.app-root.is-dark span {
+    color: inherit;
+}
+
+/* Muted text classes */
+.app-root.dark .muted,
+.app-root.dark-mode .muted,
+.app-root.theme-dark .muted,
+.app-root.is-dark .muted,
+.app-root.dark .text-muted,
+.app-root.dark-mode .text-muted,
+.app-root.theme-dark .text-muted,
+.app-root.is-dark .text-muted,
+.app-root.dark .doctor-main-info strong,
+.app-root.dark-mode .doctor-main-info strong,
+.app-root.theme-dark .doctor-main-info strong,
+.app-root.is-dark .doctor-main-info strong,
+.app-root.dark .consult-card-title p,
+.app-root.dark-mode .consult-card-title p,
+.app-root.theme-dark .consult-card-title p,
+.app-root.is-dark .consult-card-title p,
+.app-root.dark .pharmacy-title p,
+.app-root.dark-mode .pharmacy-title p,
+.app-root.theme-dark .pharmacy-title p,
+.app-root.is-dark .pharmacy-title p {
+    color: var(--safe-muted) !important;
+}
+
+/* Inputs */
+.app-root.dark input,
+.app-root.dark-mode input,
+.app-root.theme-dark input,
+.app-root.is-dark input,
+.app-root.dark select,
+.app-root.dark-mode select,
+.app-root.theme-dark select,
+.app-root.is-dark select,
+.app-root.dark textarea,
+.app-root.dark-mode textarea,
+.app-root.theme-dark textarea,
+.app-root.is-dark textarea,
+.app-root.dark .doctor-input,
+.app-root.dark-mode .doctor-input,
+.app-root.theme-dark .doctor-input,
+.app-root.is-dark .doctor-input,
+.app-root.dark .consult-case-area,
+.app-root.dark-mode .consult-case-area,
+.app-root.theme-dark .consult-case-area,
+.app-root.is-dark .consult-case-area {
+    background: var(--safe-surface-2) !important;
+    color: var(--safe-text) !important;
+    border-color: var(--safe-border) !important;
+}
+
+.app-root.dark input::placeholder,
+.app-root.dark-mode input::placeholder,
+.app-root.theme-dark input::placeholder,
+.app-root.is-dark input::placeholder,
+.app-root.dark textarea::placeholder,
+.app-root.dark-mode textarea::placeholder,
+.app-root.theme-dark textarea::placeholder,
+.app-root.is-dark textarea::placeholder {
+    color: var(--safe-muted-2) !important;
+}
+
+/* Sidebar user card and nav */
+.app-root.dark .sidebar-user-card,
+.app-root.dark-mode .sidebar-user-card,
+.app-root.theme-dark .sidebar-user-card,
+.app-root.is-dark .sidebar-user-card {
+    background: rgba(34, 197, 94, .14) !important;
+    border-color: rgba(34, 197, 94, .24) !important;
+}
+
+.app-root.dark .sidebar-user-card strong,
+.app-root.dark-mode .sidebar-user-card strong,
+.app-root.theme-dark .sidebar-user-card strong,
+.app-root.is-dark .sidebar-user-card strong {
+    color: var(--safe-text) !important;
+}
+
+.app-root.dark .sidebar-user-card span,
+.app-root.dark-mode .sidebar-user-card span,
+.app-root.theme-dark .sidebar-user-card span,
+.app-root.is-dark .sidebar-user-card span {
+    color: var(--safe-green-2) !important;
+}
+
+.app-root.dark .sidebar-footer,
+.app-root.dark-mode .sidebar-footer,
+.app-root.theme-dark .sidebar-footer,
+.app-root.is-dark .sidebar-footer {
+    border-color: var(--safe-border) !important;
+}
+
+.app-root.dark .nav-link,
+.app-root.dark-mode .nav-link,
+.app-root.theme-dark .nav-link,
+.app-root.is-dark .nav-link,
+.app-root.dark .sidebar a,
+.app-root.dark-mode .sidebar a,
+.app-root.theme-dark .sidebar a,
+.app-root.is-dark .sidebar a,
+.app-root.dark .app-sidebar a,
+.app-root.dark-mode .app-sidebar a,
+.app-root.theme-dark .app-sidebar a,
+.app-root.is-dark .app-sidebar a {
+    color: var(--safe-muted) !important;
+}
+
+.app-root.dark .nav-link.active,
+.app-root.dark-mode .nav-link.active,
+.app-root.theme-dark .nav-link.active,
+.app-root.is-dark .nav-link.active,
+.app-root.dark .app-sidebar a.active,
+.app-root.dark-mode .app-sidebar a.active,
+.app-root.theme-dark .app-sidebar a.active,
+.app-root.is-dark .app-sidebar a.active {
+    background: var(--safe-green-soft) !important;
+    color: var(--safe-green-2) !important;
+}
+
+/* Status strips */
+.app-root.dark .consult-ok-strip,
+.app-root.dark-mode .consult-ok-strip,
+.app-root.theme-dark .consult-ok-strip,
+.app-root.is-dark .consult-ok-strip,
+.app-root.dark .doctor-status.available,
+.app-root.dark-mode .doctor-status.available,
+.app-root.theme-dark .doctor-status.available,
+.app-root.is-dark .doctor-status.available,
+.app-root.dark .pharmacy-status.active,
+.app-root.dark-mode .pharmacy-status.active,
+.app-root.theme-dark .pharmacy-status.active,
+.app-root.is-dark .pharmacy-status.active,
+.app-root.dark .admin-status-pill.ok,
+.app-root.dark-mode .admin-status-pill.ok,
+.app-root.theme-dark .admin-status-pill.ok,
+.app-root.is-dark .admin-status-pill.ok {
+    background: var(--safe-green-soft) !important;
+    border-color: rgba(34, 197, 94, .45) !important;
+    color: var(--safe-green-2) !important;
+}
+
+.app-root.dark .consult-info-card.warning,
+.app-root.dark-mode .consult-info-card.warning,
+.app-root.theme-dark .consult-info-card.warning,
+.app-root.is-dark .consult-info-card.warning,
+.app-root.dark .doctor-password-note,
+.app-root.dark-mode .doctor-password-note,
+.app-root.theme-dark .doctor-password-note,
+.app-root.is-dark .doctor-password-note,
+.app-root.dark .pharmacy-login-note,
+.app-root.dark-mode .pharmacy-login-note,
+.app-root.theme-dark .pharmacy-login-note,
+.app-root.is-dark .pharmacy-login-note {
+    background: var(--safe-amber-soft) !important;
+    border-color: rgba(245, 158, 11, .38) !important;
+}
+
+/* Buttons */
+.app-root.dark .consult-secondary-btn,
+.app-root.dark-mode .consult-secondary-btn,
+.app-root.theme-dark .consult-secondary-btn,
+.app-root.is-dark .consult-secondary-btn,
+.app-root.dark .doctor-secondary-btn,
+.app-root.dark-mode .doctor-secondary-btn,
+.app-root.theme-dark .doctor-secondary-btn,
+.app-root.is-dark .doctor-secondary-btn {
+    background: var(--safe-surface-2) !important;
+    color: var(--safe-text-2) !important;
+    border-color: var(--safe-border) !important;
+}
+
+.app-root.dark .consult-primary-wide,
+.app-root.dark-mode .consult-primary-wide,
+.app-root.theme-dark .consult-primary-wide,
+.app-root.is-dark .consult-primary-wide,
+.app-root.dark .doctor-primary-btn,
+.app-root.dark-mode .doctor-primary-btn,
+.app-root.theme-dark .doctor-primary-btn,
+.app-root.is-dark .doctor-primary-btn,
+.app-root.dark .doctor-add-btn,
+.app-root.dark-mode .doctor-add-btn,
+.app-root.theme-dark .doctor-add-btn,
+.app-root.is-dark .doctor-add-btn,
+.app-root.dark .admin-pharmacy-add-btn,
+.app-root.dark-mode .admin-pharmacy-add-btn,
+.app-root.theme-dark .admin-pharmacy-add-btn,
+.app-root.is-dark .admin-pharmacy-add-btn {
+    background: var(--safe-green) !important;
+    color: #ffffff !important;
+}
+
+/* Tables */
+.app-root.dark table,
+.app-root.dark-mode table,
+.app-root.theme-dark table,
+.app-root.is-dark table,
+.app-root.dark .admin-modern-table,
+.app-root.dark-mode .admin-modern-table,
+.app-root.theme-dark .admin-modern-table,
+.app-root.is-dark .admin-modern-table {
+    background: var(--safe-card) !important;
+    color: var(--safe-text) !important;
+}
+
+.app-root.dark th,
+.app-root.dark-mode th,
+.app-root.theme-dark th,
+.app-root.is-dark th,
+.app-root.dark td,
+.app-root.dark-mode td,
+.app-root.theme-dark td,
+.app-root.is-dark td {
+    border-color: var(--safe-border) !important;
+    color: var(--safe-text-2) !important;
+}
+
+.app-root.dark thead,
+.app-root.dark-mode thead,
+.app-root.theme-dark thead,
+.app-root.is-dark thead,
+.app-root.dark th,
+.app-root.dark-mode th,
+.app-root.theme-dark th,
+.app-root.is-dark th {
+    background: var(--safe-surface-2) !important;
+    color: var(--safe-muted) !important;
+}
+
+/* Keep green hero clean */
+.app-root.dark .beneficiary-hero,
+.app-root.dark-mode .beneficiary-hero,
+.app-root.theme-dark .beneficiary-hero,
+.app-root.is-dark .beneficiary-hero,
+.app-root.dark .hero-card,
+.app-root.dark-mode .hero-card,
+.app-root.theme-dark .hero-card,
+.app-root.is-dark .hero-card {
+    background: linear-gradient(135deg, #059669, #05a843) !important;
+    color: #ffffff !important;
+}
+
+.app-root.dark .beneficiary-hero *,
+.app-root.dark-mode .beneficiary-hero *,
+.app-root.theme-dark .beneficiary-hero *,
+.app-root.is-dark .beneficiary-hero *,
+.app-root.dark .hero-card *,
+.app-root.dark-mode .hero-card *,
+.app-root.theme-dark .hero-card *,
+.app-root.is-dark .hero-card * {
+    color: #ffffff !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.app-root.dark header div[style*="left:50%"][style*="border-radius:999px"] *,
+.app-root.dark-mode header div[style*="left:50%"][style*="border-radius:999px"] *,
+.app-root.theme-dark header div[style*="left:50%"][style*="border-radius:999px"] *,
+.app-root.is-dark header div[style*="left:50%"][style*="border-radius:999px"] * {
+    color: inherit !important;
+}
+
+/* 2) ط£ظٹ ط²ط± ط£ط¨ظٹط¶ ط¯ط§ط®ظ„ ط§ظ„ظ€ Hero ط§ظ„ط£ط®ط¶ط± ظٹظپط¶ظ„ ط£ط¨ظٹط¶طŒ ظ„ظƒظ† ط§ظ„ظ†طµ ظٹط¨ظ‚ظ‰ ط£ط®ط¶ط± ظˆط§ط¶ط­ */
+.app-root.dark .beneficiary-hero button,
+.app-root.dark-mode .beneficiary-hero button,
+.app-root.theme-dark .beneficiary-hero button,
+.app-root.is-dark .beneficiary-hero button,
+.app-root.dark .hero-card button,
+.app-root.dark-mode .hero-card button,
+.app-root.theme-dark .hero-card button,
+.app-root.is-dark .hero-card button {
+    background: #ffffff !important;
+    color: #047857 !important;
+    border-color: #ffffff !important;
+}
+
+.app-root.dark .beneficiary-hero button *,
+.app-root.dark-mode .beneficiary-hero button *,
+.app-root.theme-dark .beneficiary-hero button *,
+.app-root.is-dark .beneficiary-hero button *,
+.app-root.dark .hero-card button *,
+.app-root.dark-mode .hero-card button *,
+.app-root.theme-dark .hero-card button *,
+.app-root.is-dark .hero-card button * {
+    color: #047857 !important;
+}
+
+/* 3) ط£ظٹ ط¹ظ†طµط± ظ„ط³ظ‡ ظˆط§ط®ط¯ background ط£ط¨ظٹط¶ ط¨ط§ظ„ظ€ inline style ظپظٹ ط§ظ„ط¯ط§ط±ظƒ:
+   ط®ظ„ظٹظ‡ Dark Card ط¨ط¯ظ„ ط§ظ„ط£ط¨ظٹط¶طŒ ط¹ط´ط§ظ† ط§ظ„ظ†طµ ط§ظ„ط£ط¨ظٹط¶ ظٹط¸ظ‡ط±. */
+.app-root.dark [style*="background:#ffffff"],
+.app-root.dark [style*="background: #ffffff"],
+.app-root.dark [style*="background:#fff"],
+.app-root.dark [style*="background: #fff"],
+.app-root.dark-mode [style*="background:#ffffff"],
+.app-root.dark-mode [style*="background: #ffffff"],
+.app-root.dark-mode [style*="background:#fff"],
+.app-root.dark-mode [style*="background: #fff"],
+.app-root.theme-dark [style*="background:#ffffff"],
+.app-root.theme-dark [style*="background: #ffffff"],
+.app-root.theme-dark [style*="background:#fff"],
+.app-root.theme-dark [style*="background: #fff"],
+.app-root.is-dark [style*="background:#ffffff"],
+.app-root.is-dark [style*="background: #ffffff"],
+.app-root.is-dark [style*="background:#fff"],
+.app-root.is-dark [style*="background: #fff"] {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+}
+
+/* 4) ط§ط³طھط«ظ†ط§ط، ظ…ظ‡ظ…: ط§ظ„ط£ط²ط±ط§ط± ط§ظ„ط¨ظٹط¶ط§ط، ط¯ط§ط®ظ„ ط§ظ„ظ€ Hero طھط±ط¬ط¹ ط¨ظٹط¶ط§ط، ط¨ظ†طµ ط£ط®ط¶ط± */
+.app-root.dark .beneficiary-hero [style*="background:#ffffff"],
+.app-root.dark .beneficiary-hero [style*="background: #ffffff"],
+.app-root.dark .beneficiary-hero [style*="background:#fff"],
+.app-root.dark .beneficiary-hero [style*="background: #fff"],
+.app-root.dark-mode .beneficiary-hero [style*="background:#ffffff"],
+.app-root.dark-mode .beneficiary-hero [style*="background: #ffffff"],
+.app-root.dark-mode .beneficiary-hero [style*="background:#fff"],
+.app-root.dark-mode .beneficiary-hero [style*="background: #fff"],
+.app-root.theme-dark .beneficiary-hero [style*="background:#ffffff"],
+.app-root.theme-dark .beneficiary-hero [style*="background: #ffffff"],
+.app-root.theme-dark .beneficiary-hero [style*="background:#fff"],
+.app-root.theme-dark .beneficiary-hero [style*="background: #fff"],
+.app-root.is-dark .beneficiary-hero [style*="background:#ffffff"],
+.app-root.is-dark .beneficiary-hero [style*="background: #ffffff"],
+.app-root.is-dark .beneficiary-hero [style*="background:#fff"],
+.app-root.is-dark .beneficiary-hero [style*="background: #fff"],
+.app-root.dark .hero-card [style*="background:#ffffff"],
+.app-root.dark .hero-card [style*="background: #ffffff"],
+.app-root.dark .hero-card [style*="background:#fff"],
+.app-root.dark .hero-card [style*="background: #fff"],
+.app-root.dark-mode .hero-card [style*="background:#ffffff"],
+.app-root.dark-mode .hero-card [style*="background: #ffffff"],
+.app-root.dark-mode .hero-card [style*="background:#fff"],
+.app-root.dark-mode .hero-card [style*="background: #fff"],
+.app-root.theme-dark .hero-card [style*="background:#ffffff"],
+.app-root.theme-dark .hero-card [style*="background: #ffffff"],
+.app-root.theme-dark .hero-card [style*="background:#fff"],
+.app-root.theme-dark .hero-card [style*="background: #fff"],
+.app-root.is-dark .hero-card [style*="background:#ffffff"],
+.app-root.is-dark .hero-card [style*="background: #ffffff"],
+.app-root.is-dark .hero-card [style*="background:#fff"],
+.app-root.is-dark .hero-card [style*="background: #fff"] {
+    background: #ffffff !important;
+    color: #047857 !important;
+    border-color: #ffffff !important;
+}
+
+/* 5) ط§ظ„ظ†طµظˆطµ ط¯ط§ط®ظ„ ط£ظٹ ط¹ظ†طµط± ط§طھط­ظˆظ„ ظ„ظ€ Dark Card */
+.app-root.dark [style*="background:#ffffff"] h1,
+.app-root.dark [style*="background:#ffffff"] h2,
+.app-root.dark [style*="background:#ffffff"] h3,
+.app-root.dark [style*="background:#ffffff"] strong,
+.app-root.dark [style*="background: #ffffff"] h1,
+.app-root.dark [style*="background: #ffffff"] h2,
+.app-root.dark [style*="background: #ffffff"] h3,
+.app-root.dark [style*="background: #ffffff"] strong,
+.app-root.dark-mode [style*="background:#ffffff"] h1,
+.app-root.dark-mode [style*="background:#ffffff"] h2,
+.app-root.dark-mode [style*="background:#ffffff"] h3,
+.app-root.dark-mode [style*="background:#ffffff"] strong,
+.app-root.dark-mode [style*="background: #ffffff"] h1,
+.app-root.dark-mode [style*="background: #ffffff"] h2,
+.app-root.dark-mode [style*="background: #ffffff"] h3,
+.app-root.dark-mode [style*="background: #ffffff"] strong,
+.app-root.theme-dark [style*="background:#ffffff"] h1,
+.app-root.theme-dark [style*="background:#ffffff"] h2,
+.app-root.theme-dark [style*="background:#ffffff"] h3,
+.app-root.theme-dark [style*="background:#ffffff"] strong,
+.app-root.theme-dark [style*="background: #ffffff"] h1,
+.app-root.theme-dark [style*="background: #ffffff"] h2,
+.app-root.theme-dark [style*="background: #ffffff"] h3,
+.app-root.theme-dark [style*="background: #ffffff"] strong,
+.app-root.is-dark [style*="background:#ffffff"] h1,
+.app-root.is-dark [style*="background:#ffffff"] h2,
+.app-root.is-dark [style*="background:#ffffff"] h3,
+.app-root.is-dark [style*="background:#ffffff"] strong,
+.app-root.is-dark [style*="background: #ffffff"] h1,
+.app-root.is-dark [style*="background: #ffffff"] h2,
+.app-root.is-dark [style*="background: #ffffff"] h3,
+.app-root.is-dark [style*="background: #ffffff"] strong {
+    color: #f8fafc !important;
+}
+
+/* 6) Pills / Badges ط§ظ„ظپط§طھط­ط© ط¬ظˆظ‡ ط§ظ„ط¯ط§ط±ظƒ: ط®ظ„ظٹ ط§ظ„ظ†طµ ظˆط§ط¶ط­ */
+.app-root.dark .badge,
+.app-root.dark-mode .badge,
+.app-root.theme-dark .badge,
+.app-root.is-dark .badge,
+.app-root.dark .pill,
+.app-root.dark-mode .pill,
+.app-root.theme-dark .pill,
+.app-root.is-dark .pill,
+.app-root.dark .admin-number-pill,
+.app-root.dark-mode .admin-number-pill,
+.app-root.theme-dark .admin-number-pill,
+.app-root.is-dark .admin-number-pill,
+.app-root.dark .admin-status-pill,
+.app-root.dark-mode .admin-status-pill,
+.app-root.theme-dark .admin-status-pill,
+.app-root.is-dark .admin-status-pill {
+    color: inherit !important;
+}
+
+/* 7) ط§ظ„طھط§ط±ظٹط® ظˆط§ظ„ظ€ chips ط§ظ„طµط؛ظٹط±ط© ط¯ط§ط®ظ„ ظƒط±ظˆطھ ط§ظ„ط·ظ„ط¨ط§طھ ظ„ظˆ ط®ظ„ظپظٹطھظ‡ط§ ظپط§طھط­ط© */
+.app-root.dark .request-card small,
+.app-root.dark-mode .request-card small,
+.app-root.theme-dark .request-card small,
+.app-root.is-dark .request-card small,
+.app-root.dark .request-card span,
+.app-root.dark-mode .request-card span,
+.app-root.theme-dark .request-card span,
+.app-root.is-dark .request-card span {
+    color: inherit;
+}
+
+/* 8) ط¥طµظ„ط§ط­ ط²ط± ط¹ط±ط¶ ط§ظ„ظƒظ„ ظ„ظˆ ط¸ظ‡ط± ط£ط¨ظٹط¶ */
+.app-root.dark button[style*="background:#ffffff"],
+.app-root.dark button[style*="background: #ffffff"],
+.app-root.dark button[style*="background:#fff"],
+.app-root.dark button[style*="background: #fff"],
+.app-root.dark-mode button[style*="background:#ffffff"],
+.app-root.dark-mode button[style*="background: #ffffff"],
+.app-root.dark-mode button[style*="background:#fff"],
+.app-root.dark-mode button[style*="background: #fff"],
+.app-root.theme-dark button[style*="background:#ffffff"],
+.app-root.theme-dark button[style*="background: #ffffff"],
+.app-root.theme-dark button[style*="background:#fff"],
+.app-root.theme-dark button[style*="background: #fff"],
+.app-root.is-dark button[style*="background:#ffffff"],
+.app-root.is-dark button[style*="background: #ffffff"],
+.app-root.is-dark button[style*="background:#fff"],
+.app-root.is-dark button[style*="background: #fff"] {
+    background: #f8fafc !important;
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
+}
+
+.app-root.dark button[style*="background:#ffffff"] *,
+.app-root.dark button[style*="background: #ffffff"] *,
+.app-root.dark button[style*="background:#fff"] *,
+.app-root.dark button[style*="background: #fff"] *,
+.app-root.dark-mode button[style*="background:#ffffff"] *,
+.app-root.dark-mode button[style*="background: #ffffff"] *,
+.app-root.dark-mode button[style*="background:#fff"] *,
+.app-root.dark-mode button[style*="background: #fff"] *,
+.app-root.theme-dark button[style*="background:#ffffff"] *,
+.app-root.theme-dark button[style*="background: #ffffff"] *,
+.app-root.theme-dark button[style*="background:#fff"] *,
+.app-root.theme-dark button[style*="background: #fff"] *,
+.app-root.is-dark button[style*="background:#ffffff"] *,
+.app-root.is-dark button[style*="background: #ffffff"] *,
+.app-root.is-dark button[style*="background:#fff"] *,
+.app-root.is-dark button[style*="background: #fff"] * {
+    color: #111827 !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   
+
+   - إصلاح الصفحات اللي لسه خلفيتها بيضاء في الدارك:
+     /portal/dashboard
+     /portal/requests
+     /portal/notifications
+   - بدون تغيير Layout / Sidebar / Topbar / Width / Position
+   ========================================================= */
+
+/* الخلفيات الفاتحة العامة داخل محتوى الصفحة فقط */
+.app-root.dark .page-canvas [style*="background:#f8fafc"],
+.app-root.dark .page-canvas [style*="background: #f8fafc"],
+.app-root.dark .page-canvas [style*="background:#f9fafb"],
+.app-root.dark .page-canvas [style*="background: #f9fafb"],
+.app-root.dark .page-canvas [style*="background:#f3f4f6"],
+.app-root.dark .page-canvas [style*="background: #f3f4f6"],
+.app-root.dark-mode .page-canvas [style*="background:#f8fafc"],
+.app-root.dark-mode .page-canvas [style*="background: #f8fafc"],
+.app-root.dark-mode .page-canvas [style*="background:#f9fafb"],
+.app-root.dark-mode .page-canvas [style*="background: #f9fafb"],
+.app-root.dark-mode .page-canvas [style*="background:#f3f4f6"],
+.app-root.dark-mode .page-canvas [style*="background: #f3f4f6"],
+.app-root.theme-dark .page-canvas [style*="background:#f8fafc"],
+.app-root.theme-dark .page-canvas [style*="background: #f8fafc"],
+.app-root.theme-dark .page-canvas [style*="background:#f9fafb"],
+.app-root.theme-dark .page-canvas [style*="background: #f9fafb"],
+.app-root.theme-dark .page-canvas [style*="background:#f3f4f6"],
+.app-root.theme-dark .page-canvas [style*="background: #f3f4f6"],
+.app-root.is-dark .page-canvas [style*="background:#f8fafc"],
+.app-root.is-dark .page-canvas [style*="background: #f8fafc"],
+.app-root.is-dark .page-canvas [style*="background:#f9fafb"],
+.app-root.is-dark .page-canvas [style*="background: #f9fafb"],
+.app-root.is-dark .page-canvas [style*="background:#f3f4f6"],
+.app-root.is-dark .page-canvas [style*="background: #f3f4f6"] {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+}
+
+/* أي wrapper كبير داخل صفحات البورتال */
+.app-root.dark .page-canvas > div,
+.app-root.dark-mode .page-canvas > div,
+.app-root.theme-dark .page-canvas > div,
+.app-root.is-dark .page-canvas > div,
+.app-root.dark .portal-page,
+.app-root.dark-mode .portal-page,
+.app-root.theme-dark .portal-page,
+.app-root.is-dark .portal-page,
+.app-root.dark .portal-dashboard,
+.app-root.dark-mode .portal-dashboard,
+.app-root.theme-dark .portal-dashboard,
+.app-root.is-dark .portal-dashboard,
+.app-root.dark .beneficiary-dashboard,
+.app-root.dark-mode .beneficiary-dashboard,
+.app-root.theme-dark .beneficiary-dashboard,
+.app-root.is-dark .beneficiary-dashboard,
+.app-root.dark .requests-page,
+.app-root.dark-mode .requests-page,
+.app-root.theme-dark .requests-page,
+.app-root.is-dark .requests-page,
+.app-root.dark .notifications-page,
+.app-root.dark-mode .notifications-page,
+.app-root.theme-dark .notifications-page,
+.app-root.is-dark .notifications-page {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+}
+
+/* Sections الكبيرة اللي باينة بيضاء في الصور */
+.app-root.dark .page-canvas section,
+.app-root.dark-mode .page-canvas section,
+.app-root.theme-dark .page-canvas section,
+.app-root.is-dark .page-canvas section {
+    border-color: #334155 !important;
+}
+
+/* كروت المحتوى الداكنة */
+.app-root.dark .page-canvas article,
+.app-root.dark-mode .page-canvas article,
+.app-root.theme-dark .page-canvas article,
+.app-root.is-dark .page-canvas article,
+.app-root.dark .page-canvas .card,
+.app-root.dark-mode .page-canvas .card,
+.app-root.theme-dark .page-canvas .card,
+.app-root.is-dark .page-canvas .card,
+.app-root.dark .page-canvas [class*="card"],
+.app-root.dark-mode .page-canvas [class*="card"],
+.app-root.theme-dark .page-canvas [class*="card"],
+.app-root.is-dark .page-canvas [class*="card"],
+.app-root.dark .page-canvas [class*="Card"],
+.app-root.dark-mode .page-canvas [class*="Card"],
+.app-root.theme-dark .page-canvas [class*="Card"],
+.app-root.is-dark .page-canvas [class*="Card"] {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+
+/* استثناء الهيرو الأخضر، لا يتحول لكارت غامق */
+.app-root.dark .page-canvas [class*="hero"],
+.app-root.dark-mode .page-canvas [class*="hero"],
+.app-root.theme-dark .page-canvas [class*="hero"],
+.app-root.is-dark .page-canvas [class*="hero"],
+.app-root.dark .page-canvas [class*="Hero"],
+.app-root.dark-mode .page-canvas [class*="Hero"],
+.app-root.theme-dark .page-canvas [class*="Hero"],
+.app-root.is-dark .page-canvas [class*="Hero"] {
+    background: linear-gradient(135deg, #05a843, #059669) !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+}
+
+/* نصوص العناوين داخل صفحات البورتال */
+.app-root.dark .page-canvas h1,
+.app-root.dark-mode .page-canvas h1,
+.app-root.theme-dark .page-canvas h1,
+.app-root.is-dark .page-canvas h1,
+.app-root.dark .page-canvas h2,
+.app-root.dark-mode .page-canvas h2,
+.app-root.theme-dark .page-canvas h2,
+.app-root.is-dark .page-canvas h2,
+.app-root.dark .page-canvas h3,
+.app-root.dark-mode .page-canvas h3,
+.app-root.theme-dark .page-canvas h3,
+.app-root.is-dark .page-canvas h3,
+.app-root.dark .page-canvas strong,
+.app-root.dark-mode .page-canvas strong,
+.app-root.theme-dark .page-canvas strong,
+.app-root.is-dark .page-canvas strong {
+    color: #f8fafc !important;
+}
+
+.app-root.dark .page-canvas p,
+.app-root.dark-mode .page-canvas p,
+.app-root.theme-dark .page-canvas p,
+.app-root.is-dark .page-canvas p,
+.app-root.dark .page-canvas small,
+.app-root.dark-mode .page-canvas small,
+.app-root.theme-dark .page-canvas small,
+.app-root.is-dark .page-canvas small {
+    color: #cbd5e1 !important;
+}
+
+/* الأزرار البيضاء الصغيرة والـ filter chips: خليها واضحة */
+.app-root.dark .page-canvas button,
+.app-root.dark-mode .page-canvas button,
+.app-root.theme-dark .page-canvas button,
+.app-root.is-dark .page-canvas button {
+    border-color: #334155;
+}
+
+/* الأزرار اللي خلفيتها أبيض Inline تتحول لفاتح بنص غامق، مش نص أبيض */
+.app-root.dark .page-canvas button[style*="background:#ffffff"],
+.app-root.dark .page-canvas button[style*="background: #ffffff"],
+.app-root.dark .page-canvas button[style*="background:#fff"],
+.app-root.dark .page-canvas button[style*="background: #fff"],
+.app-root.dark-mode .page-canvas button[style*="background:#ffffff"],
+.app-root.dark-mode .page-canvas button[style*="background: #ffffff"],
+.app-root.dark-mode .page-canvas button[style*="background:#fff"],
+.app-root.dark-mode .page-canvas button[style*="background: #fff"],
+.app-root.theme-dark .page-canvas button[style*="background:#ffffff"],
+.app-root.theme-dark .page-canvas button[style*="background: #ffffff"],
+.app-root.theme-dark .page-canvas button[style*="background:#fff"],
+.app-root.theme-dark .page-canvas button[style*="background: #fff"],
+.app-root.is-dark .page-canvas button[style*="background:#ffffff"],
+.app-root.is-dark .page-canvas button[style*="background: #ffffff"],
+.app-root.is-dark .page-canvas button[style*="background:#fff"],
+.app-root.is-dark .page-canvas button[style*="background: #fff"] {
+    background: #f8fafc !important;
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
+}
+
+/* داخل الأزرار الفاتحة */
+.app-root.dark .page-canvas button[style*="background:#ffffff"] *,
+.app-root.dark .page-canvas button[style*="background: #ffffff"] *,
+.app-root.dark .page-canvas button[style*="background:#fff"] *,
+.app-root.dark .page-canvas button[style*="background: #fff"] *,
+.app-root.dark-mode .page-canvas button[style*="background:#ffffff"] *,
+.app-root.dark-mode .page-canvas button[style*="background: #ffffff"] *,
+.app-root.dark-mode .page-canvas button[style*="background:#fff"] *,
+.app-root.dark-mode .page-canvas button[style*="background: #fff"] *,
+.app-root.theme-dark .page-canvas button[style*="background:#ffffff"] *,
+.app-root.theme-dark .page-canvas button[style*="background: #ffffff"] *,
+.app-root.theme-dark .page-canvas button[style*="background:#fff"] *,
+.app-root.theme-dark .page-canvas button[style*="background: #fff"] *,
+.app-root.is-dark .page-canvas button[style*="background:#ffffff"] *,
+.app-root.is-dark .page-canvas button[style*="background: #ffffff"] *,
+.app-root.is-dark .page-canvas button[style*="background:#fff"] *,
+.app-root.is-dark .page-canvas button[style*="background: #fff"] * {
+    color: #111827 !important;
+}
+
+/* صفوف الإشعارات التي ظهرت فاتحة جدًا */
+.app-root.dark .notifications-page .notification-item,
+.app-root.dark-mode .notifications-page .notification-item,
+.app-root.theme-dark .notifications-page .notification-item,
+.app-root.is-dark .notifications-page .notification-item,
+.app-root.dark .page-canvas [class*="notification"],
+.app-root.dark-mode .page-canvas [class*="notification"],
+.app-root.theme-dark .page-canvas [class*="notification"],
+.app-root.is-dark .page-canvas [class*="notification"] {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+
+/* لا تخلي أي خلفية بيضاء عامة تظهر في قلب الصفحة */
+.app-root.dark .page-canvas div[style*="background:#ffffff"],
+.app-root.dark .page-canvas div[style*="background: #ffffff"],
+.app-root.dark .page-canvas section[style*="background:#ffffff"],
+.app-root.dark .page-canvas section[style*="background: #ffffff"],
+.app-root.dark-mode .page-canvas div[style*="background:#ffffff"],
+.app-root.dark-mode .page-canvas div[style*="background: #ffffff"],
+.app-root.dark-mode .page-canvas section[style*="background:#ffffff"],
+.app-root.dark-mode .page-canvas section[style*="background: #ffffff"],
+.app-root.theme-dark .page-canvas div[style*="background:#ffffff"],
+.app-root.theme-dark .page-canvas div[style*="background: #ffffff"],
+.app-root.theme-dark .page-canvas section[style*="background:#ffffff"],
+.app-root.theme-dark .page-canvas section[style*="background: #ffffff"],
+.app-root.is-dark .page-canvas div[style*="background:#ffffff"],
+.app-root.is-dark .page-canvas div[style*="background: #ffffff"],
+.app-root.is-dark .page-canvas section[style*="background:#ffffff"],
+.app-root.is-dark .page-canvas section[style*="background: #ffffff"] {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+}
+
+/* استثناء أزرار الهيرو البيضاء مرة تانية */
+.app-root.dark .page-canvas [class*="hero"] button,
+.app-root.dark-mode .page-canvas [class*="hero"] button,
+.app-root.theme-dark .page-canvas [class*="hero"] button,
+.app-root.is-dark .page-canvas [class*="hero"] button,
+.app-root.dark .page-canvas [class*="Hero"] button,
+.app-root.dark-mode .page-canvas [class*="Hero"] button,
+.app-root.theme-dark .page-canvas [class*="Hero"] button,
+.app-root.is-dark .page-canvas [class*="Hero"] button {
+    background: #ffffff !important;
+    color: #047857 !important;
+    border-color: #ffffff !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   CharityHealth Dark Mode - Filter Counts Visibility Fix
+   ========================================================= */
+
+/* أزرار الفلاتر الفاتحة في صفحات الطلبات */
+.app-root.dark .page-canvas button,
+.app-root.dark-mode .page-canvas button,
+.app-root.theme-dark .page-canvas button,
+.app-root.is-dark .page-canvas button {
+    text-shadow: none !important;
+}
+
+/* أي زر فاتح في الدارك لازم النص والأرقام جواه تبقى غامقة */
+.app-root.dark .page-canvas button[style*="background:#ffffff"],
+.app-root.dark .page-canvas button[style*="background: #ffffff"],
+.app-root.dark .page-canvas button[style*="background:#fff"],
+.app-root.dark .page-canvas button[style*="background: #fff"],
+.app-root.dark .page-canvas button[style*="background:#f8fafc"],
+.app-root.dark .page-canvas button[style*="background: #f8fafc"],
+.app-root.dark .page-canvas button[style*="background:#f1f5f9"],
+.app-root.dark .page-canvas button[style*="background: #f1f5f9"],
+.app-root.dark-mode .page-canvas button[style*="background:#ffffff"],
+.app-root.dark-mode .page-canvas button[style*="background: #ffffff"],
+.app-root.dark-mode .page-canvas button[style*="background:#fff"],
+.app-root.dark-mode .page-canvas button[style*="background: #fff"],
+.app-root.dark-mode .page-canvas button[style*="background:#f8fafc"],
+.app-root.dark-mode .page-canvas button[style*="background: #f8fafc"],
+.app-root.dark-mode .page-canvas button[style*="background:#f1f5f9"],
+.app-root.dark-mode .page-canvas button[style*="background: #f1f5f9"],
+.app-root.theme-dark .page-canvas button[style*="background:#ffffff"],
+.app-root.theme-dark .page-canvas button[style*="background: #ffffff"],
+.app-root.theme-dark .page-canvas button[style*="background:#fff"],
+.app-root.theme-dark .page-canvas button[style*="background: #fff"],
+.app-root.theme-dark .page-canvas button[style*="background:#f8fafc"],
+.app-root.theme-dark .page-canvas button[style*="background: #f8fafc"],
+.app-root.theme-dark .page-canvas button[style*="background:#f1f5f9"],
+.app-root.theme-dark .page-canvas button[style*="background: #f1f5f9"],
+.app-root.is-dark .page-canvas button[style*="background:#ffffff"],
+.app-root.is-dark .page-canvas button[style*="background: #ffffff"],
+.app-root.is-dark .page-canvas button[style*="background:#fff"],
+.app-root.is-dark .page-canvas button[style*="background: #fff"],
+.app-root.is-dark .page-canvas button[style*="background:#f8fafc"],
+.app-root.is-dark .page-canvas button[style*="background: #f8fafc"],
+.app-root.is-dark .page-canvas button[style*="background:#f1f5f9"],
+.app-root.is-dark .page-canvas button[style*="background: #f1f5f9"] {
+    background: #f8fafc !important;
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
+}
+
+/* كل العناصر الداخلية جوه أزرار الفلاتر الفاتحة */
+.app-root.dark .page-canvas button[style*="background:#ffffff"] *,
+.app-root.dark .page-canvas button[style*="background: #ffffff"] *,
+.app-root.dark .page-canvas button[style*="background:#fff"] *,
+.app-root.dark .page-canvas button[style*="background: #fff"] *,
+.app-root.dark .page-canvas button[style*="background:#f8fafc"] *,
+.app-root.dark .page-canvas button[style*="background: #f8fafc"] *,
+.app-root.dark .page-canvas button[style*="background:#f1f5f9"] *,
+.app-root.dark .page-canvas button[style*="background: #f1f5f9"] *,
+.app-root.dark-mode .page-canvas button[style*="background:#ffffff"] *,
+.app-root.dark-mode .page-canvas button[style*="background: #ffffff"] *,
+.app-root.dark-mode .page-canvas button[style*="background:#fff"] *,
+.app-root.dark-mode .page-canvas button[style*="background: #fff"] *,
+.app-root.dark-mode .page-canvas button[style*="background:#f8fafc"] *,
+.app-root.dark-mode .page-canvas button[style*="background: #f8fafc"] *,
+.app-root.dark-mode .page-canvas button[style*="background:#f1f5f9"] *,
+.app-root.dark-mode .page-canvas button[style*="background: #f1f5f9"] *,
+.app-root.theme-dark .page-canvas button[style*="background:#ffffff"] *,
+.app-root.theme-dark .page-canvas button[style*="background: #ffffff"] *,
+.app-root.theme-dark .page-canvas button[style*="background:#fff"] *,
+.app-root.theme-dark .page-canvas button[style*="background: #fff"] *,
+.app-root.theme-dark .page-canvas button[style*="background:#f8fafc"] *,
+.app-root.theme-dark .page-canvas button[style*="background: #f8fafc"] *,
+.app-root.theme-dark .page-canvas button[style*="background:#f1f5f9"] *,
+.app-root.theme-dark .page-canvas button[style*="background: #f1f5f9"] *,
+.app-root.is-dark .page-canvas button[style*="background:#ffffff"] *,
+.app-root.is-dark .page-canvas button[style*="background: #ffffff"] *,
+.app-root.is-dark .page-canvas button[style*="background:#fff"] *,
+.app-root.is-dark .page-canvas button[style*="background: #fff"] *,
+.app-root.is-dark .page-canvas button[style*="background:#f8fafc"] *,
+.app-root.is-dark .page-canvas button[style*="background: #f8fafc"] *,
+.app-root.is-dark .page-canvas button[style*="background:#f1f5f9"] *,
+.app-root.is-dark .page-canvas button[style*="background: #f1f5f9"] * {
+    color: #111827 !important;
+}
+
+/* دوائر الأرقام الصغيرة داخل أزرار الفلاتر */
+.app-root.dark .page-canvas button span,
+.app-root.dark-mode .page-canvas button span,
+.app-root.theme-dark .page-canvas button span,
+.app-root.is-dark .page-canvas button span {
+    text-shadow: none !important;
+}
+
+/* لو الرقم داخل دائرة فاتحة غير Inline */
+.app-root.dark .page-canvas button span:first-child,
+.app-root.dark-mode .page-canvas button span:first-child,
+.app-root.theme-dark .page-canvas button span:first-child,
+.app-root.is-dark .page-canvas button span:first-child {
+    color: #111827 !important;
+}
+
+/* الزر النشط الأخضر الفاتح، الرقم والنص يظهروا أخضر غامق */
+.app-root.dark .page-canvas button[style*="#dcfce7"],
+.app-root.dark .page-canvas button[style*="#ecfdf3"],
+.app-root.dark .page-canvas button[style*="#e9fbef"],
+.app-root.dark-mode .page-canvas button[style*="#dcfce7"],
+.app-root.dark-mode .page-canvas button[style*="#ecfdf3"],
+.app-root.dark-mode .page-canvas button[style*="#e9fbef"],
+.app-root.theme-dark .page-canvas button[style*="#dcfce7"],
+.app-root.theme-dark .page-canvas button[style*="#ecfdf3"],
+.app-root.theme-dark .page-canvas button[style*="#e9fbef"],
+.app-root.is-dark .page-canvas button[style*="#dcfce7"],
+.app-root.is-dark .page-canvas button[style*="#ecfdf3"],
+.app-root.is-dark .page-canvas button[style*="#e9fbef"] {
+    background: #dcfce7 !important;
+    color: #047857 !important;
+    border-color: #86efac !important;
+}
+
+.app-root.dark .page-canvas button[style*="#dcfce7"] *,
+.app-root.dark .page-canvas button[style*="#ecfdf3"] *,
+.app-root.dark .page-canvas button[style*="#e9fbef"] *,
+.app-root.dark-mode .page-canvas button[style*="#dcfce7"] *,
+.app-root.dark-mode .page-canvas button[style*="#ecfdf3"] *,
+.app-root.dark-mode .page-canvas button[style*="#e9fbef"] *,
+.app-root.theme-dark .page-canvas button[style*="#dcfce7"] *,
+.app-root.theme-dark .page-canvas button[style*="#ecfdf3"] *,
+.app-root.theme-dark .page-canvas button[style*="#e9fbef"] *,
+.app-root.is-dark .page-canvas button[style*="#dcfce7"] *,
+.app-root.is-dark .page-canvas button[style*="#ecfdf3"] *,
+.app-root.is-dark .page-canvas button[style*="#e9fbef"] * {
+    color: #047857 !important;
+}
+
+/* لا تبوظ زر "طلب جديد" الأخضر */
+.app-root.dark .page-canvas button[style*="#05a843"],
+.app-root.dark .page-canvas button[style*="#22c55e"],
+.app-root.dark .page-canvas button[style*="background:#05a843"],
+.app-root.dark .page-canvas button[style*="background: #05a843"],
+.app-root.dark-mode .page-canvas button[style*="#05a843"],
+.app-root.dark-mode .page-canvas button[style*="#22c55e"],
+.app-root.dark-mode .page-canvas button[style*="background:#05a843"],
+.app-root.dark-mode .page-canvas button[style*="background: #05a843"],
+.app-root.theme-dark .page-canvas button[style*="#05a843"],
+.app-root.theme-dark .page-canvas button[style*="#22c55e"],
+.app-root.theme-dark .page-canvas button[style*="background:#05a843"],
+.app-root.theme-dark .page-canvas button[style*="background: #05a843"],
+.app-root.is-dark .page-canvas button[style*="#05a843"],
+.app-root.is-dark .page-canvas button[style*="#22c55e"],
+.app-root.is-dark .page-canvas button[style*="background:#05a843"],
+.app-root.is-dark .page-canvas button[style*="background: #05a843"] {
+    background: #05a843 !important;
+    color: #ffffff !important;
+    border-color: #05a843 !important;
+}
+
+.app-root.dark .page-canvas button[style*="#05a843"] *,
+.app-root.dark .page-canvas button[style*="#22c55e"] *,
+.app-root.dark .page-canvas button[style*="background:#05a843"] *,
+.app-root.dark .page-canvas button[style*="background: #05a843"] *,
+.app-root.dark-mode .page-canvas button[style*="#05a843"] *,
+.app-root.dark-mode .page-canvas button[style*="#22c55e"] *,
+.app-root.dark-mode .page-canvas button[style*="background:#05a843"] *,
+.app-root.dark-mode .page-canvas button[style*="background: #05a843"] *,
+.app-root.theme-dark .page-canvas button[style*="#05a843"] *,
+.app-root.theme-dark .page-canvas button[style*="#22c55e"] *,
+.app-root.theme-dark .page-canvas button[style*="background:#05a843"] *,
+.app-root.theme-dark .page-canvas button[style*="background: #05a843"] *,
+.app-root.is-dark .page-canvas button[style*="#05a843"] *,
+.app-root.is-dark .page-canvas button[style*="#22c55e"] *,
+.app-root.is-dark .page-canvas button[style*="background:#05a843"] *,
+.app-root.is-dark .page-canvas button[style*="background: #05a843"] * {
+    color: #ffffff !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   CharityHealth Dark Mode - Request Filter Count Circles Fix
+ 
+   الهدف: إظهار أرقام فلاتر الطلبات: الكل / قيد المراجعة / مقبولة / مرفوضة.
+   بدون أي تغيير في Layout.
+   ========================================================= */
+
+/* أزرار الفلاتر البيضاء نفسها */
+.app-root.dark .page-canvas button,
+.app-root.dark-mode .page-canvas button,
+.app-root.theme-dark .page-canvas button,
+.app-root.is-dark .page-canvas button {
+    text-shadow: none !important;
+}
+
+/* أي زر فلتر فاتح: خليه أبيض بنص غامق واضح */
+.app-root.dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]),
+.app-root.dark-mode .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]),
+.app-root.theme-dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]),
+.app-root.is-dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) {
+    color: #111827 !important;
+}
+
+/* النصوص داخل أزرار الفلاتر الفاتحة */
+.app-root.dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) strong,
+.app-root.dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) small,
+.app-root.dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) em,
+.app-root.dark-mode .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) strong,
+.app-root.dark-mode .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) small,
+.app-root.dark-mode .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) em,
+.app-root.theme-dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) strong,
+.app-root.theme-dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) small,
+.app-root.theme-dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) em,
+.app-root.is-dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) strong,
+.app-root.is-dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) small,
+.app-root.is-dark .page-canvas button:not([style*="#05a843"]):not([style*="#22c55e"]):not([style*="rgb(5, 168, 67)"]) em {
+    color: #111827 !important;
+}
+
+/* الرقم داخل الدائرة الصغيرة في زر الفلتر */
+.app-root.dark .page-canvas button span[style*="border-radius:50%"],
+.app-root.dark .page-canvas button span[style*="border-radius: 50%"],
+.app-root.dark .page-canvas button span[style*="border-radius:999px"],
+.app-root.dark .page-canvas button span[style*="border-radius: 999px"],
+.app-root.dark-mode .page-canvas button span[style*="border-radius:50%"],
+.app-root.dark-mode .page-canvas button span[style*="border-radius: 50%"],
+.app-root.dark-mode .page-canvas button span[style*="border-radius:999px"],
+.app-root.dark-mode .page-canvas button span[style*="border-radius: 999px"],
+.app-root.theme-dark .page-canvas button span[style*="border-radius:50%"],
+.app-root.theme-dark .page-canvas button span[style*="border-radius: 50%"],
+.app-root.theme-dark .page-canvas button span[style*="border-radius:999px"],
+.app-root.theme-dark .page-canvas button span[style*="border-radius: 999px"],
+.app-root.is-dark .page-canvas button span[style*="border-radius:50%"],
+.app-root.is-dark .page-canvas button span[style*="border-radius: 50%"],
+.app-root.is-dark .page-canvas button span[style*="border-radius:999px"],
+.app-root.is-dark .page-canvas button span[style*="border-radius: 999px"] {
+    background: #111827 !important;
+    color: #ffffff !important;
+    border-color: #111827 !important;
+    opacity: 1 !important;
+}
+
+/* الرقم نفسه لو جواه عنصر داخلي */
+.app-root.dark .page-canvas button span[style*="border-radius:50%"] *,
+.app-root.dark .page-canvas button span[style*="border-radius: 50%"] *,
+.app-root.dark .page-canvas button span[style*="border-radius:999px"] *,
+.app-root.dark .page-canvas button span[style*="border-radius: 999px"] *,
+.app-root.dark-mode .page-canvas button span[style*="border-radius:50%"] *,
+.app-root.dark-mode .page-canvas button span[style*="border-radius: 50%"] *,
+.app-root.dark-mode .page-canvas button span[style*="border-radius:999px"] *,
+.app-root.dark-mode .page-canvas button span[style*="border-radius: 999px"] *,
+.app-root.theme-dark .page-canvas button span[style*="border-radius:50%"] *,
+.app-root.theme-dark .page-canvas button span[style*="border-radius: 50%"] *,
+.app-root.theme-dark .page-canvas button span[style*="border-radius:999px"] *,
+.app-root.theme-dark .page-canvas button span[style*="border-radius: 999px"] *,
+.app-root.is-dark .page-canvas button span[style*="border-radius:50%"] *,
+.app-root.is-dark .page-canvas button span[style*="border-radius: 50%"] *,
+.app-root.is-dark .page-canvas button span[style*="border-radius:999px"] *,
+.app-root.is-dark .page-canvas button span[style*="border-radius: 999px"] * {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* الفلتر النشط الأخضر الفاتح: الدائرة تبقى أخضر غامق والرقم أبيض */
+.app-root.dark .page-canvas button[style*="#dcfce7"] span[style*="border-radius"],
+.app-root.dark .page-canvas button[style*="#ecfdf3"] span[style*="border-radius"],
+.app-root.dark .page-canvas button[style*="#e9fbef"] span[style*="border-radius"],
+.app-root.dark-mode .page-canvas button[style*="#dcfce7"] span[style*="border-radius"],
+.app-root.dark-mode .page-canvas button[style*="#ecfdf3"] span[style*="border-radius"],
+.app-root.dark-mode .page-canvas button[style*="#e9fbef"] span[style*="border-radius"],
+.app-root.theme-dark .page-canvas button[style*="#dcfce7"] span[style*="border-radius"],
+.app-root.theme-dark .page-canvas button[style*="#ecfdf3"] span[style*="border-radius"],
+.app-root.theme-dark .page-canvas button[style*="#e9fbef"] span[style*="border-radius"],
+.app-root.is-dark .page-canvas button[style*="#dcfce7"] span[style*="border-radius"],
+.app-root.is-dark .page-canvas button[style*="#ecfdf3"] span[style*="border-radius"],
+.app-root.is-dark .page-canvas button[style*="#e9fbef"] span[style*="border-radius"] {
+    background: #047857 !important;
+    color: #ffffff !important;
+    border-color: #047857 !important;
+}
+
+/* الفلتر النشط نفسه */
+.app-root.dark .page-canvas button[style*="#dcfce7"],
+.app-root.dark .page-canvas button[style*="#ecfdf3"],
+.app-root.dark .page-canvas button[style*="#e9fbef"],
+.app-root.dark-mode .page-canvas button[style*="#dcfce7"],
+.app-root.dark-mode .page-canvas button[style*="#ecfdf3"],
+.app-root.dark-mode .page-canvas button[style*="#e9fbef"],
+.app-root.theme-dark .page-canvas button[style*="#dcfce7"],
+.app-root.theme-dark .page-canvas button[style*="#ecfdf3"],
+.app-root.theme-dark .page-canvas button[style*="#e9fbef"],
+.app-root.is-dark .page-canvas button[style*="#dcfce7"],
+.app-root.is-dark .page-canvas button[style*="#ecfdf3"],
+.app-root.is-dark .page-canvas button[style*="#e9fbef"] {
+    background: #dcfce7 !important;
+    color: #047857 !important;
+    border-color: #86efac !important;
+}
+
+.app-root.dark .page-canvas button[style*="#dcfce7"] strong,
+.app-root.dark .page-canvas button[style*="#ecfdf3"] strong,
+.app-root.dark .page-canvas button[style*="#e9fbef"] strong,
+.app-root.dark-mode .page-canvas button[style*="#dcfce7"] strong,
+.app-root.dark-mode .page-canvas button[style*="#ecfdf3"] strong,
+.app-root.dark-mode .page-canvas button[style*="#e9fbef"] strong,
+.app-root.theme-dark .page-canvas button[style*="#dcfce7"] strong,
+.app-root.theme-dark .page-canvas button[style*="#ecfdf3"] strong,
+.app-root.theme-dark .page-canvas button[style*="#e9fbef"] strong,
+.app-root.is-dark .page-canvas button[style*="#dcfce7"] strong,
+.app-root.is-dark .page-canvas button[style*="#ecfdf3"] strong,
+.app-root.is-dark .page-canvas button[style*="#e9fbef"] strong {
+    color: #047857 !important;
+}
+
+/* آخر طبقة إجبارية للأرقام الباهتة داخل الفلاتر */
+.app-root.dark .page-canvas button span[style*="opacity"],
+.app-root.dark-mode .page-canvas button span[style*="opacity"],
+.app-root.theme-dark .page-canvas button span[style*="opacity"],
+.app-root.is-dark .page-canvas button span[style*="opacity"] {
+    opacity: 1 !important;
+}

@@ -1,4 +1,37 @@
-﻿
+﻿<script>
+    window.charityTheme = {
+        init: function () {
+            const saved = localStorage.getItem("charity-health-theme") || "light";
+            return this.apply(saved);
+        },
+
+        apply: function (theme) {
+            const value = theme === "dark" ? "dark" : "light";
+
+            document.documentElement.setAttribute("data-theme", value);
+
+            if (document.body) {
+                document.body.setAttribute("data-theme", value);
+            }
+
+            localStorage.setItem("charity-health-theme", value);
+
+            return value;
+        },
+
+        toggle: function () {
+            const current = document.documentElement.getAttribute("data-theme") || "light";
+            const next = current === "dark" ? "light" : "dark";
+
+            return this.apply(next);
+        }
+    };
+
+    (function () {
+        const saved = localStorage.getItem("charity-health-theme") || "light";
+        window.charityTheme.apply(saved);
+    })();
+</script>
 
 <CascadingAuthenticationState>
     <Router AppAssembly="@typeof(Program).Assembly">
@@ -7,27 +40,27 @@
             <AuthorizeRouteView RouteData="@routeData"
                                 DefaultLayout="@typeof(MainLayout)">
 
-                
-                <NotAuthorized>
-                    @if (context.User.Identity?.IsAuthenticated != true)
+                <NotAuthorized Context="notAuthorizedContext">
+                    @if (notAuthorizedContext.User.Identity?.IsAuthenticated != true)
                     {
-                        
                         <RedirectToLogin />
                     }
                     else
                     {
-                       
                         <LayoutView Layout="@typeof(MainLayout)">
                             <div style="padding:3rem; text-align:center;">
                                 <div style="font-size:4rem; margin-bottom:1rem;">⛔</div>
+
                                 <RadzenText TextStyle="TextStyle.H5"
                                             Style="color:var(--rz-danger);">
                                     ليس لديك صلاحية الوصول لهذه الصفحة
                                 </RadzenText>
+
                                 <RadzenText TextStyle="TextStyle.Body1"
                                             Style="color:var(--rz-text-secondary-color); margin-top:0.5rem;">
                                     تواصل مع المدير إذا كنت تعتقد أن هذا خطأ
                                 </RadzenText>
+
                                 <RadzenButton Text="العودة للرئيسية"
                                               ButtonStyle="ButtonStyle.Primary"
                                               Style="margin-top:1.5rem;"
@@ -37,7 +70,6 @@
                     }
                 </NotAuthorized>
 
-             
                 <Authorizing>
                     <div style="display:flex; align-items:center; justify-content:center;
                                 min-height:60vh; flex-direction:column; gap:1rem;">
@@ -45,6 +77,7 @@
                                            ShowValue="false"
                                            Mode="ProgressBarMode.Indeterminate"
                                            Style="width:200px;" />
+
                         <RadzenText TextStyle="TextStyle.Body2"
                                     Style="color:var(--rz-text-secondary-color);">
                             جارٍ التحقق من الصلاحيات...
@@ -59,12 +92,19 @@
             <LayoutView Layout="@typeof(MainLayout)">
                 <div style="padding:3rem; text-align:center;">
                     <div style="font-size:5rem; font-weight:700;
-                                color:var(--rz-text-disabled-color);">404</div>
-                    <RadzenText TextStyle="TextStyle.H5">الصفحة غير موجودة</RadzenText>
+                                color:var(--rz-text-disabled-color);">
+                        404
+                    </div>
+
+                    <RadzenText TextStyle="TextStyle.H5">
+                        الصفحة غير موجودة
+                    </RadzenText>
+
                     <RadzenText TextStyle="TextStyle.Body1"
                                 Style="color:var(--rz-text-secondary-color);">
                         تأكد من الرابط أو ارجع للصفحة الرئيسية
                     </RadzenText>
+
                     <RadzenButton Text="الصفحة الرئيسية"
                                   ButtonStyle="ButtonStyle.Primary"
                                   Style="margin-top:1.5rem;"
@@ -76,8 +116,6 @@
     </Router>
 </CascadingAuthenticationState>
 
-
-
 @code {
-    [Inject] NavigationManager Nav { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
 }
