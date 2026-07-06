@@ -1,32 +1,5 @@
 ﻿@inherits LayoutComponentBase
 
-<div style="min-height:100vh; display:flex; align-items:center;
-    justify-content:center; background:var(--rz-base-background-color);
-    padding: 1rem;">
-
-    <div style="width:100%; max-width:460px;">
-
-        <div style="text-align:center; margin-bottom:2rem;">
-            <div style="font-size:3rem; margin-bottom:0.5rem;">🏥</div>
-            <RadzenText TextStyle="TextStyle.H5" Style="color:var(--rz-primary); margin:0;">
-                نظام الرعاية الصحية الخيرية
-            </RadzenText>
-            <RadzenText TextStyle="TextStyle.Body2" Style="color:var(--rz-text-secondary-color); margin-top:0.25rem;">
-                Healthcare Charity Management System
-            </RadzenText>
-        </div>
-
-      
-        <RadzenCard Style="padding:2rem; border-radius:12px;" class="rz-shadow-5">
-            @Body
-        </RadzenCard>
-
-        <div style="text-align:center; margin-top:1rem;">
-            <RadzenText TextStyle="TextStyle.Caption"
-                        Style="color:var(--rz-text-disabled-color);">
-                © @DateTime.Now.Year — جميع الحقوق محفوظة
-            </RadzenText>
-        </div>
-
-    </div>
+<div class="auth-layout">
+    @Body
 </div>

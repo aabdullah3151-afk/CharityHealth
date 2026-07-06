@@ -1,0 +1,306 @@
+@page "/admin/requests"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using System.Globalization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>إدارة الطلبات</PageTitle>
+
+<div class="requests-page" dir="rtl">
+
+    <header class="requests-head">
+        <div>
+            <div class="requests-kicker">Workflow 🗂️</div>
+            <h1>إدارة الطلبات</h1>
+            <p>مراجعة، قبول، رفض، وتوليد QR للحالات المقبولة.</p>
+        </div>
+
+        <div class="requests-search">
+            <span>🔎</span>
+            <input placeholder="بحث باسم المستفيد أو التخصص أو رقم الهاتف..."
+                   @bind="search"
+                   @bind:event="oninput" />
+        </div>
+    </header>
+
+    <div class="requests-tabs">
+        <button class="@FilterClass("all")" @onclick='() => SetFilter("all")'>
+            الكل
+            <span>@RequestsCount("all")</span>
+        </button>
+
+        <button class="@FilterClass("pending")" @onclick='() => SetFilter("pending")'>
+            قيد المراجعة
+            <span>@RequestsCount("pending")</span>
+        </button>
+
+        <button class="@FilterClass("approved")" @onclick='() => SetFilter("approved")'>
+            مقبولة
+            <span>@RequestsCount("approved")</span>
+        </button>
+
+        <button class="@FilterClass("rejected")" @onclick='() => SetFilter("rejected")'>
+            مرفوضة
+            <span>@RequestsCount("rejected")</span>
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="requests-message @(success ? "ok" : "bad")">
+            @message
+        </div>
+    }
+
+    @if (loading)
+    {
+        <div class="requests-empty">
+            جارٍ تحميل الطلبات...
+        </div>
+    }
+    else
+    {
+        <section class="requests-card">
+            <div class="requests-table-wrap">
+                <table class="requests-table">
+                    <thead>
+                        <tr>
+                            <th>المستفيد</th>
+                            <th>التخصص</th>
+                            <th>رقم الهاتف</th>
+                            <th>المدينة</th>
+                            <th>المستندات</th>
+                            <th>الحالة</th>
+                            <th>يوم الطلب</th>
+                            <th>إجراء</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @if (VisibleRequests.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="8">
+                                    <div class="requests-empty">
+                                        🗂️ لا توجد طلبات مطابقة
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var item in VisibleRequests)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="rq-beneficiary">
+                                            <span class="rq-avatar">@Initial(item.BeneficiaryName)</span>
+                                            <div>
+                                                <strong>@item.BeneficiaryName</strong>
+                                                <small>@ShortId(item.Id)</small>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <span class="rq-specialty">@item.SpecialtyName</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="rq-muted">@item.BeneficiaryPhone</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="rq-muted">@item.City</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="rq-docs">📎 @item.DocumentsCount</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="rq-status status-@item.StatusCss">
+                                            @item.StatusAr
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <div class="rq-date">
+                                            <strong>@item.SubmittedAt.ToLocalTime().ToString("dddd", Ar)</strong>
+                                            <small>@item.SubmittedAt.ToLocalTime().ToString("dd MMMM yyyy", Ar)</small>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        @if (CanDecide(item))
+                                        {
+                                            <div class="rq-actions">
+                                                <button class="rq-accept"
+                                                        disabled="@(busyId == item.Id)"
+                                                        @onclick="() => Approve(item.Id)">
+                                                    قبول
+                                                </button>
+
+                                                <button class="rq-reject"
+                                                        disabled="@(busyId == item.Id)"
+                                                        @onclick="() => Reject(item.Id)">
+                                                    رفض
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <button class="rq-view" type="button">
+                                                عرض
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private readonly CultureInfo Ar = new("ar-EG");
+
+    private bool loading = true;
+    private bool success;
+    private string? message;
+    private string reviewerId = "system";
+    private string activeFilter = "all";
+    private string search = string.Empty;
+    private Guid? busyId;
+
+    private List<RequestWorkItem> requests = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        reviewerId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "system";
+
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        loading = true;
+        requests = await Ui.GetRequestsAsync();
+        loading = false;
+    }
+
+    private List<RequestWorkItem> VisibleRequests =>
+        requests
+            .Where(MatchesFilter)
+            .Where(MatchesSearch)
+            .OrderByDescending(x => x.SubmittedAt)
+            .ToList();
+
+    private void SetFilter(string filter)
+    {
+        activeFilter = filter;
+    }
+
+    private string FilterClass(string filter) =>
+        activeFilter == filter ? "rq-tab active" : "rq-tab";
+
+    private int RequestsCount(string filter) =>
+        filter switch
+        {
+            "all" => requests.Count,
+            "pending" => requests.Count(x => x.Status is RequestStatus.Submitted or RequestStatus.UnderReview),
+            "approved" => requests.Count(x => x.Status == RequestStatus.Approved),
+            "rejected" => requests.Count(x => x.Status == RequestStatus.Rejected),
+            _ => 0
+        };
+
+    private bool MatchesFilter(RequestWorkItem item) =>
+        activeFilter switch
+        {
+            "pending" => item.Status is RequestStatus.Submitted or RequestStatus.UnderReview,
+            "approved" => item.Status == RequestStatus.Approved,
+            "rejected" => item.Status == RequestStatus.Rejected,
+            _ => true
+        };
+
+    private bool MatchesSearch(RequestWorkItem item)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return true;
+        }
+
+        var term = search.Trim();
+
+        return item.BeneficiaryName.Contains(term, StringComparison.OrdinalIgnoreCase)
+               || item.SpecialtyName.Contains(term, StringComparison.OrdinalIgnoreCase)
+               || item.BeneficiaryPhone.Contains(term, StringComparison.OrdinalIgnoreCase)
+               || item.City.Contains(term, StringComparison.OrdinalIgnoreCase)
+               || ShortId(item.Id).Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CanDecide(RequestWorkItem item) =>
+        item.Status is RequestStatus.Submitted or RequestStatus.UnderReview;
+
+    private async Task Approve(Guid id)
+    {
+        busyId = id;
+
+        var result = await Ui.ApproveRequestAsync(
+            id,
+            reviewerId,
+            "تمت الموافقة من إدارة الطلبات"
+        );
+
+        await AfterAction(result);
+    }
+
+    private async Task Reject(Guid id)
+    {
+        busyId = id;
+
+        var result = await Ui.RejectRequestAsync(
+            id,
+            reviewerId,
+            "تم الرفض من إدارة الطلبات"
+        );
+
+        await AfterAction(result);
+    }
+
+    private async Task AfterAction(UiActionResult result)
+    {
+        success = result.Succeeded;
+        message = result.Message;
+        busyId = null;
+
+        await Load();
+    }
+
+    private static string Initial(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "؟";
+        }
+
+        return value.Trim()[0].ToString();
+    }
+
+    private static string ShortId(Guid id)
+    {
+        return $"REQ-{id.ToString("N").Substring(0, 6).ToUpperInvariant()}";
+    }
+}

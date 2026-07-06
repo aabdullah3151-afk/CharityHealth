@@ -1,0 +1,361 @@
+@page "/doctor/dashboard"
+@layout MainLayout
+@attribute [Authorize(Roles = "Doctor")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AppDbContext Db
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+
+<PageTitle>إدارة الأطباء</PageTitle>
+
+<div class="doctors-page" dir="rtl">
+
+    <header class="doctors-head">
+        <div>
+            <div class="doctors-kicker">Doctors 👨‍⚕️</div>
+            <h1>الأطباء المتطوعون</h1>
+            <p>قائمة الأطباء المتعاونين مع المؤسسة، مع إمكانية تعديل البيانات أو حذف الطبيب من النظام.</p>
+        </div>
+
+        <button type="button"
+                class="doctor-add-btn"
+                @onclick='() => Nav.NavigateTo("/admin/doctors/create")'>
+            <span>+</span>
+            إضافة طبيب
+        </button>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(actionMessage))
+    {
+        <div style="
+            margin-bottom:18px;
+            border-radius:18px;
+            padding:16px 18px;
+            border:1px solid @(actionSucceeded ? "#bbf7d0" : "#fecaca");
+            background:@(actionSucceeded ? "#f0fdf4" : "#fef2f2");
+            color:@(actionSucceeded ? "#15803d" : "#b91c1c");
+            font-size:14px;
+            font-weight:950;">
+            @actionMessage
+        </div>
+    }
+
+    @if (deleteCandidate is not null)
+    {
+        <section style="
+            margin-bottom:24px;
+            border:1px solid #fecaca;
+            border-radius:24px;
+            background:#fff7f7;
+            padding:20px 22px;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:18px;
+            flex-wrap:wrap;">
+            <div>
+                <strong style="display:block;color:#991b1b;font-size:18px;font-weight:950;">تأكيد حذف الطبيب</strong>
+                <span style="display:block;margin-top:6px;color:#7f1d1d;font-size:14px;font-weight:850;">
+                    هل تريد حذف الطبيب: @deleteCandidate.FullNameAr ؟
+                </span>
+                <small style="display:block;margin-top:8px;color:#b91c1c;font-size:12px;font-weight:900;">
+                    سيتم إخفاء الطبيب من القائمة وتعطيل حسابه لمنع تسجيل الدخول.
+                </small>
+            </div>
+
+            <div style="display:inline-flex;align-items:center;gap:10px;">
+                <button type="button"
+                        @onclick="CancelDelete"
+                        disabled="@deleting"
+                        style="height:42px;border:0;border-radius:999px;padding:0 18px;background:#ffffff;color:#475467;font-size:13px;font-weight:950;cursor:pointer;">
+                    إلغاء
+                </button>
+
+                <button type="button"
+                        @onclick="DeleteDoctorAsync"
+                        disabled="@deleting"
+                        style="height:42px;border:0;border-radius:999px;padding:0 18px;background:#dc2626;color:#ffffff;font-size:13px;font-weight:950;cursor:pointer;">
+                    @(deleting ? "جارٍ الحذف..." : "حذف الطبيب")
+                </button>
+            </div>
+        </section>
+    }
+
+    @if (loading)
+    {
+        <div class="doctors-empty">جارٍ تحميل الأطباء...</div>
+    }
+    else if (doctors.Count == 0)
+    {
+        <div class="doctors-empty">لا يوجد أطباء مسجلون حالياً</div>
+    }
+    else
+    {
+        <section class="doctors-grid">
+            @foreach (var doctor in doctors)
+            {
+                var stats = GetDoctorStats(doctor);
+
+                <article class="doctor-card">
+
+                    <div class="doctor-card-top">
+                        <div class="doctor-main-info">
+                            <h2>@doctor.FullNameAr</h2>
+                            <strong>@doctor.SpecialtyName</strong>
+                        </div>
+
+                        <div class="doctor-icon">🩺</div>
+                    </div>
+
+                    <div class="doctor-status-row">
+                        <span class="doctor-status @(doctor.IsAvailable ? "available" : "unavailable")">
+                            <i></i>
+                            @(doctor.IsAvailable ? "متاح" : "غير متاح")
+                        </span>
+
+                        <span class="doctor-license">
+                            ترخيص: @doctor.LicenseNumber
+                        </span>
+                    </div>
+
+                    <div class="doctor-meta">
+                        <div>
+                            <span>الهاتف</span>
+                            <strong>@doctor.PhoneNumber</strong>
+                        </div>
+
+                        <div>
+                            <span>الحد اليومي</span>
+                            <strong>@doctor.MaxDailySlots</strong>
+                        </div>
+                    </div>
+
+                    <div class="doctor-schedule">
+                        <div>
+                            <span>أيام العمل</span>
+                            <strong>@FormatWorkingDays(doctor.WorkingDays)</strong>
+                        </div>
+
+                        <div>
+                            <span>وقت العمل</span>
+                            <strong>@FormatWorkingTime(doctor.WorkStartTime, doctor.WorkEndTime)</strong>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(doctor.ClinicAddress))
+                    {
+                        <div class="doctor-address">
+                            📍 @doctor.ClinicAddress
+                        </div>
+                    }
+
+                    <div class="doctor-stats">
+                        <div>
+                            <strong>@stats.Pending</strong>
+                            <span>طلبات معلقة</span>
+                        </div>
+
+                        <div>
+                            <strong>@stats.Approved</strong>
+                            <span>محجوزة</span>
+                        </div>
+
+                        <div>
+                            <strong>@stats.Completed</strong>
+                            <span>مكتملة</span>
+                        </div>
+                    </div>
+
+                    <div class="doctor-card-actions" style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button type="button"
+                                class="doctor-edit-btn"
+                                @onclick='() => Nav.NavigateTo($"/admin/doctors/edit/{doctor.Id}")'>
+                            تعديل البيانات
+                        </button>
+
+                        <button type="button"
+                                class="doctor-edit-btn"
+                                @onclick='() => AskDelete(doctor)'
+                                style="background:#fef2f2 !important;color:#dc2626 !important;">
+                            حذف الطبيب
+                        </button>
+                    </div>
+
+                </article>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private bool deleting;
+    private bool actionSucceeded;
+    private string? actionMessage;
+
+    private DoctorListItem? deleteCandidate;
+
+    private List<DoctorListItem> doctors = [];
+    private List<RequestWorkItem> requests = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        loading = true;
+
+        doctors = await Ui.GetDoctorsAsync();
+        requests = await Ui.GetRequestsAsync();
+
+        loading = false;
+    }
+
+    private void AskDelete(DoctorListItem doctor)
+    {
+        actionMessage = null;
+        deleteCandidate = doctor;
+    }
+
+    private void CancelDelete()
+    {
+        deleteCandidate = null;
+    }
+
+    private async Task DeleteDoctorAsync()
+    {
+        if (deleting || deleteCandidate is null)
+        {
+            return;
+        }
+
+        deleting = true;
+        actionMessage = null;
+
+        try
+        {
+            var doctor = await Db.Doctors
+                .Include(d => d.User)
+                .FirstOrDefaultAsync(d => d.Id == deleteCandidate.Id);
+
+            if (doctor is null)
+            {
+                actionSucceeded = false;
+                actionMessage = "الطبيب غير موجود أو تم حذفه بالفعل.";
+                return;
+            }
+
+            doctor.IsAvailable = false;
+            doctor.IsDeleted = true;
+            doctor.UpdatedAt = DateTime.UtcNow;
+
+            doctor.User.IsActive = false;
+            doctor.User.EmailConfirmed = false;
+            doctor.User.LockoutEnabled = true;
+            doctor.User.LockoutEnd = DateTimeOffset.UtcNow.AddYears(100);
+            doctor.User.UpdatedAt = DateTime.UtcNow;
+
+            var userUpdate = await UserManager.UpdateAsync(doctor.User);
+
+            if (!userUpdate.Succeeded)
+            {
+                actionSucceeded = false;
+                actionMessage = string.Join(" | ", userUpdate.Errors.Select(e => e.Description));
+                return;
+            }
+
+            await Db.SaveChangesAsync();
+
+            actionSucceeded = true;
+            actionMessage = "تم حذف الطبيب من القائمة وتعطيل حساب الدخول الخاص به.";
+            deleteCandidate = null;
+
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            actionSucceeded = false;
+            actionMessage = $"حدث خطأ أثناء حذف الطبيب: {ex.Message}";
+        }
+        finally
+        {
+            deleting = false;
+        }
+    }
+
+    private DoctorStats GetDoctorStats(DoctorListItem doctor)
+    {
+        var related = requests
+            .Where(r => r.SpecialtyName == doctor.SpecialtyName)
+            .ToList();
+
+        return new DoctorStats(
+            Pending: related.Count(r => r.Status is RequestStatus.Submitted or RequestStatus.UnderReview),
+            Approved: related.Count(r => r.Status == RequestStatus.Approved),
+            Completed: related.Count(r => r.Status == RequestStatus.Completed)
+        );
+    }
+
+    private static string FormatWorkingTime(TimeOnly? start, TimeOnly? end)
+    {
+        if (start is null && end is null)
+        {
+            return "غير محدد";
+        }
+
+        if (start is not null && end is not null)
+        {
+            return $"{start:HH\\:mm} - {end:HH\\:mm}";
+        }
+
+        if (start is not null)
+        {
+            return $"من {start:HH\\:mm}";
+        }
+
+        return $"حتى {end:HH\\:mm}";
+    }
+
+    private static string FormatWorkingDays(string? days)
+    {
+        if (string.IsNullOrWhiteSpace(days))
+        {
+            return "غير محدد";
+        }
+
+        var map = new Dictionary<string, string>
+        {
+            ["Sat"] = "السبت",
+            ["Sun"] = "الأحد",
+            ["Mon"] = "الاثنين",
+            ["Tue"] = "الثلاثاء",
+            ["Wed"] = "الأربعاء",
+            ["Thu"] = "الخميس",
+            ["Fri"] = "الجمعة"
+        };
+
+        var result = days
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(d => map.TryGetValue(d, out var ar) ? ar : d)
+            .ToList();
+
+        return result.Count == 0 ? "غير محدد" : string.Join("، ", result);
+    }
+
+    private sealed record DoctorStats(
+        int Pending,
+        int Approved,
+        int Completed
+    );
+}

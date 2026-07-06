@@ -1,0 +1,59 @@
+@page "/pharmacy/inventory"
+@layout MainLayout
+@attribute [Authorize(Roles = "Pharmacist")]
+
+@using Microsoft.AspNetCore.Authorization
+@inject NavigationManager Nav
+
+<PageTitle>المخزون الدوائي</PageTitle>
+
+<div class="ph-page" dir="rtl">
+    <header class="ph-page-head">
+        <div>
+            <div class="ph-kicker">📦 Inventory</div>
+            <h1>المخزون الدوائي</h1>
+            <p>متابعة الأدوية المتاحة والتنبيه عند انخفاض الكميات.</p>
+        </div>
+
+        <button type="button" class="ph-head-btn" @onclick='() => Nav.NavigateTo("/pharmacy/dashboard")'>
+            العودة للوحة الصيدلية
+        </button>
+    </header>
+
+    <section class="ph-inventory-grid">
+        @foreach (var item in inventory)
+        {
+            <article class="ph-inventory-card">
+                <div class="ph-pill-icon @item.LevelCss">🔗</div>
+
+                <div class="ph-stock-main">
+                    <h2>@item.Name</h2>
+                    <strong class="@item.LevelCss">@item.Quantity</strong>
+                    <span>@item.Unit</span>
+                </div>
+
+                <span class="ph-stock-badge @item.LevelCss">@item.LevelText</span>
+            </article>
+        }
+    </section>
+</div>
+
+@code {
+    private readonly List<InventoryItem> inventory =
+    [
+        new("أملوديبين 5mg", 450, "قرص", "كافي", "good"),
+        new("أموكسيسيلين 250", 120, "كبسولة", "منخفض", "low"),
+        new("إيبوبروفين 400mg", 380, "قرص", "كافي", "good"),
+        new("ميتفورمين 500mg", 45, "قرص", "منخفض", "low"),
+        new("أوميبرازول 20mg", 290, "كبسولة", "كافي", "good"),
+        new("فلوكستين 20mg", 18, "كبسولة", "نفد تقريباً", "danger")
+    ];
+
+    private sealed record InventoryItem(
+        string Name,
+        int Quantity,
+        string Unit,
+        string LevelText,
+        string LevelCss
+    );
+}

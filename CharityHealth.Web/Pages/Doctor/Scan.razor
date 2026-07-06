@@ -1,0 +1,360 @@
+@page "/doctor/scan"
+@layout MainLayout
+@attribute [Authorize(Roles = "Doctor")]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>مسح QR</PageTitle>
+
+<div class="doctor-scan-modern-page" dir="rtl">
+
+    @if (!scanned)
+    {
+        <header class="doctor-scan-modern-head">
+            <button type="button"
+                    class="doctor-scan-back"
+                    @onclick='() => Nav.NavigateTo("/doctor/dashboard")'>
+                ›
+            </button>
+
+            <div>
+                <h1>مسح رمز المستفيد</h1>
+                <p>ضع رمز QR في منتصف الإطار. حالياً المسح تجريبي ويتم بمحاكاة القراءة.</p>
+            </div>
+        </header>
+
+        <section class="doctor-scanner-shell">
+            <div class="doctor-scanner-box">
+                <div class="scanner-frame">
+                    <span class="corner top-right"></span>
+                    <span class="corner top-left"></span>
+                    <span class="corner bottom-right"></span>
+                    <span class="corner bottom-left"></span>
+
+                    <div class="scanner-fake-qr">⌗</div>
+                </div>
+
+                <p>ضع رمز QR في منتصف الإطار</p>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <div class="doctor-scan-message danger">@message</div>
+            }
+
+            <button type="button"
+                    class="doctor-simulate-scan-btn"
+                    disabled="@loading"
+                    @onclick="SimulateScan">
+                @(loading ? "جارٍ المحاكاة..." : "محاكاة المسح")
+            </button>
+        </section>
+    }
+    else
+    {
+        <header class="doctor-result-head">
+            <button type="button"
+                    class="doctor-scan-back"
+                    @onclick="ResetScan">
+                ›
+            </button>
+
+            <div>
+                <h1>نتيجة الاستشارة</h1>
+                <p>تم قراءة بيانات المستفيد. اكتب ملاحظات الطبيب ثم احفظ النتيجة.</p>
+            </div>
+        </header>
+
+        @if (selectedRequest is not null)
+        {
+            <section class="doctor-result-layout">
+
+                <article class="doctor-result-card patient">
+                    <div class="result-card-head">
+                        <h2>بيانات الحالة</h2>
+                        <span class="doctor-case-status @StatusClass(selectedRequest.Status)">
+                            @selectedRequest.StatusAr
+                        </span>
+                    </div>
+
+                    <div class="patient-info-grid">
+                        <div>
+                            <span>المستفيد</span>
+                            <strong>@selectedRequest.BeneficiaryName</strong>
+                        </div>
+
+                        <div>
+                            <span>الهاتف</span>
+                            <strong>@SafeText(selectedRequest.BeneficiaryPhone, "غير مسجل")</strong>
+                        </div>
+
+                        <div>
+                            <span>التخصص</span>
+                            <strong>@selectedRequest.SpecialtyName</strong>
+                        </div>
+
+                        <div>
+                            <span>المدينة</span>
+                            <strong>@SafeText(selectedRequest.City, "غير محدد")</strong>
+                        </div>
+
+                        <div>
+                            <span>تاريخ الطلب</span>
+                            <strong>@FormatDate(selectedRequest.SubmittedAt)</strong>
+                        </div>
+
+                        <div>
+                            <span>المستندات</span>
+                            <strong>@selectedRequest.DocumentsCount مستند</strong>
+                        </div>
+                    </div>
+
+                    <div class="case-description-box">
+                        <span>وصف الحالة</span>
+                        <p>@ShortText(selectedRequest.DescriptionAr)</p>
+                    </div>
+                </article>
+
+                <article class="doctor-result-card notes">
+                    <h2>ملاحظات الطبيب</h2>
+
+                    <textarea @bind="doctorNotes"
+                              placeholder="اكتب التشخيص أو ملخص النتيجة..."
+                              class="doctor-notes-area"></textarea>
+                </article>
+
+                <article class="doctor-result-card choices">
+                    <h2>نتيجة الاستشارة</h2>
+
+                    <button type="button"
+                            class="result-choice @(resultType == ConsultationResult.Completed ? "selected" : "")"
+                            @onclick="() => resultType = ConsultationResult.Completed">
+                        <span>✓</span>
+                        تمت الاستشارة
+                    </button>
+
+                    <button type="button"
+                            class="result-choice @(resultType == ConsultationResult.FollowUp ? "selected" : "")"
+                            @onclick="() => resultType = ConsultationResult.FollowUp">
+                        <span>↻</span>
+                        تحتاج متابعة
+                    </button>
+
+                    <button type="button"
+                            class="result-choice @(resultType == ConsultationResult.Transfer ? "selected" : "")"
+                            @onclick="() => resultType = ConsultationResult.Transfer">
+                        <span>‹</span>
+                        تحويل لتخصص آخر
+                    </button>
+
+                    @if (!string.IsNullOrWhiteSpace(message))
+                    {
+                        <div class="doctor-scan-message @(success ? "success" : "danger")">
+                            @message
+                        </div>
+                    }
+
+                    <button type="button"
+                            class="save-result-btn"
+                            disabled="@saving"
+                            @onclick="SaveResult">
+                        @(saving ? "جارٍ حفظ النتيجة..." : "حفظ النتيجة")
+                    </button>
+                </article>
+
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private bool scanned;
+    private bool saving;
+    private bool success;
+
+    private string? message;
+    private string doctorUserId = string.Empty;
+    private string doctorNotes = string.Empty;
+
+    private ConsultationResult resultType = ConsultationResult.Completed;
+
+    private List<RequestWorkItem> queue = [];
+    private RequestWorkItem? selectedRequest;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDoctorQueue();
+    }
+
+    private async Task LoadDoctorQueue()
+    {
+        loading = true;
+        message = null;
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            doctorUserId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(doctorUserId))
+            {
+                message = "تعذر قراءة حساب الطبيب الحالي. برجاء تسجيل الدخول مرة أخرى.";
+                return;
+            }
+
+            queue = (await Ui.GetDoctorQueueAsync(doctorUserId))
+                .OrderByDescending(r => r.SubmittedAt)
+                .ToList();
+        }
+        catch
+        {
+            message = "حدث خطأ أثناء تحميل الحالات الخاصة بالطبيب.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SimulateScan()
+    {
+        message = null;
+        success = false;
+
+        if (!queue.Any())
+        {
+            await LoadDoctorQueue();
+        }
+
+        selectedRequest = queue.FirstOrDefault(r =>
+            r.Status is RequestStatus.Approved or RequestStatus.UnderReview or RequestStatus.Submitted);
+
+        if (selectedRequest is null)
+        {
+            message = "لا توجد حالة متاحة للمسح حالياً. وافق على طلب من الإدارة أولاً أو وجّه طلباً للطبيب.";
+            return;
+        }
+
+        doctorNotes = string.Empty;
+        resultType = ConsultationResult.Completed;
+        scanned = true;
+    }
+
+    private void ResetScan()
+    {
+        scanned = false;
+        selectedRequest = null;
+        doctorNotes = string.Empty;
+        message = null;
+        success = false;
+    }
+
+    private async Task SaveResult()
+    {
+        message = null;
+        success = false;
+
+        if (selectedRequest is null)
+        {
+            message = "لا توجد حالة مقروءة حالياً.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(doctorNotes))
+        {
+            message = "اكتب ملاحظات الطبيب أو ملخص النتيجة أولاً.";
+            return;
+        }
+
+        saving = true;
+
+        try
+        {
+            var finalNote = $"{ResultText(resultType)} - ملاحظات الطبيب: {doctorNotes.Trim()}";
+
+            var result = await Ui.CompleteRequestAsync(
+                selectedRequest.Id,
+                doctorUserId,
+                finalNote
+            );
+
+            if (!result.Succeeded)
+            {
+                message = result.Message;
+                return;
+            }
+
+            success = true;
+            message = "تم حفظ نتيجة الاستشارة وتحديث حالة الطلب بنجاح.";
+
+            await LoadDoctorQueue();
+        }
+        catch
+        {
+            message = "تعذر حفظ نتيجة الاستشارة حالياً.";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private static string ResultText(ConsultationResult value)
+    {
+        return value switch
+        {
+            ConsultationResult.Completed => "تمت الاستشارة",
+            ConsultationResult.FollowUp => "تحتاج متابعة",
+            ConsultationResult.Transfer => "تحويل لتخصص آخر",
+            _ => "تمت الاستشارة"
+        };
+    }
+
+    private static string StatusClass(RequestStatus status)
+    {
+        return status switch
+        {
+            RequestStatus.Approved => "approved",
+            RequestStatus.Completed => "completed",
+            RequestStatus.Rejected => "rejected",
+            _ => "pending"
+        };
+    }
+
+    private static string FormatDate(DateTime date)
+    {
+        return date.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+    }
+
+    private static string SafeText(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string ShortText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "لا يوجد وصف مرفق للحالة.";
+        }
+
+        value = value.Trim();
+        return value.Length <= 220 ? value : value[..220] + "...";
+    }
+
+    private enum ConsultationResult
+    {
+        Completed,
+        FollowUp,
+        Transfer
+    }
+}

@@ -1,4 +1,4 @@
-﻿@page "/admin/doctors/create"
+@page "/admin/doctors/edit/{DoctorId:guid}"
 @layout MainLayout
 @attribute [Authorize(Roles = "Administrator,Staff")]
 
@@ -14,15 +14,15 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Nav
 
-<PageTitle>إضافة طبيب</PageTitle>
+<PageTitle>تعديل طبيب</PageTitle>
 
 <div class="create-doctor-page" dir="rtl">
 
     <header class="create-doctor-head">
         <div>
-            <div class="create-doctor-kicker">Doctors 👨‍⚕️</div>
-            <h1>إضافة طبيب جديد</h1>
-            <p>أضف بيانات الطبيب، وأيام العمل، وساعات التواجد.</p>
+            <div class="create-doctor-kicker">Doctors ✏️</div>
+            <h1>تعديل بيانات الطبيب</h1>
+            <p>تعديل الإيميل، كلمة المرور، أيام العمل، وساعات التواجد.</p>
         </div>
 
         <button type="button"
@@ -37,8 +37,8 @@
         <div class="create-doctor-banner">
             <div class="banner-icon">🩺</div>
             <div>
-                <h2>بيانات الطبيب</h2>
-                <p>كلمة المرور الافتراضية لكل طبيب جديد: <strong>12345678</strong></p>
+                <h2>تعديل الطبيب</h2>
+                <p>اترك كلمة المرور فارغة إذا لم ترغب في تغييرها.</p>
             </div>
         </div>
 
@@ -54,82 +54,70 @@
 
         @if (loading)
         {
-            <div class="doctor-form-loading">جارٍ تحميل البيانات...</div>
+            <div class="doctor-form-loading">جارٍ تحميل بيانات الطبيب...</div>
         }
         else
         {
-            <EditForm Model="@model" OnValidSubmit="SaveDoctorAsync">
+            <EditForm Model="@model" OnValidSubmit="SaveChangesAsync">
                 <DataAnnotationsValidator />
 
                 <div class="doctor-form-grid">
 
                     <div class="doctor-field">
                         <label>اسم الطبيب عربي <span>*</span></label>
-                        <InputText class="doctor-input"
-                                   @bind-Value="model.FullNameAr"
-                                   placeholder="د. محمد أحمد" />
+                        <InputText class="doctor-input" @bind-Value="model.FullNameAr" />
                         <ValidationMessage For="@(() => model.FullNameAr)" />
                     </div>
 
                     <div class="doctor-field">
                         <label>اسم الطبيب إنجليزي</label>
-                        <InputText class="doctor-input"
-                                   @bind-Value="model.FullNameEn"
-                                   placeholder="Dr. Mohamed Ahmed"
-                                   dir="ltr" />
+                        <InputText class="doctor-input" @bind-Value="model.FullNameEn" dir="ltr" />
                     </div>
 
                     <div class="doctor-field">
                         <label>البريد الإلكتروني <span>*</span></label>
-                        <InputText class="doctor-input"
-                                   @bind-Value="model.Email"
-                                   placeholder="doctor@email.com"
-                                   dir="ltr"
-                                   type="email"
-                                   autocomplete="off" />
+                        <InputText class="doctor-input" @bind-Value="model.Email" dir="ltr" type="email" />
                         <ValidationMessage For="@(() => model.Email)" />
                     </div>
 
                     <div class="doctor-field">
-                        <label>رقم الهاتف</label>
+                        <label>كلمة مرور جديدة</label>
                         <InputText class="doctor-input"
-                                   @bind-Value="model.PhoneNumber"
-                                   placeholder="01000000000"
+                                   @bind-Value="model.NewPassword"
+                                   placeholder="اتركها فارغة بدون تغيير"
                                    dir="ltr"
-                                   type="tel" />
+                                   type="password" />
+                    </div>
+
+                    <div class="doctor-field">
+                        <label>رقم الهاتف</label>
+                        <InputText class="doctor-input" @bind-Value="model.PhoneNumber" dir="ltr" />
                     </div>
 
                     <div class="doctor-field">
                         <label>التخصص <span>*</span></label>
-                        <InputSelect class="doctor-input"
-                                     @bind-Value="model.SpecialtyId">
+                        <InputSelect class="doctor-input" @bind-Value="model.SpecialtyId">
                             <option value="">اختر التخصص</option>
                             @foreach (var specialty in specialties)
                             {
                                 <option value="@specialty.Id">@specialty.NameAr</option>
                             }
                         </InputSelect>
-                        <ValidationMessage For="@(() => model.SpecialtyId)" />
                     </div>
 
                     <div class="doctor-field">
                         <label>رقم الرخصة الطبية</label>
-                        <InputText class="doctor-input"
-                                   @bind-Value="model.LicenseNumber"
-                                   placeholder="اختياري" />
+                        <InputText class="doctor-input" @bind-Value="model.LicenseNumber" placeholder="اختياري" />
                     </div>
 
                     <div class="doctor-field">
                         <label>الحد الأقصى اليومي</label>
-                        <InputNumber class="doctor-input"
-                                     @bind-Value="model.MaxDailySlots" />
-                        <ValidationMessage For="@(() => model.MaxDailySlots)" />
+                        <InputNumber class="doctor-input" @bind-Value="model.MaxDailySlots" />
                     </div>
 
                     <div class="doctor-field">
                         <label>الحالة</label>
-                        <InputSelect class="doctor-input"
-                                     @bind-Value="model.IsAvailable">
+                        <InputSelect class="doctor-input" @bind-Value="model.IsAvailable">
                             <option value="true">متاح</option>
                             <option value="false">غير متاح</option>
                         </InputSelect>
@@ -169,17 +157,15 @@
                         <label>عنوان العيادة</label>
                         <InputTextArea class="doctor-input doctor-textarea"
                                        @bind-Value="model.ClinicAddress"
-                                       placeholder="عنوان العيادة أو مكان الكشف..."
                                        rows="3" />
                     </div>
-
                 </div>
 
                 <div class="doctor-password-note">
                     <span>🔐</span>
                     <div>
-                        <strong>بيانات الدخول</strong>
-                        <p>سيتم إنشاء حساب الطبيب باستخدام البريد الإلكتروني، وكلمة المرور الافتراضية ستكون <b>12345678</b>.</p>
+                        <strong>تعديل كلمة المرور</strong>
+                        <p>لو كتبت كلمة مرور جديدة سيتم تغييرها. لو سبتها فاضية هتفضل القديمة كما هي.</p>
                     </div>
                 </div>
 
@@ -193,24 +179,24 @@
                     <button type="submit"
                             class="doctor-primary-btn"
                             disabled="@saving">
-                        @(saving ? "جارٍ الحفظ..." : "إضافة الطبيب")
+                        @(saving ? "جارٍ الحفظ..." : "حفظ التعديلات")
                     </button>
                 </div>
-
             </EditForm>
         }
     </section>
 </div>
 
 @code {
-    private const string DefaultDoctorPassword = "12345678";
+    [Parameter] public Guid DoctorId { get; set; }
 
     private bool loading = true;
     private bool saving;
     private string? errorMsg;
     private string? successMsg;
 
-    private DoctorCreateModel model = new();
+    private Doctor? doctor;
+    private DoctorEditModel model = new();
     private List<SpecialtyOption> specialties = [];
 
     private readonly List<DayOption> Days = new()
@@ -233,6 +219,33 @@
             .Select(s => new SpecialtyOption(s.Id, s.NameAr))
             .ToListAsync();
 
+        doctor = await Db.Doctors
+            .Include(d => d.User)
+            .FirstOrDefaultAsync(d => d.Id == DoctorId);
+
+        if (doctor is null)
+        {
+            errorMsg = "الطبيب غير موجود.";
+            loading = false;
+            return;
+        }
+
+        model = new DoctorEditModel
+        {
+            FullNameAr = doctor.User.FullNameAr,
+            FullNameEn = doctor.User.FullNameEn,
+            Email = doctor.User.Email ?? string.Empty,
+            PhoneNumber = doctor.User.PhoneNumber,
+            SpecialtyId = doctor.SpecialtyId,
+            LicenseNumber = doctor.LicenseNumber == "غير محدد" ? null : doctor.LicenseNumber,
+            ClinicAddress = doctor.ClinicAddress,
+            MaxDailySlots = doctor.MaxDailySlots,
+            IsAvailable = doctor.IsAvailable,
+            WorkStartTime = doctor.WorkStartTime?.ToString("HH:mm") ?? "09:00",
+            WorkEndTime = doctor.WorkEndTime?.ToString("HH:mm") ?? "17:00",
+            WorkingDays = ParseDays(doctor.WorkingDays)
+        };
+
         loading = false;
     }
 
@@ -250,8 +263,13 @@
         }
     }
 
-    private async Task SaveDoctorAsync()
+    private async Task SaveChangesAsync()
     {
+        if (doctor is null)
+        {
+            return;
+        }
+
         saving = true;
         errorMsg = null;
         successMsg = null;
@@ -266,55 +284,87 @@
 
             var email = model.Email.Trim();
 
-            var existing = await UserManager.FindByEmailAsync(email);
-            if (existing is not null)
+            if (!string.Equals(doctor.User.Email, email, StringComparison.OrdinalIgnoreCase))
             {
-                errorMsg = "يوجد حساب مسجل بالفعل بهذا البريد الإلكتروني.";
+                var existing = await UserManager.FindByEmailAsync(email);
+
+                if (existing is not null && existing.Id != doctor.UserId)
+                {
+                    errorMsg = "يوجد حساب آخر بنفس البريد الإلكتروني.";
+                    return;
+                }
+
+                var emailResult = await UserManager.SetEmailAsync(doctor.User, email);
+                if (!emailResult.Succeeded)
+                {
+                    errorMsg = string.Join(" | ", emailResult.Errors.Select(e => e.Description));
+                    return;
+                }
+
+                var userNameResult = await UserManager.SetUserNameAsync(doctor.User, email);
+                if (!userNameResult.Succeeded)
+                {
+                    errorMsg = string.Join(" | ", userNameResult.Errors.Select(e => e.Description));
+                    return;
+                }
+
+                doctor.User.EmailConfirmed = true;
+            }
+
+            doctor.User.FullNameAr = model.FullNameAr.Trim();
+            doctor.User.FullNameEn = string.IsNullOrWhiteSpace(model.FullNameEn) ? string.Empty : model.FullNameEn.Trim();
+            doctor.User.PhoneNumber = string.IsNullOrWhiteSpace(model.PhoneNumber) ? null : model.PhoneNumber.Trim();
+
+            var updateUserResult = await UserManager.UpdateAsync(doctor.User);
+            if (!updateUserResult.Succeeded)
+            {
+                errorMsg = string.Join(" | ", updateUserResult.Errors.Select(e => e.Description));
                 return;
             }
 
-            var user = new ApplicationUser
+            if (!string.IsNullOrWhiteSpace(model.NewPassword))
             {
-                UserName = email,
-                Email = email,
-                EmailConfirmed = true,
-                PhoneNumber = string.IsNullOrWhiteSpace(model.PhoneNumber) ? null : model.PhoneNumber.Trim(),
-                FullNameAr = model.FullNameAr.Trim(),
-                FullNameEn = string.IsNullOrWhiteSpace(model.FullNameEn) ? string.Empty : model.FullNameEn.Trim()
-            };
+                if (model.NewPassword.Length < 8)
+                {
+                    errorMsg = "كلمة المرور الجديدة يجب ألا تقل عن 8 أرقام أو أحرف.";
+                    return;
+                }
 
-            var createResult = await UserManager.CreateAsync(user, DefaultDoctorPassword);
+                var token = await UserManager.GeneratePasswordResetTokenAsync(doctor.User);
+                var passwordResult = await UserManager.ResetPasswordAsync(doctor.User, token, model.NewPassword);
 
-            if (!createResult.Succeeded)
-            {
-                errorMsg = string.Join(" | ", createResult.Errors.Select(e => e.Description));
-                return;
+                if (!passwordResult.Succeeded)
+                {
+                    errorMsg = string.Join(" | ", passwordResult.Errors.Select(e => e.Description));
+                    return;
+                }
             }
 
-            await UserManager.AddToRoleAsync(user, "Doctor");
-            await UserManager.AddClaimAsync(user, new Claim("FullNameAr", user.FullNameAr));
-            await UserManager.AddClaimAsync(user, new Claim("UserType", "Doctor"));
+            var claims = await UserManager.GetClaimsAsync(doctor.User);
+            var oldClaims = claims
+                .Where(c => c.Type is "FullNameAr" or "UserType")
+                .ToList();
 
-            var doctor = new Doctor
+            foreach (var claim in oldClaims)
             {
-                UserId = user.Id,
-                SpecialtyId = model.SpecialtyId!.Value,
-                LicenseNumber = string.IsNullOrWhiteSpace(model.LicenseNumber) ? "غير محدد" : model.LicenseNumber.Trim(),
-                ClinicAddress = string.IsNullOrWhiteSpace(model.ClinicAddress) ? null : model.ClinicAddress.Trim(),
-                MaxDailySlots = model.MaxDailySlots,
-                IsAvailable = model.IsAvailable,
-                WorkingDays = string.Join(",", model.WorkingDays),
-                WorkStartTime = ParseTime(model.WorkStartTime),
-                WorkEndTime = ParseTime(model.WorkEndTime)
-            };
+                await UserManager.RemoveClaimAsync(doctor.User, claim);
+            }
 
-            Db.Doctors.Add(doctor);
+            await UserManager.AddClaimAsync(doctor.User, new Claim("FullNameAr", doctor.User.FullNameAr));
+            await UserManager.AddClaimAsync(doctor.User, new Claim("UserType", "Doctor"));
+
+            doctor.SpecialtyId = model.SpecialtyId!.Value;
+            doctor.LicenseNumber = string.IsNullOrWhiteSpace(model.LicenseNumber) ? "غير محدد" : model.LicenseNumber.Trim();
+            doctor.ClinicAddress = string.IsNullOrWhiteSpace(model.ClinicAddress) ? null : model.ClinicAddress.Trim();
+            doctor.MaxDailySlots = model.MaxDailySlots;
+            doctor.IsAvailable = model.IsAvailable;
+            doctor.WorkingDays = string.Join(",", model.WorkingDays);
+            doctor.WorkStartTime = ParseTime(model.WorkStartTime);
+            doctor.WorkEndTime = ParseTime(model.WorkEndTime);
+
             await Db.SaveChangesAsync();
 
-            successMsg = "تم إضافة الطبيب بنجاح. كلمة المرور الافتراضية: 12345678";
-
-            await Task.Delay(700);
-            Nav.NavigateTo("/admin/doctors");
+            successMsg = "تم حفظ تعديلات الطبيب بنجاح.";
         }
         finally
         {
@@ -327,11 +377,23 @@
         return TimeOnly.TryParse(value, out var time) ? time : null;
     }
 
+    private static HashSet<string> ParseDays(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return new HashSet<string>();
+        }
+
+        return value
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet();
+    }
+
     private sealed record SpecialtyOption(Guid Id, string NameAr);
 
     private sealed record DayOption(string Code, string Name);
 
-    private sealed class DoctorCreateModel
+    private sealed class DoctorEditModel
     {
         [Required(ErrorMessage = "اسم الطبيب مطلوب")]
         public string FullNameAr { get; set; } = string.Empty;
@@ -341,6 +403,8 @@
         [Required(ErrorMessage = "البريد الإلكتروني مطلوب")]
         [EmailAddress(ErrorMessage = "البريد الإلكتروني غير صحيح")]
         public string Email { get; set; } = string.Empty;
+
+        public string? NewPassword { get; set; }
 
         public string? PhoneNumber { get; set; }
 
@@ -356,9 +420,9 @@
 
         public bool IsAvailable { get; set; } = true;
 
-        public string? WorkStartTime { get; set; } = "09:00";
+        public string? WorkStartTime { get; set; }
 
-        public string? WorkEndTime { get; set; } = "17:00";
+        public string? WorkEndTime { get; set; }
 
         public HashSet<string> WorkingDays { get; set; } = new();
     }

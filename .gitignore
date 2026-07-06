@@ -360,4 +360,8 @@ MigrationBackup/
 .ionide/
 
 # Fody - auto-generated XML schema
-FodyWeavers.xsd
+FodyWeavers.xsdCharityHealth.Web/uploads/
+
+# Ignore runtime uploaded files
+/CharityHealth.Web/uploads/
+/CharityHealth.Web/uploads/**

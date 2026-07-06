@@ -1,93 +1,564 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
+
+@using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
 
-<RadzenLayout Style="min-height:100vh;" class="rz-shadow-3">
+@inject UiThemeService Theme
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
 
-   
-    <RadzenHeader>
-        <RadzenStack Orientation="Orientation.Horizontal"
-                     AlignItems="AlignItems.Center"
-                     JustifyContent="JustifyContent.SpaceBetween"
-                     Style="padding: 0 1rem; height: 100%;">
+<style>
+    /*
+        Layout emergency restore
+        الهدف: الشريط العلوي ثابت، والصفحة تبدأ تحته، والسايدبار يبدأ مباشرة تحت الشريط.
+    */
 
-           
-            <RadzenStack Orientation="Orientation.Horizontal"
-                         AlignItems="AlignItems.Center" Gap="0.75rem">
-                <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
-                <RadzenText TextStyle="TextStyle.H6" Style="margin:0; color: var(--rz-primary);">
-                    🏥 نظام الرعاية الصحية الخيرية
-                </RadzenText>
-            </RadzenStack>
-
-           
-            <RadzenStack Orientation="Orientation.Horizontal"
-                         AlignItems="AlignItems.Center" Gap="0.75rem">
-                <AuthorizeView>
-                    <Authorized>
-                        
-                        <RadzenBadge BadgeStyle="BadgeStyle.Info"
-                                     Text="@GetRoleName(context)"
-                                     Style="font-size:0.75rem;" />
-
-                       
-                        <RadzenText Style="margin:0; font-size:0.9rem;">
-                            @context.User.Identity?.Name
-                        </RadzenText>
-
-                      
-                        <RadzenButton ButtonStyle="ButtonStyle.Light"
-                                      Icon="logout"
-                                      Size="ButtonSize.Small"
-                                      Text="خروج"
-                                      Click="@HandleLogout" />
-                    </Authorized>
-                    <NotAuthorized>
-                        <RadzenButton ButtonStyle="ButtonStyle.Primary"
-                                      Icon="login"
-                                      Size="ButtonSize.Small"
-                                      Text="دخول"
-                                      Click='@(() => Nav.NavigateTo("/login"))' />
-                    </NotAuthorized>
-                </AuthorizeView>
-            </RadzenStack>
-
-        </RadzenStack>
-    </RadzenHeader>
-
-   
-    <RadzenSidebar @bind-Expanded="@sidebarExpanded" Style="width:250px;">
-        <NavMenu />
-    </RadzenSidebar>
-
-  
-    <RadzenBody>
-        <RadzenContentContainer Name="main">
-            <div style="padding:1.5rem;">
-                @Body
-            </div>
-        </RadzenContentContainer>
-    </RadzenBody>
-
-</RadzenLayout>
-
-@code {
-    [Inject] NavigationManager Nav { get; set; } = default!;
-    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
-
-    private bool sidebarExpanded = true;
-
-    private void HandleLogout()
-    {
-        // ✅ Navigate to the Logout razor page — SignOutAsync runs server-side
-        Nav.NavigateTo("/logout", forceLoad: true);
+    .app-root {
+        min-height: 100vh !important;
+        background: #f8fafc !important;
+        direction: rtl !important;
     }
 
-    private static string GetRoleName(AuthenticationState ctx)
+    .app-topbar-fixed {
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 76px !important;
+        background: #ffffff !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, .08) !important;
+        z-index: 2147483647 !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+    }
+
+    .app-sidebar {
+        position: fixed !important;
+        top: 76px !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 300px !important;
+        height: calc(100vh - 76px) !important;
+        background: #ffffff !important;
+        border-left: 1px solid #edf0f4 !important;
+        padding: 24px 18px !important;
+        margin: 0 !important;
+        overflow-y: auto !important;
+        z-index: 1000 !important;
+        box-sizing: border-box !important;
+    }
+
+    .app-sidebar .sidebar-user-card {
+        margin-top: 0 !important;
+        margin-bottom: 22px !important;
+    }
+
+    .app-sidebar .sidebar-footer {
+        margin-top: 28px !important;
+    }
+
+    .app-workspace {
+        margin-right: 300px !important;
+        width: calc(100% - 300px) !important;
+        min-height: 100vh !important;
+        padding-top: 100px !important;
+        background: #f8fafc !important;
+        box-sizing: border-box !important;
+    }
+
+    .page-canvas {
+        min-height: calc(100vh - 100px) !important;
+        background: #f8fafc !important;
+        box-sizing: border-box !important;
+    }
+
+    .page-canvas > .beneficiary-dashboard,
+    .page-canvas > .admin-dashboard,
+    .page-canvas > .admin-list-page,
+    .page-canvas > .admin-pharmacy-page,
+    .page-canvas > .doctors-page,
+    .page-canvas > .consult-request-page,
+    .page-canvas > .notifications-page {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+
+    .brand-button {
+        position: absolute !important;
+        right: 32px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        border: 0 !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        z-index: 2147483647 !important;
+    }
+
+    .brand-logo {
+        width: 48px !important;
+        height: 48px !important;
+        border-radius: 50% !important;
+        background: #05a843 !important;
+        position: relative !important;
+        display: inline-block !important;
+        box-shadow: 0 10px 22px rgba(5, 168, 67, .22) !important;
+        flex: 0 0 auto !important;
+    }
+
+    .brand-logo .moon-a {
+        position: absolute !important;
+        width: 29px !important;
+        height: 29px !important;
+        border-radius: 50% !important;
+        background: #ffffff !important;
+        top: 9px !important;
+        left: 8px !important;
+        display: block !important;
+    }
+
+    .brand-logo .moon-b {
+        position: absolute !important;
+        width: 24px !important;
+        height: 24px !important;
+        border-radius: 50% !important;
+        background: #05a843 !important;
+        top: 9px !important;
+        left: 16px !important;
+        display: block !important;
+    }
+
+    .brand-text {
+        display: grid !important;
+        gap: 2px !important;
+        text-align: right !important;
+    }
+
+    .brand-text strong {
+        color: #111827 !important;
+        font-size: 21px !important;
+        line-height: 1.1 !important;
+        font-weight: 950 !important;
+        white-space: nowrap !important;
+    }
+
+    .brand-text small {
+        color: #047857 !important;
+        font-size: 13px !important;
+        line-height: 1.1 !important;
+        font-weight: 900 !important;
+        white-space: nowrap !important;
+    }
+
+    .topbar-actions {
+        position: absolute !important;
+        left: 32px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 14px !important;
+        direction: ltr !important;
+        z-index: 2147483647 !important;
+    }
+
+    .topbar-logout {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 12px !important;
+        color: #667085 !important;
+        text-decoration: none !important;
+        font-size: 22px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+        direction: rtl !important;
+        font-family: inherit !important;
+    }
+
+    .topbar-circle-btn {
+        width: 48px !important;
+        height: 48px !important;
+        border: 0 !important;
+        border-radius: 50% !important;
+        background: #f1f5f9 !important;
+        color: #475467 !important;
+        display: grid !important;
+        place-items: center !important;
+        cursor: pointer !important;
+        font-size: 20px !important;
+        padding: 0 !important;
+        position: relative !important;
+    }
+</style>
+
+<div class="@($"app-root {Theme.CssClass}")" dir="rtl">
+
+    <!-- TOPBAR -->
+    <header class="app-topbar-fixed">
+
+        <!-- BRAND RIGHT -->
+        <button type="button"
+                class="brand-button"
+                @onclick="GoHome">
+            <span class="brand-logo">
+                <span class="moon-a"></span>
+                <span class="moon-b"></span>
+            </span>
+
+            <span class="brand-text">
+                <strong>مستشفى بلا مستشفى</strong>
+                <small>رحمة بلا حدود</small>
+            </span>
+        </button>
+
+        <!-- USER CHIP CENTER -->
+        <AuthorizeView>
+            <Authorized Context="auth">
+                <div style="@UserChipStyle(auth.User)">
+                    <span style="
+                        width:10px !important;
+                        height:10px !important;
+                        border-radius:50% !important;
+                        background:currentColor !important;
+                        display:inline-block !important;">
+                    </span>
+
+                    <strong style="font-weight:950 !important;">
+                        @DisplayName(auth.User)
+                    </strong>
+
+                    <span>
+                        · @RoleLabel(auth.User)
+                    </span>
+                </div>
+            </Authorized>
+
+            <NotAuthorized>
+                <div style="@GuestChipStyle">
+                    <span style="
+                        width:10px !important;
+                        height:10px !important;
+                        border-radius:50% !important;
+                        background:currentColor !important;
+                        display:inline-block !important;">
+                    </span>
+
+                    <strong style="font-weight:950 !important;">زائر</strong>
+                    <span>· غير مسجل</span>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+
+        <!-- ACTIONS LEFT -->
+        <div class="topbar-actions">
+
+            <a href="/account/logout"
+               class="topbar-logout">
+                <span>خروج</span>
+
+                <span style="
+                    display:inline-grid !important;
+                    place-items:center !important;
+                    width:28px !important;
+                    height:28px !important;
+                    color:#667085 !important;
+                    font-size:28px !important;
+                    line-height:1 !important;
+                    font-weight:400 !important;
+                    transform:rotate(180deg) !important;">
+                    ↪
+                </span>
+            </a>
+
+            <AuthorizeView>
+                <Authorized Context="auth">
+                    <button type="button"
+                            @onclick='() => Nav.NavigateTo(NotificationUrl(auth.User))'
+                            title="الإشعارات"
+                            aria-label="الإشعارات"
+                            class="topbar-circle-btn"
+                            style="font-size:22px !important;">
+                        <span style="line-height:1 !important;">🔔</span>
+
+                        <span style="
+                            position:absolute !important;
+                            top:8px !important;
+                            right:9px !important;
+                            min-width:10px !important;
+                            height:10px !important;
+                            border-radius:999px !important;
+                            background:#ef4444 !important;
+                            border:2px solid #f1f5f9 !important;
+                            display:block !important;">
+                        </span>
+                    </button>
+                </Authorized>
+            </AuthorizeView>
+
+            <button type="button"
+                    @onclick="Theme.Toggle"
+                    title="تبديل الوضع"
+                    aria-label="تبديل الوضع"
+                    class="topbar-circle-btn">
+                <span>@Theme.Icon</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- SIDEBAR -->
+    <aside class="app-sidebar"
+           aria-label="القائمة الجانبية">
+
+        <AuthorizeView>
+            <Authorized Context="auth">
+                <div class="sidebar-user-card">
+                    <div class="user-initial"
+                         style="@SidebarAvatarStyle(auth.User)">
+                        @GetInitial(DisplayName(auth.User))
+                    </div>
+
+                    <div>
+                        <strong>@DisplayName(auth.User)</strong>
+                        <span>@RoleLabel(auth.User)</span>
+                    </div>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <NavMenu />
+
+        <div class="sidebar-footer">
+            <a class="sidebar-logout" href="/account/logout">
+                <span>تسجيل الخروج</span>
+                <span class="logout-arrow">↢</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <section class="app-workspace">
+        <main class="page-canvas">
+            @Body
+        </main>
+    </section>
+
+</div>
+
+@code {
+    protected override void OnInitialized()
     {
-        if (ctx.User.IsInRole("Administrator")) return "مدير النظام";
-        if (ctx.User.IsInRole("Staff")) return "موظف";
-        if (ctx.User.IsInRole("Doctor")) return "طبيب";
-        if (ctx.User.IsInRole("Beneficiary")) return "مستفيد";
-        return string.Empty;
+        Theme.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Theme.OnChange -= StateHasChanged;
+    }
+
+    private async Task GoHome()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var user = auth.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        Nav.NavigateTo(DashboardUrl(user));
+    }
+
+    private static string DisplayName(ClaimsPrincipal user)
+    {
+        return user.FindFirst("FullNameAr")?.Value
+            ?? user.Identity?.Name
+            ?? "مستخدم";
+    }
+
+    private static string GetInitial(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "م";
+        }
+
+        return value.Trim()[0].ToString();
+    }
+
+    private static string UserType(ClaimsPrincipal user)
+    {
+        var claimValue = user.FindFirst("UserType")?.Value;
+
+        if (!string.IsNullOrWhiteSpace(claimValue))
+        {
+            return claimValue;
+        }
+
+        if (user.IsInRole("Administrator")) return "Administrator";
+        if (user.IsInRole("Staff")) return "Staff";
+        if (user.IsInRole("Doctor")) return "Doctor";
+        if (user.IsInRole("Beneficiary")) return "Beneficiary";
+        if (user.IsInRole("Pharmacy")) return "Pharmacy";
+        if (user.IsInRole("Pharmacist")) return "Pharmacist";
+
+        return "User";
+    }
+
+    private static string RoleLabel(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "مدير نظام",
+            "Staff" => "موظف",
+            "Doctor" => "طبيب",
+            "Beneficiary" => "مستفيد",
+            "Pharmacy" => "صيدلية",
+            "Pharmacist" => "صيدلي",
+            _ => "مستخدم"
+        };
+    }
+
+    private static string RoleColor(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "#7e22ce",
+            "Staff" => "#7e22ce",
+            "Doctor" => "#0369a1",
+            "Beneficiary" => "#047857",
+            "Pharmacy" => "#d97706",
+            "Pharmacist" => "#d97706",
+            _ => "#475467"
+        };
+    }
+
+    private static string RoleBackground(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "#faf5ff",
+            "Staff" => "#faf5ff",
+            "Doctor" => "#eff6ff",
+            "Beneficiary" => "#ecfdf3",
+            "Pharmacy" => "#fffbeb",
+            "Pharmacist" => "#fffbeb",
+            _ => "#f8fafc"
+        };
+    }
+
+    private static string RoleBorder(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "#e9d5ff",
+            "Staff" => "#e9d5ff",
+            "Doctor" => "#bfdbfe",
+            "Beneficiary" => "#a7f3d0",
+            "Pharmacy" => "#fde68a",
+            "Pharmacist" => "#fde68a",
+            _ => "#e5e7eb"
+        };
+    }
+
+    private static string UserChipStyle(ClaimsPrincipal user)
+    {
+        return $@"
+            position:absolute !important;
+            left:50% !important;
+            top:50% !important;
+            transform:translate(-50%, -50%) !important;
+            min-height:38px !important;
+            border-radius:999px !important;
+            padding:0 20px !important;
+            display:inline-flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            gap:9px !important;
+            color:{RoleColor(user)} !important;
+            background:{RoleBackground(user)} !important;
+            border:1px solid {RoleBorder(user)} !important;
+            font-size:15px !important;
+            font-weight:950 !important;
+            white-space:nowrap !important;
+            z-index:2147483647 !important;
+            visibility:visible !important;
+            opacity:1 !important;";
+    }
+
+    private static string GuestChipStyle =>
+        @"
+            position:absolute !important;
+            left:50% !important;
+            top:50% !important;
+            transform:translate(-50%, -50%) !important;
+            min-height:38px !important;
+            border-radius:999px !important;
+            padding:0 20px !important;
+            display:inline-flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            gap:9px !important;
+            color:#475467 !important;
+            background:#f8fafc !important;
+            border:1px solid #e5e7eb !important;
+            font-size:15px !important;
+            font-weight:950 !important;
+            white-space:nowrap !important;
+            z-index:2147483647 !important;";
+
+    private static string SidebarAvatarStyle(ClaimsPrincipal user)
+    {
+        var bg = UserType(user) switch
+        {
+            "Administrator" => "#9333ea",
+            "Staff" => "#9333ea",
+            "Doctor" => "#0ea5e9",
+            "Beneficiary" => "#05a843",
+            "Pharmacy" => "#f59e0b",
+            "Pharmacist" => "#f59e0b",
+            _ => "#64748b"
+        };
+
+        return $"background:{bg} !important; color:#ffffff !important;";
+    }
+
+    private static string DashboardUrl(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "/admin/dashboard",
+            "Staff" => "/admin/dashboard",
+            "Doctor" => "/doctor/dashboard",
+            "Beneficiary" => "/beneficiary/dashboard",
+            "Pharmacy" => "/pharmacy/dashboard",
+            "Pharmacist" => "/pharmacy/dashboard",
+            _ => "/portal/dashboard"
+        };
+    }
+
+    private static string NotificationUrl(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "/admin/notifications",
+            "Staff" => "/staff/notifications",
+            "Doctor" => "/doctor/notifications",
+            "Beneficiary" => "/portal/notifications",
+            "Pharmacy" => "/pharmacy/notifications",
+            "Pharmacist" => "/pharmacy/notifications",
+            _ => "/portal/notifications"
+        };
     }
 }

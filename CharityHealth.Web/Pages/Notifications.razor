@@ -1,0 +1,415 @@
+@page "/portal/notifications"
+@page "/admin/notifications"
+@page "/staff/notifications"
+@page "/doctor/notifications"
+@page "/pharmacy/notifications"
+
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>الإشعارات</PageTitle>
+
+<div dir="rtl" style="
+    min-height:calc(100vh - 76px);
+    padding:42px;
+    background:#f8fafc;
+    color:#111827;">
+
+    <section style="
+        border-radius:32px;
+        padding:34px;
+        margin-bottom:26px;
+        background:linear-gradient(135deg,#05a843,#0f9f93);
+        color:#ffffff;
+        box-shadow:0 20px 42px rgba(5,168,67,.22);">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+            <div>
+                <div style="
+                    font-size:15px;
+                    font-weight:900;
+                    color:rgba(255,255,255,.82);
+                    margin-bottom:10px;">
+                    🔔 Notifications Center
+                </div>
+
+                <h1 style="
+                    margin:0;
+                    font-size:42px;
+                    line-height:1.15;
+                    font-weight:950;">
+                    الإشعارات
+                </h1>
+
+                <p style="
+                    margin:12px 0 0;
+                    color:rgba(255,255,255,.86);
+                    font-size:16px;
+                    font-weight:800;">
+                    تابع آخر التنبيهات الخاصة بحسابك ودورك داخل النظام.
+                </p>
+            </div>
+
+            <button type="button"
+                    @onclick="MarkAllRead"
+                    style="
+                        height:50px;
+                        border:0;
+                        border-radius:999px;
+                        padding:0 22px;
+                        background:#ffffff;
+                        color:#047857;
+                        font-size:14px;
+                        font-weight:950;
+                        cursor:pointer;">
+                تحديد الكل كمقروء ✅
+            </button>
+        </div>
+    </section>
+
+    <section style="
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:18px;
+        margin-bottom:24px;">
+
+        <article style="@StatCardStyle">
+            <span style="@StatLabelStyle">كل الإشعارات</span>
+            <strong style="@StatValueStyle">@notifications.Count</strong>
+            <small style="@StatSmallStyle">إجمالي التنبيهات المتاحة</small>
+        </article>
+
+        <article style="@StatCardStyle">
+            <span style="@StatLabelStyle">غير مقروءة</span>
+            <strong style="@StatValueStyle">@UnreadCount</strong>
+            <small style="@StatSmallStyle">تحتاج مراجعة</small>
+        </article>
+
+        <article style="@StatCardStyle">
+            <span style="@StatLabelStyle">نوع الحساب</span>
+            <strong style="@StatValueStyle">@roleLabel</strong>
+            <small style="@StatSmallStyle">الإشعارات حسب صلاحياتك</small>
+        </article>
+
+    </section>
+
+    <section style="
+        border:1px solid #edf0f4;
+        border-radius:28px;
+        background:#ffffff;
+        box-shadow:0 14px 34px rgba(15,23,42,.07);
+        overflow:hidden;">
+
+        <div style="
+            min-height:82px;
+            padding:24px 28px;
+            border-bottom:1px solid #edf0f4;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:16px;">
+
+            <div>
+                <h2 style="
+                    margin:0;
+                    color:#111827;
+                    font-size:24px;
+                    font-weight:950;">
+                    آخر الإشعارات
+                </h2>
+
+                <p style="
+                    margin:7px 0 0;
+                    color:#98a2b3;
+                    font-size:13px;
+                    font-weight:850;">
+                    اضغط على أي إشعار لتحديده كمقروء.
+                </p>
+            </div>
+
+            <button type="button"
+                    @onclick="GoDashboard"
+                    style="
+                        height:42px;
+                        border:0;
+                        border-radius:999px;
+                        padding:0 18px;
+                        background:#ecfdf3;
+                        color:#047857;
+                        font-size:13px;
+                        font-weight:950;
+                        cursor:pointer;">
+                رجوع للوحة الرئيسية
+            </button>
+        </div>
+
+        @if (notifications.Count == 0)
+        {
+            <div style="
+                min-height:320px;
+                display:grid;
+                place-items:center;
+                text-align:center;
+                color:#98a2b3;
+                font-size:16px;
+                font-weight:900;">
+                لا توجد إشعارات حاليًا ✅
+            </div>
+        }
+        else
+        {
+            <div style="display:grid;">
+                @foreach (var item in notifications)
+                {
+                    <button type="button"
+                            @onclick="() => MarkRead(item)"
+                            style="
+                                width:100%;
+                                border:0;
+                                border-bottom:1px solid #f1f5f9;
+                                background:@(item.IsRead ? "#ffffff" : "#f8fffb");
+                                padding:20px 26px;
+                                text-align:right;
+                                display:flex;
+                                align-items:flex-start;
+                                justify-content:space-between;
+                                gap:18px;
+                                cursor:pointer;">
+
+                        <div style="
+                            display:flex;
+                            align-items:flex-start;
+                            gap:14px;
+                            min-width:0;">
+
+                            <div style="
+                                width:52px;
+                                height:52px;
+                                border-radius:18px;
+                                background:@item.IconBackground;
+                                color:@item.IconColor;
+                                display:grid;
+                                place-items:center;
+                                font-size:24px;
+                                flex:0 0 auto;">
+                                @item.Icon
+                            </div>
+
+                            <div>
+                                <h3 style="
+                                    margin:0;
+                                    color:#111827;
+                                    font-size:17px;
+                                    font-weight:950;">
+                                    @item.Title
+                                </h3>
+
+                                <p style="
+                                    margin:7px 0 0;
+                                    color:#667085;
+                                    font-size:14px;
+                                    line-height:1.8;
+                                    font-weight:800;">
+                                    @item.Body
+                                </p>
+
+                                <small style="
+                                    display:inline-flex;
+                                    margin-top:10px;
+                                    color:#98a2b3;
+                                    font-size:12px;
+                                    font-weight:850;">
+                                    🕘 @item.TimeText
+                                </small>
+                            </div>
+                        </div>
+
+                        <span style="
+                            min-height:32px;
+                            border-radius:999px;
+                            padding:0 12px;
+                            display:inline-flex;
+                            align-items:center;
+                            background:@(item.IsRead ? "#f1f5f9" : "#dcfce7");
+                            color:@(item.IsRead ? "#64748b" : "#15803d");
+                            font-size:12px;
+                            font-weight:950;
+                            white-space:nowrap;">
+                            @(item.IsRead ? "مقروء" : "جديد")
+                        </span>
+                    </button>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private string role = "User";
+    private string roleLabel = "مستخدم";
+    private List<NotificationItem> notifications = [];
+
+    private int UnreadCount => notifications.Count(x => !x.IsRead);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        role = UserType(auth.User);
+        roleLabel = RoleLabel(auth.User);
+
+        notifications = BuildNotifications(role);
+    }
+
+    private void MarkRead(NotificationItem item)
+    {
+        item.IsRead = true;
+    }
+
+    private void MarkAllRead()
+    {
+        foreach (var item in notifications)
+        {
+            item.IsRead = true;
+        }
+    }
+
+    private void GoDashboard()
+    {
+        var url = role switch
+        {
+            "Administrator" => "/admin/dashboard",
+            "Staff" => "/staff/dashboard",
+            "Doctor" => "/doctor/dashboard",
+            "Beneficiary" => "/beneficiary/dashboard",
+            "Pharmacy" => "/pharmacy/dashboard",
+            "Pharmacist" => "/pharmacy/dashboard",
+            _ => "/portal/dashboard"
+        };
+
+        Nav.NavigateTo(url);
+    }
+
+    private static string UserType(ClaimsPrincipal user)
+    {
+        var claimValue = user.FindFirst("UserType")?.Value;
+
+        if (!string.IsNullOrWhiteSpace(claimValue))
+        {
+            return claimValue;
+        }
+
+        if (user.IsInRole("Administrator")) return "Administrator";
+        if (user.IsInRole("Staff")) return "Staff";
+        if (user.IsInRole("Doctor")) return "Doctor";
+        if (user.IsInRole("Beneficiary")) return "Beneficiary";
+        if (user.IsInRole("Pharmacy")) return "Pharmacy";
+        if (user.IsInRole("Pharmacist")) return "Pharmacist";
+
+        return "User";
+    }
+
+    private static string RoleLabel(ClaimsPrincipal user)
+    {
+        return UserType(user) switch
+        {
+            "Administrator" => "مدير نظام",
+            "Staff" => "موظف",
+            "Doctor" => "طبيب",
+            "Beneficiary" => "مستفيد",
+            "Pharmacy" => "صيدلية",
+            "Pharmacist" => "صيدلي",
+            _ => "مستخدم"
+        };
+    }
+
+    private static List<NotificationItem> BuildNotifications(string role)
+    {
+        return role switch
+        {
+            "Administrator" =>
+            [
+                new("👥", "#eff6ff", "#2563eb", "طلب جديد يحتاج مراجعة", "تم تقديم طلب كشف جديد من أحد المستفيدين وينتظر قرار الإدارة.", "منذ 5 دقائق", false),
+                new("🩺", "#ecfdf3", "#047857", "طبيب جديد تم إضافته", "تم تسجيل طبيب متطوع جديد داخل النظام.", "منذ ساعة", false),
+                new("📊", "#faf5ff", "#7e22ce", "تقرير يومي جاهز", "يمكنك مراجعة ملخص نشاط المنصة اليوم.", "اليوم", true)
+            ],
+
+            "Staff" =>
+            [
+                new("📋", "#eff6ff", "#2563eb", "طلب بانتظار الفحص", "يوجد طلب جديد يحتاج استكمال مراجعة البيانات.", "منذ 10 دقائق", false),
+                new("✅", "#ecfdf3", "#047857", "تم تحديث حالة طلب", "تم تغيير حالة أحد الطلبات بنجاح.", "اليوم", true)
+            ],
+
+            "Doctor" =>
+            [
+                new("🩺", "#ecfdf3", "#047857", "حالة جديدة مخصصة لك", "تم إسناد طلب كشف جديد لك من الإدارة.", "منذ 8 دقائق", false),
+                new("📅", "#eff6ff", "#2563eb", "موعد كشف قريب", "لديك موعد كشف مسجل في جدول اليوم.", "اليوم", false),
+                new("✅", "#f8fafc", "#64748b", "تم اعتماد تقريرك", "تم حفظ تقرير الكشف الأخير بنجاح.", "أمس", true)
+            ],
+
+            "Beneficiary" =>
+            [
+                new("📋", "#eff6ff", "#2563eb", "تم استلام طلبك", "طلب الكشف الخاص بك وصل للإدارة وجاري مراجعته.", "منذ 5 دقائق", false),
+                new("⏳", "#fffbeb", "#d97706", "طلبك قيد المراجعة", "سيتم إشعارك فور قبول الطلب أو تحديد موعد الكشف.", "اليوم", false),
+                new("✅", "#ecfdf3", "#047857", "تم تحديث بياناتك", "تم حفظ آخر تعديل على بيانات حسابك.", "أمس", true)
+            ],
+
+            "Pharmacy" or "Pharmacist" =>
+            [
+                new("💊", "#fffbeb", "#d97706", "روشتة جديدة", "تم إرسال وصفة طبية جديدة للصيدلية للمراجعة.", "منذ 12 دقيقة", false),
+                new("📦", "#eff6ff", "#2563eb", "طلب صرف دواء", "يوجد طلب صرف دواء جديد بانتظار التجهيز.", "اليوم", false)
+            ],
+
+            _ =>
+            [
+                new("🔔", "#f8fafc", "#64748b", "إشعار عام", "لا توجد إشعارات مخصصة لهذا النوع من الحسابات حاليًا.", "الآن", true)
+            ]
+        };
+    }
+
+    private string StatCardStyle =>
+        "min-height:130px;border:1px solid #edf0f4;border-radius:26px;background:#ffffff;padding:22px;box-shadow:0 12px 30px rgba(15,23,42,.06);display:grid;align-content:center;gap:8px;";
+
+    private string StatLabelStyle =>
+        "color:#667085;font-size:14px;font-weight:900;";
+
+    private string StatValueStyle =>
+        "color:#111827;font-size:34px;line-height:1;font-weight:950;";
+
+    private string StatSmallStyle =>
+        "color:#98a2b3;font-size:13px;line-height:1.6;font-weight:800;";
+
+    private sealed class NotificationItem
+    {
+        public NotificationItem(
+            string icon,
+            string iconBackground,
+            string iconColor,
+            string title,
+            string body,
+            string timeText,
+            bool isRead)
+        {
+            Icon = icon;
+            IconBackground = iconBackground;
+            IconColor = iconColor;
+            Title = title;
+            Body = body;
+            TimeText = timeText;
+            IsRead = isRead;
+        }
+
+        public string Icon { get; set; }
+        public string IconBackground { get; set; }
+        public string IconColor { get; set; }
+        public string Title { get; set; }
+        public string Body { get; set; }
+        public string TimeText { get; set; }
+        public bool IsRead { get; set; }
+    }
+}

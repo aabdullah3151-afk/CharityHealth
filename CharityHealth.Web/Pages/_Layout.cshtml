@@ -23,6 +23,7 @@
             }
     </style>
     <link rel="stylesheet" href="/css/portal.css" />
+    <link rel="stylesheet" href="/css/app-ui.css" />
 
     <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
 </head>
@@ -64,6 +65,13 @@
 
             return response.ok;
             }
+
+            window.fillLogin = function (credential, password) {
+                const credentialInput = document.getElementById('login-credential');
+                const passwordInput = document.getElementById('login-password');
+                if (credentialInput) credentialInput.value = credential;
+                if (passwordInput) passwordInput.value = password;
+            };
     </script>
 
 </body>

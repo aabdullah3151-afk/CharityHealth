@@ -1,0 +1,362 @@
+@page "/admin/dashboard"
+@attribute [Authorize(Roles = "Administrator")]
+
+@using System.Globalization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>لوحة الإدارة</PageTitle>
+
+<div class="admin-db-page" dir="rtl">
+
+    <div class="admin-db-title">
+        <div>
+            <h1>لوحة التحكم</h1>
+            <p>@DateTime.Now.ToString("dd MMMM yyyy", new CultureInfo("ar-EG"))</p>
+        </div>
+
+        <div class="admin-db-live">
+            <span></span>
+            مباشر
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="admin-db-notice @(success ? "ok" : "bad")">
+            @message
+        </div>
+    }
+
+    @if (loading)
+    {
+        <div class="loading-card">جارٍ تحميل لوحة التحكم...</div>
+    }
+    else
+    {
+        <section class="admin-db-stats">
+
+            <article class="admin-db-stat">
+                <div class="stat-head">
+                    <span class="stat-icon blue">👥</span>
+                    <span class="stat-delta">DB</span>
+                </div>
+                <strong>@FormatMetric(stats.TotalBeneficiaries)</strong>
+                <p>إجمالي المستفيدين</p>
+            </article>
+
+            <article class="admin-db-stat">
+                <div class="stat-head">
+                    <span class="stat-icon green">✅</span>
+                    <span class="stat-delta">DB</span>
+                </div>
+                <strong>@FormatMetric(stats.ApprovedRequests)</strong>
+                <p>الطلبات المقبولة</p>
+            </article>
+
+            <article class="admin-db-stat">
+                <div class="stat-head">
+                    <span class="stat-icon teal">🩺</span>
+                    <span class="stat-delta">DB</span>
+                </div>
+                <strong>@FormatMetric(stats.TotalDoctors)</strong>
+                <p>الأطباء المتطوعون</p>
+            </article>
+
+            <article class="admin-db-stat">
+                <div class="stat-head">
+                    <span class="stat-icon purple">〽</span>
+                    <span class="stat-delta">DB</span>
+                </div>
+                <strong>@FormatMetric(stats.CompletedRequests)</strong>
+                <p>استشارات مكتملة</p>
+            </article>
+
+        </section>
+
+        <section class="admin-db-analytics">
+
+            <article class="admin-db-card monthly">
+                <div class="admin-db-card-head">
+                    <div class="chart-legend">
+                        <span><i class="green"></i> مقبولة</span>
+                        <span><i class="blue"></i> كل الطلبات</span>
+                    </div>
+                    <h2>النشاط الشهري</h2>
+                </div>
+
+                <div class="admin-db-chart">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="adminDbGreenFill" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#16a34a" stop-opacity="0.22" />
+                                <stop offset="100%" stop-color="#16a34a" stop-opacity="0" />
+                            </linearGradient>
+                        </defs>
+
+                        <g class="grid">
+                            <line x1="0" y1="10" x2="100" y2="10" />
+                            <line x1="0" y1="30" x2="100" y2="30" />
+                            <line x1="0" y1="50" x2="100" y2="50" />
+                            <line x1="0" y1="70" x2="100" y2="70" />
+                            <line x1="0" y1="90" x2="100" y2="90" />
+                        </g>
+
+                        <path d="@AreaPath" fill="url(#adminDbGreenFill)" />
+
+                        <polyline points="@LinePoints"
+                                  fill="none"
+                                  stroke="#16a34a"
+                                  stroke-width="2.2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round" />
+                    </svg>
+
+                    <div class="chart-months">
+                        @foreach (var point in monthly)
+                        {
+                            <span>@point.Month</span>
+                        }
+                    </div>
+                </div>
+            </article>
+
+            <article class="admin-db-card specialty">
+                <h2>حسب التخصص</h2>
+
+                <div class="admin-db-donut" style="@DonutStyle"></div>
+
+                <div class="admin-db-specialties">
+                    @if (specialties.Count == 0)
+                    {
+                        <div class="empty-mini">لا توجد تخصصات بعد</div>
+                    }
+                    else
+                    {
+                        @foreach (var item in specialties)
+                        {
+                            <div>
+                                <span>@item.Percent%</span>
+                                <b>@item.Name</b>
+                                <i style="background:@item.ColorHex"></i>
+                            </div>
+                        }
+                    }
+                </div>
+            </article>
+
+        </section>
+
+        <section class="admin-db-card requests">
+            <div class="admin-db-card-head table-head">
+                <button type="button" @onclick='() => Nav.NavigateTo("/admin/requests")'>
+                    عرض الكل ←
+                </button>
+                <h2>آخر الطلبات</h2>
+            </div>
+
+            <div class="admin-db-table-wrap">
+                <table class="admin-db-table">
+                    <thead>
+                        <tr>
+                            <th>المستفيد</th>
+                            <th>التخصص</th>
+                            <th>الهاتف</th>
+                            <th>الحالة</th>
+                            <th>المستندات</th>
+                            <th>التاريخ</th>
+                            <th>إجراء</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @if (recent.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="7" class="empty-cell">
+                                    لا توجد طلبات حديثة حالياً
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var item in recent)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="patient-cell">
+                                            <div class="avatar">@Initial(item.BeneficiaryName)</div>
+                                            <div>
+                                                <strong>@item.BeneficiaryName</strong>
+                                                <span>@item.City</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td>@item.SpecialtyName</td>
+                                    <td>@item.BeneficiaryPhone</td>
+
+                                    <td>
+                                        <span class="admin-db-status status-@item.StatusCss">
+                                            @item.StatusAr
+                                        </span>
+                                    </td>
+
+                                    <td>📎 @item.DocumentsCount</td>
+
+                                    <td>
+                                        @item.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+                                    </td>
+
+                                    <td>
+                                        @if (item.Status is RequestStatus.Submitted or RequestStatus.UnderReview)
+                                        {
+                                            <div class="admin-db-actions">
+                                                <button class="reject" @onclick="() => Reject(item.Id)">رفض</button>
+                                                <button class="approve" @onclick="() => Approve(item.Id)">قبول</button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <button class="view" @onclick='() => Nav.NavigateTo("/admin/requests")'>عرض</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private bool success;
+    private string? message;
+    private string reviewerId = "system";
+
+    private DashboardStatsDto stats = new(0, 0, 0, 0, 0, 0, 0, 0);
+    private List<RequestWorkItem> recent = [];
+    private List<MonthlyDashboardPoint> monthly = [];
+    private List<SpecialtyDashboardPoint> specialties = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        reviewerId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "system";
+
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        loading = true;
+
+        stats = await Ui.GetStatsAsync();
+        recent = (await Ui.GetRequestsAsync()).Take(6).ToList();
+        monthly = await Ui.GetMonthlyDashboardAsync(6);
+        specialties = await Ui.GetSpecialtyDashboardAsync();
+
+        loading = false;
+    }
+
+    private async Task Approve(Guid id)
+    {
+        var result = await Ui.ApproveRequestAsync(id, reviewerId, "تمت الموافقة من لوحة التحكم");
+        await AfterAction(result);
+    }
+
+    private async Task Reject(Guid id)
+    {
+        var result = await Ui.RejectRequestAsync(id, reviewerId, "تم الرفض من لوحة التحكم");
+        await AfterAction(result);
+    }
+
+    private async Task AfterAction(UiActionResult result)
+    {
+        success = result.Succeeded;
+        message = result.Message;
+        await Load();
+    }
+
+    private string LinePoints => BuildLinePoints();
+
+    private string AreaPath
+    {
+        get
+        {
+            var points = BuildChartPoints();
+
+            if (points.Count == 0)
+                return string.Empty;
+
+            var first = points.First();
+            var last = points.Last();
+
+            return $"M {first.x:F2},{first.y:F2} " +
+                   string.Join(" ", points.Skip(1).Select(p => $"L {p.x:F2},{p.y:F2}")) +
+                   $" L {last.x:F2},92 L {first.x:F2},92 Z";
+        }
+    }
+
+    private string DonutStyle
+    {
+        get
+        {
+            if (specialties.Count == 0 || specialties.Sum(x => x.Count) == 0)
+                return "background:#e5e7eb;";
+
+            var total = specialties.Sum(x => x.Count);
+            var cursor = 0d;
+            var parts = new List<string>();
+
+            foreach (var item in specialties)
+            {
+                var start = cursor;
+                var end = cursor + ((double)item.Count / total * 100);
+
+                parts.Add($"{item.ColorHex} {start:F2}% {end:F2}%");
+                cursor = end;
+            }
+
+            return $"background:conic-gradient({string.Join(",", parts)});";
+        }
+    }
+
+    private List<(double x, double y)> BuildChartPoints()
+    {
+        if (monthly.Count == 0)
+            return [];
+
+        var max = Math.Max(1, monthly.Max(x => x.Requests));
+
+        return monthly
+            .Select((item, index) =>
+            {
+                var x = monthly.Count == 1 ? 50 : index * 100.0 / (monthly.Count - 1);
+                var y = 92 - ((double)item.Requests / max * 74);
+
+                return (x, y);
+            })
+            .ToList();
+    }
+
+    private string BuildLinePoints()
+    {
+        var points = BuildChartPoints();
+        return string.Join(" ", points.Select(p => $"{p.x:F2},{p.y:F2}"));
+    }
+
+    private static string FormatMetric(int value) =>
+        value.ToString("N0", CultureInfo.InvariantCulture);
+
+    private static string Initial(string value) =>
+        string.IsNullOrWhiteSpace(value) ? "؟" : value.Trim()[0].ToString();
+}

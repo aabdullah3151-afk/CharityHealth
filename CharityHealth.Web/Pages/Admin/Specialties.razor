@@ -1,0 +1,620 @@
+@page "/admin/specialties"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+
+<PageTitle>التخصصات الطبية</PageTitle>
+
+<div class="admin-list-page" dir="rtl">
+
+    <header class="admin-list-head">
+        <div>
+            <div class="admin-list-kicker">Specialties 🧬</div>
+            <h1>التخصصات الطبية</h1>
+            <p>إدارة وقراءة وإضافة وتعديل وحذف التخصصات الطبية المسجلة في قاعدة البيانات.</p>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button type="button"
+                    @onclick="ToggleCreatePanel"
+                    style="
+                        height:52px;
+                        border:0;
+                        border-radius:18px;
+                        padding:0 20px;
+                        background:#05a843;
+                        color:#ffffff;
+                        font-size:14px;
+                        font-weight:950;
+                        cursor:pointer;
+                        display:inline-flex;
+                        align-items:center;
+                        gap:9px;
+                        box-shadow:0 14px 28px rgba(5,168,67,.20);">
+                <span style="font-size:20px;line-height:1;">+</span>
+                <span>@(showCreatePanel ? "إغلاق الإضافة" : "إضافة تخصص")</span>
+            </button>
+
+            <div class="admin-search-box">
+                <span>⌕</span>
+                <input @bind="search"
+                       @bind:event="oninput"
+                       placeholder="بحث عن تخصص..." />
+            </div>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(actionMessage))
+    {
+        <div style="
+            margin-bottom:18px;
+            border-radius:18px;
+            padding:16px 18px;
+            border:1px solid @(actionSucceeded ? "#bbf7d0" : "#fecaca");
+            background:@(actionSucceeded ? "#f0fdf4" : "#fef2f2");
+            color:@(actionSucceeded ? "#15803d" : "#b91c1c");
+            font-size:14px;
+            font-weight:950;">
+            @actionMessage
+        </div>
+    }
+
+    @if (showCreatePanel)
+    {
+        <section style="
+            margin-bottom:24px;
+            border:1px solid #edf0f4;
+            border-radius:28px;
+            background:#ffffff;
+            box-shadow:0 14px 34px rgba(15,23,42,.07);
+            overflow:hidden;">
+
+            <div style="
+                min-height:78px;
+                padding:22px 26px;
+                border-bottom:1px solid #edf0f4;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:16px;">
+                <div>
+                    <h2 style="margin:0;color:#111827;font-size:22px;font-weight:950;">إضافة تخصص جديد</h2>
+                    <p style="margin:7px 0 0;color:#98a2b3;font-size:13px;font-weight:850;">اكتب بيانات التخصص وسيظهر مباشرة في قائمة التخصصات وطلبات المستفيدين.</p>
+                </div>
+
+                <span style="
+                    min-height:34px;
+                    border-radius:999px;
+                    padding:0 14px;
+                    display:inline-flex;
+                    align-items:center;
+                    background:#ecfdf3;
+                    color:#047857;
+                    font-size:12px;
+                    font-weight:950;">
+                    DB
+                </span>
+            </div>
+
+            <div style="padding:24px 26px;display:grid;gap:18px;">
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+                    <label style="display:grid;gap:8px;color:#344054;font-size:13px;font-weight:900;">
+                        اسم التخصص بالعربي *
+                        <input @bind="newNameAr"
+                               @bind:event="oninput"
+                               placeholder="مثال: طب القلب"
+                               style="height:52px;border:1px solid #e5e7eb;border-radius:16px;padding:0 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;" />
+                    </label>
+
+                    <label style="display:grid;gap:8px;color:#344054;font-size:13px;font-weight:900;">
+                        اسم التخصص بالإنجليزي *
+                        <input @bind="newNameEn"
+                               @bind:event="oninput"
+                               placeholder="Example: Cardiology"
+                               dir="ltr"
+                               style="height:52px;border:1px solid #e5e7eb;border-radius:16px;padding:0 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;text-align:left;" />
+                    </label>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+                    <label style="display:grid;gap:8px;color:#344054;font-size:13px;font-weight:900;">
+                        وصف عربي اختياري
+                        <textarea @bind="newDescriptionAr"
+                                  @bind:event="oninput"
+                                  placeholder="وصف مختصر للتخصص..."
+                                  rows="3"
+                                  style="border:1px solid #e5e7eb;border-radius:16px;padding:14px 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;resize:vertical;"></textarea>
+                    </label>
+
+                    <label style="display:grid;gap:8px;color:#344054;font-size:13px;font-weight:900;">
+                        وصف إنجليزي اختياري
+                        <textarea @bind="newDescriptionEn"
+                                  @bind:event="oninput"
+                                  placeholder="Short specialty description..."
+                                  rows="3"
+                                  dir="ltr"
+                                  style="border:1px solid #e5e7eb;border-radius:16px;padding:14px 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;resize:vertical;text-align:left;"></textarea>
+                    </label>
+                </div>
+
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+                    <label style="display:inline-flex;align-items:center;gap:10px;color:#344054;font-size:14px;font-weight:950;cursor:pointer;">
+                        <input type="checkbox" @bind="newIsActive" style="width:18px;height:18px;accent-color:#05a843;" />
+                        التخصص نشط ويظهر للمستخدمين
+                    </label>
+
+                    <div style="display:inline-flex;align-items:center;gap:10px;">
+                        <button type="button"
+                                @onclick="ResetCreateForm"
+                                disabled="@saving"
+                                style="height:46px;border:0;border-radius:999px;padding:0 18px;background:#f1f5f9;color:#475467;font-size:13px;font-weight:950;cursor:pointer;">
+                            تفريغ
+                        </button>
+
+                        <button type="button"
+                                @onclick="CreateSpecialtyAsync"
+                                disabled="@saving"
+                                style="height:46px;border:0;border-radius:999px;padding:0 22px;background:#05a843;color:#ffffff;font-size:13px;font-weight:950;cursor:pointer;box-shadow:0 12px 24px rgba(5,168,67,.20);">
+                            @(saving ? "جارٍ الحفظ..." : "حفظ التخصص")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (editingId is not null)
+    {
+        <section style="
+            margin-bottom:24px;
+            border:1px solid #bfdbfe;
+            border-radius:28px;
+            background:#ffffff;
+            box-shadow:0 14px 34px rgba(37,99,235,.08);
+            overflow:hidden;">
+
+            <div style="
+                min-height:78px;
+                padding:22px 26px;
+                border-bottom:1px solid #eff6ff;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:16px;">
+                <div>
+                    <h2 style="margin:0;color:#111827;font-size:22px;font-weight:950;">تعديل التخصص</h2>
+                    <p style="margin:7px 0 0;color:#98a2b3;font-size:13px;font-weight:850;">يمكنك تعديل الاسم والوصف وحالة ظهور التخصص للمستخدمين.</p>
+                </div>
+
+                <span style="
+                    min-height:34px;
+                    border-radius:999px;
+                    padding:0 14px;
+                    display:inline-flex;
+                    align-items:center;
+                    background:#eff6ff;
+                    color:#2563eb;
+                    font-size:12px;
+                    font-weight:950;">
+                    Edit
+                </span>
+            </div>
+
+            <div style="padding:24px 26px;display:grid;gap:18px;">
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+                    <label style="display:grid;gap:8px;color:#344054;font-size:13px;font-weight:900;">
+                        اسم التخصص بالعربي *
+                        <input @bind="editNameAr"
+                               @bind:event="oninput"
+                               placeholder="مثال: طب القلب"
+                               style="height:52px;border:1px solid #e5e7eb;border-radius:16px;padding:0 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;" />
+                    </label>
+
+                    <label style="display:grid;gap:8px;color:#344054;font-size:13px;font-weight:900;">
+                        اسم التخصص بالإنجليزي *
+                        <input @bind="editNameEn"
+                               @bind:event="oninput"
+                               placeholder="Example: Cardiology"
+                               dir="ltr"
+                               style="height:52px;border:1px solid #e5e7eb;border-radius:16px;padding:0 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;text-align:left;" />
+                    </label>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+                    <label style="display:grid;gap:8px;color:#344054;font-size:13px;font-weight:900;">
+                        وصف عربي اختياري
+                        <textarea @bind="editDescriptionAr"
+                                  @bind:event="oninput"
+                                  rows="3"
+                                  style="border:1px solid #e5e7eb;border-radius:16px;padding:14px 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;resize:vertical;"></textarea>
+                    </label>
+
+                    <label style="display:grid;gap:8px;color:#344054;font-size:13px;font-weight:900;">
+                        وصف إنجليزي اختياري
+                        <textarea @bind="editDescriptionEn"
+                                  @bind:event="oninput"
+                                  rows="3"
+                                  dir="ltr"
+                                  style="border:1px solid #e5e7eb;border-radius:16px;padding:14px 16px;background:#f8fafc;color:#111827;font-size:14px;font-weight:850;outline:none;resize:vertical;text-align:left;"></textarea>
+                    </label>
+                </div>
+
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+                    <label style="display:inline-flex;align-items:center;gap:10px;color:#344054;font-size:14px;font-weight:950;cursor:pointer;">
+                        <input type="checkbox" @bind="editIsActive" style="width:18px;height:18px;accent-color:#2563eb;" />
+                        التخصص نشط ويظهر للمستخدمين
+                    </label>
+
+                    <div style="display:inline-flex;align-items:center;gap:10px;">
+                        <button type="button"
+                                @onclick="CancelEdit"
+                                disabled="@updating"
+                                style="height:46px;border:0;border-radius:999px;padding:0 18px;background:#f1f5f9;color:#475467;font-size:13px;font-weight:950;cursor:pointer;">
+                            إلغاء
+                        </button>
+
+                        <button type="button"
+                                @onclick="UpdateSpecialtyAsync"
+                                disabled="@updating"
+                                style="height:46px;border:0;border-radius:999px;padding:0 22px;background:#2563eb;color:#ffffff;font-size:13px;font-weight:950;cursor:pointer;box-shadow:0 12px 24px rgba(37,99,235,.20);">
+                            @(updating ? "جارٍ التعديل..." : "حفظ التعديل")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (deleteCandidate is not null)
+    {
+        <section style="
+            margin-bottom:24px;
+            border:1px solid #fecaca;
+            border-radius:24px;
+            background:#fff7f7;
+            padding:20px 22px;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:18px;
+            flex-wrap:wrap;">
+            <div>
+                <strong style="display:block;color:#991b1b;font-size:18px;font-weight:950;">تأكيد حذف التخصص</strong>
+                <span style="display:block;margin-top:6px;color:#7f1d1d;font-size:14px;font-weight:850;">
+                    هل تريد حذف تخصص: @deleteCandidate.NameAr ؟
+                </span>
+                @if (deleteCandidate.DoctorsCount > 0 || deleteCandidate.RequestsCount > 0)
+                {
+                    <small style="display:block;margin-top:8px;color:#b91c1c;font-size:12px;font-weight:900;">
+                        لا يمكن حذف تخصص مرتبط بأطباء أو طلبات. استخدم التعديل لتعطيله بدل الحذف.
+                    </small>
+                }
+            </div>
+
+            <div style="display:inline-flex;align-items:center;gap:10px;">
+                <button type="button"
+                        @onclick="CancelDelete"
+                        disabled="@deleting"
+                        style="height:42px;border:0;border-radius:999px;padding:0 18px;background:#ffffff;color:#475467;font-size:13px;font-weight:950;cursor:pointer;">
+                    إلغاء
+                </button>
+
+                <button type="button"
+                        @onclick="DeleteSpecialtyAsync"
+                        disabled="@deleting"
+                        style="height:42px;border:0;border-radius:999px;padding:0 18px;background:#dc2626;color:#ffffff;font-size:13px;font-weight:950;cursor:pointer;">
+                    @(deleting ? "جارٍ الحذف..." : "حذف نهائي")
+                </button>
+            </div>
+        </section>
+    }
+
+    @if (loading)
+    {
+        <div class="admin-state-card">جارٍ تحميل التخصصات...</div>
+    }
+    else
+    {
+        <section class="admin-stats-grid">
+            <div class="admin-stat-card">
+                <span>إجمالي التخصصات</span>
+                <strong>@specialties.Count</strong>
+            </div>
+
+            <div class="admin-stat-card">
+                <span>التخصصات النشطة</span>
+                <strong>@specialties.Count(s => s.IsActive)</strong>
+            </div>
+
+            <div class="admin-stat-card">
+                <span>إجمالي الأطباء</span>
+                <strong>@specialties.Sum(s => s.DoctorsCount)</strong>
+            </div>
+
+            <div class="admin-stat-card">
+                <span>إجمالي الطلبات</span>
+                <strong>@specialties.Sum(s => s.RequestsCount)</strong>
+            </div>
+        </section>
+
+        <section class="admin-table-card">
+            <div class="admin-table-title">
+                <h2>قائمة التخصصات</h2>
+                <span>@FilteredSpecialties.Count() تخصص</span>
+            </div>
+
+            @if (!FilteredSpecialties.Any())
+            {
+                <div class="admin-state-card inside">لا توجد نتائج مطابقة للبحث.</div>
+            }
+            else
+            {
+                <div class="admin-table-wrap">
+                    <table class="admin-modern-table">
+                        <thead>
+                            <tr>
+                                <th>التخصص</th>
+                                <th>English</th>
+                                <th>الأطباء</th>
+                                <th>الطلبات</th>
+                                <th>الحالة</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var item in FilteredSpecialties)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="admin-main-cell">
+                                            <div class="admin-cell-icon">🩺</div>
+                                            <div>
+                                                <strong>@item.NameAr</strong>
+                                                <span>@(string.IsNullOrWhiteSpace(item.DescriptionAr) ? "تخصص طبي" : item.DescriptionAr)</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td class="ltr-cell">@item.NameEn</td>
+
+                                    <td>
+                                        <span class="admin-number-pill">@item.DoctorsCount</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="admin-number-pill">@item.RequestsCount</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="admin-status-pill @(item.IsActive ? "ok" : "off")">
+                                            @(item.IsActive ? "نشط" : "غير نشط")
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                            <button type="button"
+                                                    @onclick="() => BeginEdit(item)"
+                                                    style="height:36px;border:0;border-radius:999px;padding:0 14px;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:950;cursor:pointer;">
+                                                تعديل
+                                            </button>
+
+                                            <button type="button"
+                                                    @onclick="() => AskDelete(item)"
+                                                    style="height:36px;border:0;border-radius:999px;padding:0 14px;background:#fef2f2;color:#dc2626;font-size:12px;font-weight:950;cursor:pointer;">
+                                                حذف
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private bool saving;
+    private bool updating;
+    private bool deleting;
+    private bool showCreatePanel;
+    private bool actionSucceeded;
+    private string search = string.Empty;
+    private string? actionMessage;
+
+    private string newNameAr = string.Empty;
+    private string newNameEn = string.Empty;
+    private string? newDescriptionAr;
+    private string? newDescriptionEn;
+    private bool newIsActive = true;
+
+    private Guid? editingId;
+    private string editNameAr = string.Empty;
+    private string editNameEn = string.Empty;
+    private string? editDescriptionAr;
+    private string? editDescriptionEn;
+    private bool editIsActive = true;
+
+    private SpecialtyListItem? deleteCandidate;
+
+    private List<SpecialtyListItem> specialties = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSpecialtiesAsync();
+    }
+
+    private async Task LoadSpecialtiesAsync()
+    {
+        loading = true;
+        specialties = await Ui.GetSpecialtiesAsync();
+        loading = false;
+    }
+
+    private void ToggleCreatePanel()
+    {
+        showCreatePanel = !showCreatePanel;
+        actionMessage = null;
+        CancelEdit();
+        CancelDelete();
+    }
+
+    private async Task CreateSpecialtyAsync()
+    {
+        if (saving)
+        {
+            return;
+        }
+
+        saving = true;
+        actionMessage = null;
+
+        var result = await Ui.CreateSpecialtyAsync(
+            newNameAr,
+            newNameEn,
+            newDescriptionAr,
+            newDescriptionEn,
+            newIsActive
+        );
+
+        actionSucceeded = result.Succeeded;
+        actionMessage = result.Message;
+
+        if (result.Succeeded)
+        {
+            ResetCreateForm();
+            showCreatePanel = false;
+            specialties = await Ui.GetSpecialtiesAsync();
+        }
+
+        saving = false;
+    }
+
+    private void ResetCreateForm()
+    {
+        newNameAr = string.Empty;
+        newNameEn = string.Empty;
+        newDescriptionAr = null;
+        newDescriptionEn = null;
+        newIsActive = true;
+    }
+
+    private void BeginEdit(SpecialtyListItem item)
+    {
+        showCreatePanel = false;
+        deleteCandidate = null;
+        actionMessage = null;
+
+        editingId = item.Id;
+        editNameAr = item.NameAr;
+        editNameEn = item.NameEn;
+        editDescriptionAr = item.DescriptionAr;
+        editDescriptionEn = item.DescriptionEn;
+        editIsActive = item.IsActive;
+    }
+
+    private void CancelEdit()
+    {
+        editingId = null;
+        editNameAr = string.Empty;
+        editNameEn = string.Empty;
+        editDescriptionAr = null;
+        editDescriptionEn = null;
+        editIsActive = true;
+    }
+
+    private async Task UpdateSpecialtyAsync()
+    {
+        if (updating || editingId is null)
+        {
+            return;
+        }
+
+        updating = true;
+        actionMessage = null;
+
+        var result = await Ui.UpdateSpecialtyAsync(
+            editingId.Value,
+            editNameAr,
+            editNameEn,
+            editDescriptionAr,
+            editDescriptionEn,
+            editIsActive
+        );
+
+        actionSucceeded = result.Succeeded;
+        actionMessage = result.Message;
+
+        if (result.Succeeded)
+        {
+            CancelEdit();
+            specialties = await Ui.GetSpecialtiesAsync();
+        }
+
+        updating = false;
+    }
+
+    private void AskDelete(SpecialtyListItem item)
+    {
+        showCreatePanel = false;
+        CancelEdit();
+        actionMessage = null;
+        deleteCandidate = item;
+    }
+
+    private void CancelDelete()
+    {
+        deleteCandidate = null;
+    }
+
+    private async Task DeleteSpecialtyAsync()
+    {
+        if (deleting || deleteCandidate is null)
+        {
+            return;
+        }
+
+        deleting = true;
+        actionMessage = null;
+
+        var result = await Ui.DeleteSpecialtyAsync(deleteCandidate.Id);
+
+        actionSucceeded = result.Succeeded;
+        actionMessage = result.Message;
+
+        if (result.Succeeded)
+        {
+            deleteCandidate = null;
+            specialties = await Ui.GetSpecialtiesAsync();
+        }
+
+        deleting = false;
+    }
+
+    private IEnumerable<SpecialtyListItem> FilteredSpecialties
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(search))
+            {
+                return specialties;
+            }
+
+            var value = search.Trim();
+
+            return specialties.Where(s =>
+                s.NameAr.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                s.NameEn.Contains(value, StringComparison.OrdinalIgnoreCase)
+            );
+        }
+    }
+}

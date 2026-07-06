@@ -1,0 +1,278 @@
+@page "/portal/requests"
+@attribute [Authorize(Roles = "Beneficiary")]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>طلباتي</PageTitle>
+
+<div class="my-requests-page" dir="rtl">
+
+    <header class="my-requests-header">
+        <div>
+            <div class="my-requests-kicker">📁 My Requests</div>
+            <h1>حالة طلباتي</h1>
+            <p>تابع حالة الطلبات، قرار الإدارة، والملاحظات من مكان واحد.</p>
+        </div>
+
+        <button type="button"
+                class="my-requests-new-btn"
+                @onclick='() => Nav.NavigateTo("/portal/request/new")'>
+            <span>+</span>
+            طلب جديد
+        </button>
+    </header>
+
+    @if (loading)
+    {
+        <section class="my-requests-state">
+            جارٍ تحميل طلباتك...
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMsg))
+    {
+        <section class="my-requests-alert">
+            @errorMsg
+        </section>
+    }
+    else
+    {
+        <section class="my-requests-filter">
+            <button type="button"
+                    class="@(filter == RequestFilter.All ? "active" : "")"
+                    @onclick="() => SetFilter(RequestFilter.All)">
+                الكل
+                <strong>@requests.Count</strong>
+            </button>
+
+            <button type="button"
+                    class="@(filter == RequestFilter.Pending ? "active" : "")"
+                    @onclick="() => SetFilter(RequestFilter.Pending)">
+                قيد المراجعة
+                <strong>@PendingCount</strong>
+            </button>
+
+            <button type="button"
+                    class="@(filter == RequestFilter.Approved ? "active" : "")"
+                    @onclick="() => SetFilter(RequestFilter.Approved)">
+                مقبولة
+                <strong>@ApprovedCount</strong>
+            </button>
+
+            <button type="button"
+                    class="@(filter == RequestFilter.Rejected ? "active" : "")"
+                    @onclick="() => SetFilter(RequestFilter.Rejected)">
+                مرفوضة
+                <strong>@RejectedCount</strong>
+            </button>
+        </section>
+
+        @if (!FilteredRequests.Any())
+        {
+            <section class="my-requests-empty">
+                <div>📄</div>
+                <h2>لا توجد طلبات في هذا التصنيف</h2>
+                <p>ابدأ بتقديم طلب كشف جديد، وسيظهر هنا بعد الإرسال.</p>
+
+                <button type="button"
+                        @onclick='() => Nav.NavigateTo("/portal/request/new")'>
+                    تقديم طلب جديد
+                </button>
+            </section>
+        }
+        else
+        {
+            <section class="my-requests-grid">
+                @foreach (var item in FilteredRequests)
+                {
+                    <article class="my-request-card">
+                        <div class="my-request-main">
+                            <div class="my-request-title-row">
+                                <h2>@item.SpecialtyName</h2>
+
+                                <span class="my-request-status @StatusClass(item)">
+                                    <i>@StatusIcon(item.Status)</i>
+                                    @item.StatusAr
+                                </span>
+                            </div>
+
+                            <div class="my-request-doctor">
+                                <strong>@DoctorLine(item)</strong>
+                                <span>@RequestNumber(item)</span>
+                            </div>
+
+                            <div class="my-request-meta">
+                                <span>📅 @FormatDate(item.SubmittedAt)</span>
+                                <span>📍 @SafeText(item.City, "غير محدد")</span>
+                                <span>📎 @item.DocumentsCount مستند</span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(item.ReviewNoteAr))
+                            {
+                                <div class="my-request-note">
+                                    @item.ReviewNoteAr
+                                </div>
+                            }
+                        </div>
+
+                        <div class="my-request-actions">
+                            <button type="button"
+                                    class="my-request-open-btn"
+                                    @onclick="() => OpenRequest(item.Id)">
+                                فتح
+                            </button>
+                        </div>
+                    </article>
+                }
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private string? errorMsg;
+
+    private List<RequestWorkItem> requests = [];
+    private RequestFilter filter = RequestFilter.All;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRequests();
+    }
+
+    private async Task LoadRequests()
+    {
+        loading = true;
+        errorMsg = null;
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                errorMsg = "تعذر قراءة المستخدم الحالي. برجاء تسجيل الدخول مرة أخرى.";
+                return;
+            }
+
+            requests = (await Ui.GetBeneficiaryRequestsAsync(userId))
+                .OrderByDescending(r => r.SubmittedAt)
+                .ToList();
+        }
+        catch
+        {
+            errorMsg = "حدث خطأ أثناء تحميل طلباتك.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private IEnumerable<RequestWorkItem> FilteredRequests
+    {
+        get
+        {
+            return filter switch
+            {
+                RequestFilter.Pending => requests.Where(IsPending),
+                RequestFilter.Approved => requests.Where(r => r.Status == RequestStatus.Approved),
+                RequestFilter.Rejected => requests.Where(r => r.Status == RequestStatus.Rejected),
+                RequestFilter.Completed => requests.Where(r => r.Status == RequestStatus.Completed),
+                _ => requests
+            };
+        }
+    }
+
+    private int PendingCount => requests.Count(IsPending);
+    private int ApprovedCount => requests.Count(r => r.Status == RequestStatus.Approved);
+    private int RejectedCount => requests.Count(r => r.Status == RequestStatus.Rejected);
+
+    private void SetFilter(RequestFilter value)
+    {
+        filter = value;
+    }
+
+    private static bool IsPending(RequestWorkItem item)
+    {
+        return item.Status is RequestStatus.Submitted or RequestStatus.UnderReview;
+    }
+
+    private static string StatusClass(RequestWorkItem item)
+    {
+        return item.Status switch
+        {
+            RequestStatus.Submitted => "pending",
+            RequestStatus.UnderReview => "pending",
+            RequestStatus.Approved => "approved",
+            RequestStatus.Rejected => "rejected",
+            RequestStatus.Completed => "completed",
+            _ => item.StatusCss
+        };
+    }
+
+    private static string StatusIcon(RequestStatus status)
+    {
+        return status switch
+        {
+            RequestStatus.Approved => "✓",
+            RequestStatus.Rejected => "×",
+            RequestStatus.Completed => "✓",
+            RequestStatus.Submitted => "◷",
+            RequestStatus.UnderReview => "◷",
+            _ => "•"
+        };
+    }
+
+    private static string DoctorLine(RequestWorkItem item)
+    {
+        return item.Status switch
+        {
+            RequestStatus.Approved => "تمت الموافقة — بانتظار التنسيق",
+            RequestStatus.Completed => "تم إنهاء الكشف",
+            RequestStatus.Rejected => "تم رفض الطلب",
+            RequestStatus.Submitted => "تم التقديم للإدارة",
+            RequestStatus.UnderReview => "قيد مراجعة الإدارة",
+            _ => "قيد المتابعة"
+        };
+    }
+
+    private static string RequestNumber(RequestWorkItem item)
+    {
+        var shortId = item.Id.ToString("N")[..6].ToUpperInvariant();
+        return $"REQ-{shortId}";
+    }
+
+    private void OpenRequest(Guid id)
+    {
+        Nav.NavigateTo($"/portal/request/{id}");
+    }
+
+    private static string FormatDate(DateTime date)
+    {
+        return date.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+    }
+
+    private static string SafeText(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private enum RequestFilter
+    {
+        All,
+        Pending,
+        Approved,
+        Rejected,
+        Completed
+    }
+}

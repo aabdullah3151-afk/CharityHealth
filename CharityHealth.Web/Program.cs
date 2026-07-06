@@ -1,3 +1,4 @@
+using CharityHealth.Web.Services;
 using CharityHealth.Application;
 using CharityHealth.Infrastructure;
 using CharityHealth.Web.Data;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Radzen;
+using Microsoft.Extensions.FileProviders;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,6 +48,10 @@ builder.Services.AddSignalR();
 // ── HttpContextAccessor (needed for CurrentUserService) ──
 builder.Services.AddHttpContextAccessor();
 
+// ── New Blazor UI services ─────────────────────────────
+builder.Services.AddScoped<UiThemeService>();
+builder.Services.AddScoped<HealthcareUiService>();
+
 // ── Localization ──────────────────────────────────────
 builder.Services.AddLocalization(opts => opts.ResourcesPath = "Resources");
 
@@ -82,15 +88,25 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 // ── Serve uploaded files ───────────────────────────────
 // ✅ Auto-create the uploads directory so PhysicalFileProvider never throws
-var uploadsPath = builder.Configuration["FileStorage:BasePath"]
-                  ?? Path.Combine(app.Environment.ContentRootPath, "uploads");
+var uploadsPath = builder.Configuration["FileStorage:BasePath"];
 
-Directory.CreateDirectory(uploadsPath);   // no-op if already exists
+if (string.IsNullOrWhiteSpace(uploadsPath))
+{
+    uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
+}
+else if (!Path.IsPathRooted(uploadsPath))
+{
+    uploadsPath = Path.Combine(app.Environment.ContentRootPath, uploadsPath);
+}
+
+Directory.CreateDirectory(uploadsPath);
+
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+    FileProvider = new PhysicalFileProvider(uploadsPath),
     RequestPath = "/uploads"
 });
+
 app.UseRouting();
 
 
