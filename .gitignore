@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsdCharityHealth.Web/uploads/
+
+# Ignore runtime uploaded files
+/CharityHealth.Web/uploads/
+/CharityHealth.Web/uploads/**
