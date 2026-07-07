@@ -1,0 +1,259 @@
+@page "/portal/request-qr/{RequestId:guid}"
+@layout MainLayout
+@attribute [Authorize(Roles = "Beneficiary")]
+
+@using System.Security.Claims
+@using System.Text
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using QRCoder
+@using Microsoft.JSInterop
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+@using CharityHealth.Web.Services
+
+@inject AppDbContext Db
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>QR الكشف</PageTitle>
+
+<div dir="rtl" style="
+    min-height:calc(100vh - 76px);
+    padding:42px;
+    background:#f8fafc;
+    color:#111827;">
+
+    <section style="
+        border-radius:32px;
+        padding:34px;
+        margin-bottom:26px;
+        background:linear-gradient(135deg,#05a843,#0f9f93);
+        color:#ffffff;
+        box-shadow:0 20px 42px rgba(5,168,67,.22);">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;">
+            <div>
+                <div style="font-size:15px;font-weight:900;color:rgba(255,255,255,.82);margin-bottom:10px;">QR Code</div>
+                <h1 style="margin:0;font-size:42px;line-height:1.15;font-weight:950;">QR الكشف</h1>
+                <p style="margin:12px 0 0;color:rgba(255,255,255,.86);font-size:16px;font-weight:800;">
+                    اعرض هذا الرمز للطبيب ليقوم بمسحه وتسجيل نتيجة الكشف.
+                </p>
+            </div>
+
+            <button type="button"
+                    @onclick='() => Nav.NavigateTo("/portal/requests")'
+                    style="height:48px;border:0;border-radius:999px;padding:0 18px;background:#ffffff;color:#047857;font-size:14px;font-weight:950;cursor:pointer;">
+                رجوع لطلباتي
+            </button>
+        </div>
+    </section>
+
+    @if (loading)
+    {
+        <div style="min-height:320px;display:grid;place-items:center;color:#98a2b3;font-size:16px;font-weight:950;">
+            جارٍ تحميل QR...
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(error))
+    {
+        <div style="border:1px solid #fecaca;border-radius:24px;background:#fef2f2;color:#991b1b;padding:24px;font-size:15px;font-weight:950;">
+            @error
+        </div>
+    }
+    else if (request is not null && qr is not null)
+    {
+        <section style="
+            display:grid;
+            grid-template-columns:minmax(280px,420px) minmax(0,1fr);
+            gap:24px;
+            align-items:start;">
+
+            <article style="
+                border:1px solid #edf0f4;
+                border-radius:30px;
+                background:#ffffff;
+                box-shadow:0 14px 34px rgba(15,23,42,.07);
+                padding:30px;
+                display:grid;
+                place-items:center;
+                gap:18px;
+                text-align:center;">
+
+                @if (qr.IsUsed)
+                {
+                    <div style="width:100%;border-radius:24px;background:#f1f5f9;color:#64748b;padding:36px;font-size:17px;font-weight:950;">
+                        تم استخدام هذا QR من قبل
+                    </div>
+                }
+                else if (qr.ExpiresAt < DateTime.UtcNow)
+                {
+                    <div style="width:100%;border-radius:24px;background:#fef2f2;color:#b91c1c;padding:36px;font-size:17px;font-weight:950;">
+                        انتهت صلاحية QR
+                    </div>
+                }
+                else
+                {
+                    <img src="@qrImageDataUri"
+                         alt="QR Code"
+                         style="width:min(100%,300px);height:auto;border-radius:24px;background:#ffffff;border:12px solid #ffffff;box-shadow:0 12px 28px rgba(15,23,42,.12);" />
+                }
+
+                <strong style="display:block;color:#111827;font-size:20px;font-weight:950;">@ShortId(request.Id)</strong>
+
+                <span style="display:block;color:#667085;font-size:14px;font-weight:850;">
+                    صالح حتى: @qr.ExpiresAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")
+                </span>
+
+                <button type="button"
+                        @onclick="PrintPage"
+                        style="height:46px;border:0;border-radius:999px;padding:0 22px;background:#05a843;color:#ffffff;font-size:14px;font-weight:950;cursor:pointer;">
+                    طباعة / حفظ QR
+                </button>
+            </article>
+
+            <article style="
+                border:1px solid #edf0f4;
+                border-radius:30px;
+                background:#ffffff;
+                box-shadow:0 14px 34px rgba(15,23,42,.07);
+                overflow:hidden;">
+
+                <div style="padding:24px 28px;border-bottom:1px solid #edf0f4;">
+                    <h2 style="margin:0;color:#111827;font-size:26px;font-weight:950;">تفاصيل الطلب</h2>
+                    <p style="margin:8px 0 0;color:#98a2b3;font-size:14px;font-weight:850;">لا تشارك QR إلا مع الطبيب داخل النظام.</p>
+                </div>
+
+                <div style="padding:24px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
+                    <div style="@InfoBoxStyle">
+                        <span style="@InfoLabelStyle">التخصص</span>
+                        <strong style="@InfoValueStyle">@request.Specialty.NameAr</strong>
+                    </div>
+
+                    <div style="@InfoBoxStyle">
+                        <span style="@InfoLabelStyle">الحالة</span>
+                        <strong style="@InfoValueStyle">@HealthcareUiService.StatusAr(request.Status)</strong>
+                    </div>
+
+                    <div style="@InfoBoxStyle">
+                        <span style="@InfoLabelStyle">تاريخ الطلب</span>
+                        <strong style="@InfoValueStyle">@request.SubmittedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</strong>
+                    </div>
+
+                    <div style="@InfoBoxStyle">
+                        <span style="@InfoLabelStyle">المستندات</span>
+                        <strong style="@InfoValueStyle">@request.Documents.Count مستند</strong>
+                    </div>
+                </div>
+
+                <div style="padding:0 24px 24px;">
+                    <div style="border-radius:22px;background:#f8fafc;padding:18px;">
+                        <span style="display:block;color:#98a2b3;font-size:12px;font-weight:900;margin-bottom:8px;">وصف الحالة</span>
+                        <p style="margin:0;color:#344054;font-size:14px;line-height:1.9;font-weight:850;white-space:pre-wrap;">
+                            @(string.IsNullOrWhiteSpace(request.DescriptionAr) ? "لا يوجد وصف مكتوب." : request.DescriptionAr)
+                        </p>
+                    </div>
+                </div>
+            </article>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid RequestId { get; set; }
+
+    private bool loading = true;
+    private string? error;
+    private MedicalRequest? request;
+    private QRCodeToken? qr;
+    private string? qrImageDataUri;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            error = "تعذر قراءة حساب المستفيد الحالي.";
+            loading = false;
+            return;
+        }
+
+        var beneficiary = await Db.Beneficiaries
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.UserId == userId);
+
+        if (beneficiary is null)
+        {
+            error = "لم يتم العثور على ملف المستفيد.";
+            loading = false;
+            return;
+        }
+
+        request = await Db.MedicalRequests
+            .Include(r => r.Specialty)
+            .Include(r => r.Documents)
+            .Include(r => r.QRCodeToken)
+            .FirstOrDefaultAsync(r => r.Id == RequestId && r.BeneficiaryId == beneficiary.Id && !r.IsDeleted);
+
+        if (request is null)
+        {
+            error = "الطلب غير موجود أو لا تملك صلاحية عرضه.";
+            loading = false;
+            return;
+        }
+
+        if (request.Status != RequestStatus.Approved && request.Status != RequestStatus.Completed)
+        {
+            error = "لا يظهر QR إلا بعد موافقة الإدارة على الطلب.";
+            loading = false;
+            return;
+        }
+
+        qr = request.QRCodeToken;
+
+        if (qr is null)
+        {
+            error = "لم يتم توليد QR لهذا الطلب بعد. برجاء التواصل مع الإدارة.";
+            loading = false;
+            return;
+        }
+
+        qrImageDataUri = BuildQrDataUri(qr.Id);
+        loading = false;
+    }
+
+    private string BuildQrDataUri(Guid qrId)
+    {
+        var scanUrl = new Uri(new Uri(Nav.BaseUri), $"/doctor/scan?token={qrId}").ToString();
+
+        using var generator = new QRCodeGenerator();
+        using var qrData = generator.CreateQrCode(scanUrl, QRCodeGenerator.ECCLevel.Q);
+        var svgQr = new SvgQRCode(qrData);
+        var svg = svgQr.GetGraphic(8);
+
+        return "data:image/svg+xml;base64," + Convert.ToBase64String(Encoding.UTF8.GetBytes(svg));
+    }
+
+    private async Task PrintPage()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private static string ShortId(Guid id)
+    {
+        return $"REQ-{id.ToString("N")[..6].ToUpperInvariant()}";
+    }
+
+    private static string InfoBoxStyle =>
+        "min-height:78px;border-radius:18px;background:#f8fafc;padding:14px 16px;display:grid;align-content:center;gap:6px;";
+
+    private static string InfoLabelStyle =>
+        "color:#98a2b3;font-size:12px;font-weight:900;";
+
+    private static string InfoValueStyle =>
+        "color:#111827;font-size:15px;font-weight:950;";
+}

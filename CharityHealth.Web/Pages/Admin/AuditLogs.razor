@@ -15,14 +15,14 @@
         <div>
             <div class="admin-list-kicker">Audit 🛡️</div>
             <h1>سجل العمليات</h1>
-            <p>آخر 100 عملية مسجلة داخل النظام.</p>
+            <p>آخر 500 عملية حقيقية مسجلة داخل قاعدة البيانات.</p>
         </div>
 
         <div class="admin-search-box">
             <span>⌕</span>
             <input @bind="search"
                    @bind:event="oninput"
-                   placeholder="بحث في السجل..." />
+                   placeholder="بحث بالعملية أو الكيان أو المستخدم أو IP..." />
         </div>
     </header>
 
@@ -44,13 +44,13 @@
             </div>
 
             <div class="admin-stat-card">
-                <span>عمليات الخروج</span>
-                <strong>@logs.Count(l => l.Action.Contains("Logout", StringComparison.OrdinalIgnoreCase))</strong>
+                <span>طلبات و QR</span>
+                <strong>@logs.Count(l => l.EntityType is "MedicalRequest" or "QRCodeToken")</strong>
             </div>
 
             <div class="admin-stat-card">
                 <span>الكيانات</span>
-                <strong>@logs.Select(l => l.EntityType).Distinct().Count()</strong>
+                <strong>@logs.Select(l => l.EntityType).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().Count()</strong>
             </div>
         </section>
 
@@ -73,8 +73,8 @@
                                 <th>التاريخ</th>
                                 <th>العملية</th>
                                 <th>الكيان</th>
-                                <th>Entity ID</th>
-                                <th>User</th>
+                                <th>رقم الكيان</th>
+                                <th>المستخدم</th>
                                 <th>IP</th>
                             </tr>
                         </thead>
@@ -90,12 +90,15 @@
                                     </td>
 
                                     <td>
-                                        <span class="admin-action-pill @ActionClass(log.Action)">
-                                            @log.Action
+                                        <span class="admin-action-pill @ActionClass(log.Action)" title="@log.Action">
+                                            @ActionLabel(log.Action)
                                         </span>
                                     </td>
 
-                                    <td>@log.EntityType</td>
+                                    <td>
+                                        <strong>@EntityLabel(log.EntityType)</strong>
+                                        <small style="display:block;color:#98a2b3;font-weight:800;margin-top:4px;">@log.EntityType</small>
+                                    </td>
 
                                     <td class="mono-cell">@ShortId(log.EntityId)</td>
 
@@ -136,7 +139,9 @@
 
             return logs.Where(l =>
                 l.Action.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                ActionLabel(l.Action).Contains(value, StringComparison.OrdinalIgnoreCase) ||
                 l.EntityType.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                EntityLabel(l.EntityType).Contains(value, StringComparison.OrdinalIgnoreCase) ||
                 (l.EntityId?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 (l.UserId?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 (l.IpAddress?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)
@@ -159,21 +164,80 @@
         return $"{value[..8]}…{value[^6..]}";
     }
 
+    private static string EntityLabel(string entityType) => entityType switch
+    {
+        "ApplicationUser" => "مستخدم",
+        "MedicalRequest" => "طلب طبي",
+        "QRCodeToken" => "QR",
+        "Consultation" => "استشارة",
+        "Notification" => "إشعار",
+        "Specialty" => "تخصص",
+        "Doctor" => "طبيب",
+        "Pharmacy" => "صيدلية",
+        _ => string.IsNullOrWhiteSpace(entityType) ? "غير محدد" : entityType
+    };
+
+    private static string ActionLabel(string action) => action switch
+    {
+        "Auth.Login.Success" => "تسجيل دخول ناجح",
+        "Auth.Login.Fail" => "فشل تسجيل الدخول",
+        "Auth.Logout" => "تسجيل خروج",
+
+        "Request.Submitted" => "تقديم طلب",
+        "Request.UnderReview" => "تحويل الطلب للمراجعة",
+        "Request.Approved" => "قبول طلب",
+        "Request.Rejected" => "رفض طلب",
+        "Request.AutoRejected.CapacityFull" => "رفض تلقائي لاكتمال اليوم",
+
+        "QR.Generated" => "توليد QR",
+        "QR.Renewed" => "تجديد QR",
+        "QR.Used" => "استخدام QR",
+
+        "Consultation.Completed" => "تسجيل نتيجة الكشف",
+
+        "Notification.Created" => "إنشاء إشعار",
+
+        "Specialty.Created" => "إضافة تخصص",
+        "Specialty.Updated" => "تعديل تخصص",
+        "Specialty.Deleted" => "حذف تخصص",
+
+        "Doctor.Created" => "إضافة طبيب",
+        "Doctor.Updated" => "تعديل طبيب",
+        "Doctor.Deleted" => "حذف طبيب",
+
+        "Pharmacy.Created" => "إضافة صيدلية",
+        "Pharmacy.Updated" => "تعديل صيدلية",
+        "Pharmacy.Deleted" => "حذف صيدلية",
+
+        _ => action
+    };
+
     private static string ActionClass(string action)
     {
         var value = action.ToLowerInvariant();
 
-        if (value.Contains("success") || value.Contains("registered"))
+        if (value.Contains("success") ||
+            value.Contains("approved") ||
+            value.Contains("generated") ||
+            value.Contains("renewed") ||
+            value.Contains("completed") ||
+            value.Contains("created"))
         {
             return "success";
         }
 
-        if (value.Contains("logout"))
+        if (value.Contains("logout") ||
+            value.Contains("underreview") ||
+            value.Contains("updated") ||
+            value.Contains("used"))
         {
             return "warning";
         }
 
-        if (value.Contains("fail") || value.Contains("error"))
+        if (value.Contains("fail") ||
+            value.Contains("error") ||
+            value.Contains("rejected") ||
+            value.Contains("deleted"))
         {
             return "danger";
         }

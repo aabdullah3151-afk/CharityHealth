@@ -18,12 +18,13 @@ public class RequestDocument : BaseEntity
 // ─────────────────────────────────────────────
 /// <summary>
 /// Secure single-use QR token. Raw token is NEVER stored — only its SHA-256 hash.
+/// The QR shown to the beneficiary uses this entity's GUID as an opaque public scan key.
 /// </summary>
 public class QRCodeToken : BaseEntity
 {
     public Guid RequestId { get; set; }
 
-    /// <summary>SHA-256 hash of the signed JWT-like token. Never store raw token.</summary>
+    /// <summary>SHA-256 hash of the signed server-side token. Never store raw token.</summary>
     public string TokenHash { get; set; } = string.Empty;
 
     public DateTime ExpiresAt { get; set; }
@@ -55,6 +56,25 @@ public class Consultation : BaseEntity
     public MedicalRequest Request { get; set; } = null!;
     public QRCodeToken QRCodeToken { get; set; } = null!;
     public Doctor Doctor { get; set; } = null!;
+}
+
+// ─────────────────────────────────────────────
+public class Notification : BaseEntity
+{
+    public string UserId { get; set; } = string.Empty;
+
+    public NotificationType Type { get; set; }
+    public string TitleAr { get; set; } = string.Empty;
+    public string BodyAr { get; set; } = string.Empty;
+
+    public string? Url { get; set; }
+    public string? EntityType { get; set; }
+    public string? EntityId { get; set; }
+
+    public bool IsRead { get; set; } = false;
+    public DateTime? ReadAt { get; set; }
+
+    public ApplicationUser? User { get; set; }
 }
 
 // ─────────────────────────────────────────────

@@ -1,6 +1,12 @@
 @page "/login"
+
+@using System.Globalization
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Infrastructure.Persistence
+
 @layout CharityHealth.Web.Shared.Layouts.AuthLayout
 @inject NavigationManager Nav
+@inject AppDbContext Db
 
 <PageTitle>تسجيل الدخول</PageTitle>
 
@@ -95,22 +101,22 @@
 
         <div class="brand-metrics">
             <div>
-                <strong>1,284</strong>
+                <strong>@MetricNumber(TotalBeneficiaries)</strong>
                 <span>مستفيد مستفاد</span>
             </div>
 
             <div>
-                <strong>47</strong>
+                <strong>@MetricNumber(VolunteerDoctors)</strong>
                 <span>طبيب متطوع</span>
             </div>
 
             <div>
-                <strong>742</strong>
+                <strong>@MetricNumber(CompletedConsultations)</strong>
                 <span>استشارة مكتملة</span>
             </div>
 
             <div>
-                <strong class="rating">★ 4.8</strong>
+                <strong class="rating">★ @SatisfactionDisplay</strong>
                 <span>معدل الرضا</span>
             </div>
         </div>
@@ -135,6 +141,53 @@
 </script>
 
 @code {
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPublicMetricsAsync();
+    }
+
+
+
+    private int TotalBeneficiaries;
+    private int VolunteerDoctors;
+    private int CompletedConsultations;
+    private string SatisfactionDisplay = "—";
+
+    private async Task LoadPublicMetricsAsync()
+    {
+        try
+        {
+            TotalBeneficiaries = await Db.Beneficiaries
+                .AsNoTracking()
+                .CountAsync();
+
+            VolunteerDoctors = await Db.Doctors
+                .AsNoTracking()
+                .CountAsync(d => d.IsAvailable && !d.IsDeleted);
+
+            CompletedConsultations = await Db.Consultations
+                .AsNoTracking()
+                .CountAsync();
+
+            // لا يوجد جدول تقييمات حقيقي حاليًا، لذلك لا نعرض رقم وهمي.
+            SatisfactionDisplay = "—";
+        }
+        catch
+        {
+            TotalBeneficiaries = 0;
+            VolunteerDoctors = 0;
+            CompletedConsultations = 0;
+            SatisfactionDisplay = "—";
+        }
+    }
+
+    private static string MetricNumber(int value)
+    {
+        return value.ToString("N0", CultureInfo.InvariantCulture);
+    }
+
+
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }
 }

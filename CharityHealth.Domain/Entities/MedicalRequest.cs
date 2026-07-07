@@ -7,6 +7,8 @@ public class MedicalRequest : BaseEntity
 {
     public Guid BeneficiaryId { get; set; }
     public Guid SpecialtyId { get; set; }
+    public Guid? DoctorId { get; set; }
+    public DateOnly? AppointmentDate { get; set; }
     public RequestStatus Status { get; set; } = RequestStatus.Draft;
 
     public string? DescriptionAr { get; set; }
@@ -21,6 +23,7 @@ public class MedicalRequest : BaseEntity
     // Navigation
     public Beneficiary Beneficiary { get; set; } = null!;
     public Specialty Specialty { get; set; } = null!;
+    public Doctor? Doctor { get; set; }
     public ICollection<RequestDocument> Documents { get; set; } = [];
     public QRCodeToken? QRCodeToken { get; set; }
     public Consultation? Consultation { get; set; }

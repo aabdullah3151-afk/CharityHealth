@@ -15,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RequestDocument> RequestDocuments => Set<RequestDocument>();
     public DbSet<QRCodeToken> QRCodeTokens => Set<QRCodeToken>();
     public DbSet<Consultation> Consultations => Set<Consultation>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<OtpRecord> OtpRecords => Set<OtpRecord>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<LoginHistory> LoginHistories => Set<LoginHistory>();

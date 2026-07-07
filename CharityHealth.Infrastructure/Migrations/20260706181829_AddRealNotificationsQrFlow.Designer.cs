@@ -3,6 +3,7 @@ using System;
 using CharityHealth.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CharityHealth.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260706181829_AddRealNotificationsQrFlow")]
+    partial class AddRealNotificationsQrFlow
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -412,9 +415,6 @@ namespace CharityHealth.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateOnly?>("AppointmentDate")
-                        .HasColumnType("date");
-
                     b.Property<Guid>("BeneficiaryId")
                         .HasColumnType("uuid");
 
@@ -430,9 +430,6 @@ namespace CharityHealth.Infrastructure.Migrations
 
                     b.Property<string>("DescriptionEn")
                         .HasColumnType("text");
-
-                    b.Property<Guid?>("DoctorId")
-                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
@@ -468,8 +465,6 @@ namespace CharityHealth.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BeneficiaryId");
-
-                    b.HasIndex("DoctorId");
 
                     b.HasIndex("SpecialtyId");
 
@@ -947,10 +942,6 @@ namespace CharityHealth.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CharityHealth.Domain.Entities.Doctor", "Doctor")
-                        .WithMany("MedicalRequests")
-                        .HasForeignKey("DoctorId");
-
                     b.HasOne("CharityHealth.Domain.Entities.Specialty", "Specialty")
                         .WithMany("MedicalRequests")
                         .HasForeignKey("SpecialtyId")
@@ -958,8 +949,6 @@ namespace CharityHealth.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Beneficiary");
-
-                    b.Navigation("Doctor");
 
                     b.Navigation("Specialty");
                 });
@@ -1078,8 +1067,6 @@ namespace CharityHealth.Infrastructure.Migrations
             modelBuilder.Entity("CharityHealth.Domain.Entities.Doctor", b =>
                 {
                     b.Navigation("Consultations");
-
-                    b.Navigation("MedicalRequests");
                 });
 
             modelBuilder.Entity("CharityHealth.Domain.Entities.MedicalRequest", b =>
