@@ -1,0 +1,177 @@
+@page "/radiology/requests"
+@layout MainLayout
+@attribute [Authorize(Roles = "RadiologyCenter")]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>طلبات مركز الأشعة</PageTitle>
+
+<div class="partner-queue-page" dir="rtl" style="--partner-accent:#4f46e5;">
+    <header class="partner-queue-head">
+        <div>
+            <div class="partner-queue-kicker">🩻 Service Requests</div>
+            <h1>طلبات مركز الأشعة</h1>
+            <p>الطلبات الظاهرة مخصصة لهذا الحساب فقط وتمت الموافقة عليها من الإدارة.</p>
+        </div>
+        <button type="button" @onclick='() => Nav.NavigateTo("/radiology/dashboard")'>العودة للوحة</button>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="partner-queue-message @(messageOk ? "ok" : "bad")">@message</div>
+    }
+
+    @if (loading)
+    {
+        <section class="partner-queue-state">جارٍ تحميل الطلبات...</section>
+    }
+    else
+    {
+        <section class="partner-queue-tabs">
+            <button class="@(filter == QueueFilter.Ready ? "active" : "")" @onclick="() => filter = QueueFilter.Ready">جاهزة للتنفيذ <strong>@ReadyCount</strong></button>
+            <button class="@(filter == QueueFilter.Done ? "active" : "")" @onclick="() => filter = QueueFilter.Done">مكتملة <strong>@DoneCount</strong></button>
+            <button class="@(filter == QueueFilter.All ? "active" : "")" @onclick="() => filter = QueueFilter.All">الكل <strong>@rows.Count</strong></button>
+        </section>
+
+        @if (!FilteredRows.Any())
+        {
+            <section class="partner-queue-empty">
+                <div>🩻</div><h2>لا توجد طلبات</h2><p>ستظهر هنا الطلبات التي تعتمدها الإدارة وتخصصها لحسابك.</p>
+            </section>
+        }
+        else
+        {
+            <section class="partner-queue-grid">
+                @foreach (var item in FilteredRows)
+                {
+                    <article class="partner-queue-card">
+                        <div class="partner-queue-card-head">
+                            <span>🩻</span>
+                            <div><h2>@item.BeneficiaryName</h2><p>@RequestCode(item.Id) · @item.BeneficiaryPhone</p></div>
+                            <i class="@(item.Status == RequestStatus.Completed ? "done" : "ready")">@(item.Status == RequestStatus.Completed ? "تم إجراء الأشعة" : "جاهز")</i>
+                        </div>
+
+                        <dl>
+                            <dt>نوع الخدمة</dt><dd>@item.ServiceTypeAr</dd>
+                            <dt>تاريخ الاعتماد</dt><dd>@FormatDate(item.ReviewedAt ?? item.SubmittedAt)</dd>
+                            <dt>المستندات</dt><dd>@item.DocumentsCount</dd>
+                        </dl>
+
+                        <div class="partner-queue-description">
+                            <strong>تفاصيل الطلب</strong>
+                            <p>@(string.IsNullOrWhiteSpace(item.DescriptionAr) ? "لا توجد تفاصيل." : item.DescriptionAr)</p>
+                        </div>
+
+                        @if (documentsByRequest.TryGetValue(item.Id, out var itemDocuments) && itemDocuments.Count > 0)
+                        {
+                            <div class="partner-queue-documents">
+                                <strong>المستندات المرفوعة</strong>
+                                <div>
+                                    @foreach (var document in itemDocuments)
+                                    {
+                                        <a href="@DocumentUrl(document.FilePath)" target="_blank" rel="noopener">
+                                            <span>📎</span>
+                                            <b>@document.FileName</b>
+                                            <small>@FileSizeText(document.FileSizeBytes)</small>
+                                        </a>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (item.Status == RequestStatus.Completed)
+                        {
+                            <div class="partner-queue-result"><strong>تم إجراء الأشعة</strong><p>@(string.IsNullOrWhiteSpace(item.ProviderNoteAr) ? "تم تنفيذ الخدمة." : item.ProviderNoteAr)</p></div>
+                        }
+                        else
+                        {
+                            <div class="partner-queue-scan-required">
+                                <strong>يتطلب مسح QR</strong>
+                                <p>لإتمام الطلب وحفظ بيانات التنفيذ يجب حضور المستفيد ومسح QR الخاص به.</p>
+                                <button type="button" @onclick='() => Nav.NavigateTo("/radiology/scan")'>فتح ماسح QR — تنفيذ الأشعة</button>
+                            </div>
+                        }
+                    </article>
+                }
+            </section>
+        }
+    }
+</div>
+
+<style>
+.partner-queue-page{min-height:calc(100vh - 76px);padding:34px;background:#f8fafc;color:#101828}.partner-queue-head{border-radius:32px;background:linear-gradient(135deg,var(--partner-accent),#0f9f93);padding:30px 32px;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:18px;box-shadow:0 20px 42px color-mix(in srgb,var(--partner-accent) 22%,transparent)}.partner-queue-kicker{font-size:13px;font-weight:950;color:rgba(255,255,255,.82)}.partner-queue-head h1{margin:6px 0 0;color:#fff;font-size:34px;font-weight:950}.partner-queue-head p{margin:9px 0 0;color:rgba(255,255,255,.85);font-size:14px;font-weight:800}.partner-queue-head button{border:0;border-radius:999px;background:#fff;color:var(--partner-accent);min-height:46px;padding:0 20px;font-weight:950;cursor:pointer}.partner-queue-tabs{margin:22px 0;display:flex;gap:10px;flex-wrap:wrap}.partner-queue-tabs button{border:1px solid #e5e7eb;border-radius:999px;background:#fff;color:#667085;min-height:44px;padding:0 18px;font-weight:950;cursor:pointer}.partner-queue-tabs button.active{background:var(--partner-accent);border-color:var(--partner-accent);color:#fff}.partner-queue-tabs strong{margin-right:8px}.partner-queue-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.partner-queue-card{border:1px solid #e5e7eb;border-radius:28px;background:#fff;padding:22px;box-shadow:0 14px 32px rgba(15,23,42,.06)}.partner-queue-card-head{display:grid;grid-template-columns:54px 1fr auto;gap:12px;align-items:center}.partner-queue-card-head>span{width:54px;height:54px;border-radius:18px;background:#f1f5f9;display:grid;place-items:center;font-size:26px}.partner-queue-card-head h2{margin:0;font-size:19px;font-weight:950}.partner-queue-card-head p{margin:5px 0 0;color:#98a2b3;font-size:12px;font-weight:800}.partner-queue-card-head i{font-style:normal;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:950}.partner-queue-card-head i.ready{background:#ecfdf3;color:#047857}.partner-queue-card-head i.done{background:#f1f5f9;color:#475467}.partner-queue-card dl{margin:18px 0;display:grid;grid-template-columns:120px 1fr;gap:9px;border-radius:18px;background:#f8fafc;padding:16px}.partner-queue-card dt{color:#98a2b3;font-size:12px;font-weight:900}.partner-queue-card dd{margin:0;color:#344054;font-size:13px;font-weight:950}.partner-queue-description,.partner-queue-result{border-radius:18px;background:#f8fafc;padding:16px;margin-bottom:14px}.partner-queue-description strong,.partner-queue-result strong{font-size:13px;font-weight:950}.partner-queue-description p,.partner-queue-result p{margin:7px 0 0;color:#667085;font-size:13px;line-height:1.8;font-weight:800;white-space:pre-wrap}.partner-queue-result{background:#ecfdf3;color:#047857}.partner-queue-scan-required{border-radius:18px;background:#eff6ff;border:1px solid #bfdbfe;padding:16px}.partner-queue-scan-required strong{color:#1d4ed8;font-size:13px;font-weight:950}.partner-queue-scan-required p{margin:7px 0 12px;color:#64748b;font-size:12px;line-height:1.8;font-weight:800}.partner-queue-scan-required button{width:100%;min-height:42px;border:0;border-radius:999px;background:var(--partner-accent);color:#fff;font-weight:950;cursor:pointer}.partner-queue-documents{border-radius:18px;background:#fff7ed;border:1px solid #fed7aa;padding:16px;margin-bottom:14px}.partner-queue-documents>strong{display:block;color:#9a3412;font-size:13px;font-weight:950;margin-bottom:10px}.partner-queue-documents>div{display:grid;gap:8px}.partner-queue-documents a{border-radius:13px;background:#fff;color:#344054;padding:10px 12px;display:grid;grid-template-columns:24px 1fr auto;gap:8px;align-items:center;text-decoration:none;font-size:12px}.partner-queue-documents a b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.partner-queue-documents a small{color:#98a2b3;font-weight:800}.partner-queue-card textarea{width:100%;border:1px solid #e5e7eb;border-radius:16px;background:#f8fafc;padding:13px;resize:vertical;font:inherit;font-size:13px;font-weight:800;outline:none}.partner-queue-card>button{width:100%;margin-top:10px;border:0;border-radius:999px;background:var(--partner-accent);color:#fff;min-height:44px;font-weight:950;cursor:pointer}.partner-queue-card>button:disabled{opacity:.6}.partner-queue-state,.partner-queue-empty{margin-top:22px;border:1px solid #e5e7eb;border-radius:28px;background:#fff;padding:44px;text-align:center;color:#667085;font-weight:900}.partner-queue-empty div{font-size:40px}.partner-queue-empty h2{color:#111827;font-weight:950}.partner-queue-message{margin-top:18px;border-radius:18px;padding:15px;font-weight:900}.partner-queue-message.ok{background:#ecfdf3;color:#047857}.partner-queue-message.bad{background:#fef2f2;color:#991b1b}@@media(max-width:850px){.partner-queue-page{padding:20px 14px}.partner-queue-grid{grid-template-columns:1fr}.partner-queue-head{align-items:flex-start;flex-direction:column}}
+</style>
+
+@code {
+    private bool loading = true;
+    private bool messageOk;
+    private string? message;
+    private string userId = string.Empty;
+    private QueueFilter filter = QueueFilter.Ready;
+    private List<RequestWorkItem> rows = [];
+    private Dictionary<Guid, string?> notes = [];
+    private Dictionary<Guid, List<PartnerRequestDocument>> documentsByRequest = [];
+    private HashSet<Guid> busyIds = [];
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        loading = true;
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            rows = string.IsNullOrWhiteSpace(userId) ? [] : await Ui.GetPartnerRequestsAsync(userId, ServiceRequestType.RadiologyScan);
+            foreach (var item in rows)
+            {
+                if (!notes.ContainsKey(item.Id)) notes[item.Id] = item.ProviderNoteAr;
+                documentsByRequest[item.Id] = await Ui.GetPartnerRequestDocumentsAsync(item.Id, userId, ServiceRequestType.RadiologyScan);
+            }
+        }
+        catch { message = "حدث خطأ أثناء تحميل الطلبات."; messageOk = false; }
+        finally { loading = false; }
+    }
+
+    private IEnumerable<RequestWorkItem> FilteredRows => filter switch { QueueFilter.Ready => rows.Where(r => r.Status == RequestStatus.Approved), QueueFilter.Done => rows.Where(r => r.Status == RequestStatus.Completed), _ => rows };
+    private int ReadyCount => rows.Count(r => r.Status == RequestStatus.Approved);
+    private int DoneCount => rows.Count(r => r.Status == RequestStatus.Completed);
+
+    private async Task Complete(RequestWorkItem item)
+    {
+        busyIds.Add(item.Id); message = null;
+        try
+        {
+            var result = await Ui.CompletePartnerRequestAsync(item.Id, userId, ServiceRequestType.RadiologyScan, notes.GetValueOrDefault(item.Id));
+            message = result.Message; messageOk = result.Succeeded;
+            if (result.Succeeded) await Load();
+        }
+        finally { busyIds.Remove(item.Id); }
+    }
+
+    private static string DocumentUrl(string filePath)
+    {
+        var value = (filePath ?? string.Empty).Trim().Replace("\\", "/");
+        if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)) return value;
+        if (value.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase)) return "/" + value;
+        return "/uploads/" + value.TrimStart('/');
+    }
+
+    private static string FileSizeText(long bytes) => bytes < 1024 * 1024
+        ? $"{bytes / 1024d:0.#} KB"
+        : $"{bytes / 1024d / 1024d:0.##} MB";
+
+    private static string RequestCode(Guid id) => $"REQ-{id.ToString("N")[..6].ToUpperInvariant()}";
+    private static string FormatDate(DateTime date) => date.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+    private enum QueueFilter { Ready, Done, All }
+}

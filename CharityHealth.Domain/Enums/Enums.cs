@@ -5,7 +5,19 @@ public enum UserType
     Beneficiary = 1,
     Doctor = 2,
     Staff = 3,
-    Administrator = 4
+    Administrator = 4,
+    Laboratory = 5,
+    RadiologyCenter = 6,
+    Pharmacy = 7,
+    Pharmacist = 8
+}
+
+public enum ServiceRequestType
+{
+    MedicalConsultation = 1,
+    PharmacyMedication = 2,
+    LaboratoryTest = 3,
+    RadiologyScan = 4
 }
 
 public enum RequestStatus
@@ -38,7 +50,8 @@ public enum NotificationType
     RequestRejected = 2,
     DocumentRequired = 3,
     AppointmentReminder = 4,
-    ConsultationCompleted = 5
+    ConsultationCompleted = 5,
+    ServiceCompleted = 6
 }
 
 public enum Gender

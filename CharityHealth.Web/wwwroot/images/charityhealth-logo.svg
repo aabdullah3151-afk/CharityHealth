@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">CharityHealth Logo</title>
+  <desc id="desc">A green medical crescent embracing a blue circle with a white healthcare cross.</desc>
+  <defs>
+    <linearGradient id="greenGradient" x1="70" y1="70" x2="390" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22c55e"/>
+      <stop offset="0.55" stop-color="#05a843"/>
+      <stop offset="1" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="blueGradient" x1="270" y1="165" x2="445" y2="365" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#0284c7"/>
+    </linearGradient>
+    <mask id="crescentMask">
+      <rect width="512" height="512" fill="black"/>
+      <circle cx="222" cy="256" r="190" fill="white"/>
+      <circle cx="294" cy="215" r="160" fill="black"/>
+    </mask>
+  </defs>
+  <circle cx="222" cy="256" r="190" fill="url(#greenGradient)" mask="url(#crescentMask)"/>
+  <circle cx="348" cy="269" r="92" fill="url(#blueGradient)"/>
+  <circle cx="348" cy="269" r="75" fill="none" stroke="#ffffff" stroke-opacity=".28" stroke-width="4"/>
+  <rect x="326" y="220" width="44" height="98" rx="14" fill="#ffffff"/>
+  <rect x="299" y="247" width="98" height="44" rx="14" fill="#ffffff"/>
+  <circle cx="348" cy="269" r="98" fill="none" stroke="#ffffff" stroke-opacity=".32" stroke-width="7"/>
+</svg>

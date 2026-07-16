@@ -365,3 +365,41 @@ FodyWeavers.xsdCharityHealth.Web/uploads/
 # Ignore runtime uploaded files
 /CharityHealth.Web/uploads/
 /CharityHealth.Web/uploads/**
+
+# Build outputs
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+
+# Backups and temporary tools
+_backup*/
+__backup*/
+_safe_backups/
+_manual_migrations_backup/
+_temporary_tools/
+.ngrok-link/
+.public-link/
+.verified-public-link/
+
+# Temporary files
+*.bak
+*.backup
+*.tmp
+*.temp
+*.orig
+*.rej
+*.log
+.DS_Store
+
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+CharityHealth-user-credentials-*.csv
+ngrok.yml
+
+# Local file backups
+*.before-*
+*.before_*
+*.backup_*

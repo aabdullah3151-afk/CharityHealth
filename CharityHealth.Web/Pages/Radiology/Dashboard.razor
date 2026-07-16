@@ -1,0 +1,19 @@
+@page "/radiology/dashboard"
+@layout MainLayout
+@attribute [Authorize(Roles = "RadiologyCenter")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Components.Partners
+<PageTitle>لوحة مركز الأشعة</PageTitle>
+<ProviderAccountDashboard ArabicTitle="مركز الأشعة"
+                  EnglishTitle="Radiology Center"
+                  Icon="🩻"
+                  RequestsUrl="/radiology/requests"
+                  ScanUrl="/radiology/scan"
+                  NotificationsUrl="/radiology/notifications"
+                  SettingsUrl="/radiology/settings"
+                  ServiceType="@ServiceRequestType.RadiologyScan"
+                  AccentColor="#2563eb"
+                  AccentDark="#1d4ed8"
+                  AccentSoft="#eff6ff"
+                  AccentShadow="rgba(37,99,235,.22)" />

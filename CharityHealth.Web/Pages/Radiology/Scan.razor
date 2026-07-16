@@ -1,0 +1,14 @@
+@page "/radiology/scan"
+@layout MainLayout
+@attribute [Authorize(Roles = "RadiologyCenter")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Components.Partners
+<PageTitle>مسح QR مركز الأشعة</PageTitle>
+<PartnerQrScanner ServiceType="@ServiceRequestType.RadiologyScan"
+                  ArabicTitle="مركز الأشعة"
+                  Icon="🩻"
+                  DashboardUrl="/radiology/dashboard"
+                  RequestsUrl="/radiology/requests"
+                  AccentColor="#2563eb"
+                  AccentDark="#1d4ed8" />

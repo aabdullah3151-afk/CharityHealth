@@ -1,217 +1,23 @@
 @page "/admin/pharmacies/create"
 @layout MainLayout
-@attribute [Authorize(Roles = "Administrator,Staff")]
-
+@attribute [Authorize(Roles = "Administrator")]
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Identity
-@using CharityHealth.Domain.Entities
 @using CharityHealth.Domain.Enums
-
-@inject UserManager<ApplicationUser> UserManager
-@inject RoleManager<IdentityRole> RoleManager
-@inject NavigationManager Nav
-
+@using CharityHealth.Web.Components.Partners
 <PageTitle>إضافة صيدلية</PageTitle>
-
-<div class="admin-pharmacy-form-page" dir="rtl">
-
-    <header class="admin-pharmacy-form-head">
-        <button type="button"
-                class="admin-pharmacy-back"
-                @onclick='() => Nav.NavigateTo("/admin/pharmacies")'>
-            ›
-        </button>
-
-        <div>
-            <div class="admin-pharmacy-kicker">Create Pharmacy 💊</div>
-            <h1>إضافة صيدلية جديدة</h1>
-            <p>سيتم إنشاء حساب دخول للصيدلية بكلمة مرور افتراضية 12345678.</p>
-        </div>
-    </header>
-
-    <section class="admin-pharmacy-form-card">
-        <EditForm Model="@model" OnValidSubmit="HandleCreatePharmacy">
-            <DataAnnotationsValidator />
-
-            <div class="pharmacy-form-grid">
-                <label>
-                    <span>اسم الصيدلية / الصيدلي بالعربي *</span>
-                    <InputText @bind-Value="model.NameAr"
-                               placeholder="مثال: صيدلية الرحمة"
-                               class="pharmacy-input" />
-                </label>
-
-                <label>
-                    <span>الاسم بالإنجليزي</span>
-                    <InputText @bind-Value="model.NameEn"
-                               placeholder="Al Rahma Pharmacy"
-                               class="pharmacy-input" />
-                </label>
-
-                <label>
-                    <span>البريد الإلكتروني *</span>
-                    <InputText @bind-Value="model.Email"
-                               placeholder="pharmacy@example.com"
-                               class="pharmacy-input"
-                               autocomplete="off" />
-                </label>
-
-                <label>
-                    <span>رقم الهاتف</span>
-                    <InputText @bind-Value="model.PhoneNumber"
-                               placeholder="01000000000"
-                               class="pharmacy-input" />
-                </label>
-            </div>
-
-            <div class="pharmacy-default-password">
-                <span>🔐</span>
-                <div>
-                    <strong>كلمة المرور الافتراضية</strong>
-                    <p>كل حساب صيدلية جديد سيتم إنشاؤه بكلمة مرور: <b>12345678</b></p>
-                </div>
-            </div>
-
-            @if (!string.IsNullOrWhiteSpace(message))
-            {
-                <div class="admin-pharmacy-message @(messageOk ? "ok" : "bad")">
-                    @message
-                </div>
-            }
-
-            <footer class="pharmacy-form-actions">
-                <button type="button"
-                        class="secondary"
-                        disabled="@saving"
-                        @onclick='() => Nav.NavigateTo("/admin/pharmacies")'>
-                    إلغاء
-                </button>
-
-                <button type="submit"
-                        class="primary"
-                        disabled="@saving">
-                    @(saving ? "جارٍ الحفظ..." : "حفظ الصيدلية")
-                </button>
-            </footer>
-        </EditForm>
-    </section>
-</div>
-
-@code {
-    private const string PharmacistRoleName = "Pharmacist";
-    private const string DefaultPassword = "12345678";
-
-    private PharmacyCreateModel model = new();
-
-    private bool saving;
-    private bool messageOk;
-    private string? message;
-
-    private async Task HandleCreatePharmacy()
-    {
-        message = null;
-        messageOk = false;
-
-        if (string.IsNullOrWhiteSpace(model.NameAr))
-        {
-            message = "اسم الصيدلية مطلوب.";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(model.Email))
-        {
-            message = "البريد الإلكتروني مطلوب.";
-            return;
-        }
-
-        saving = true;
-
-        try
-        {
-            await EnsurePharmacistRole();
-
-            var normalizedEmail = model.Email.Trim();
-
-            var existing = await UserManager.FindByEmailAsync(normalizedEmail);
-
-            if (existing is not null)
-            {
-                message = "يوجد حساب مسجل بالفعل بهذا البريد الإلكتروني.";
-                return;
-            }
-
-            var user = new ApplicationUser
-            {
-                UserName = normalizedEmail,
-                Email = normalizedEmail,
-                EmailConfirmed = true,
-
-                PhoneNumber = model.PhoneNumber,
-                PhoneNumberConfirmed = !string.IsNullOrWhiteSpace(model.PhoneNumber),
-
-                FullNameAr = model.NameAr.Trim(),
-                FullNameEn = string.IsNullOrWhiteSpace(model.NameEn)
-                    ? model.NameAr.Trim()
-                    : model.NameEn.Trim(),
-
-                UserType = ResolvePharmacistUserType(),
-                IsActive = true
-            };
-
-            var createResult = await UserManager.CreateAsync(user, DefaultPassword);
-
-            if (!createResult.Succeeded)
-            {
-                message = string.Join(" | ", createResult.Errors.Select(e => e.Description));
-                return;
-            }
-
-            var roleResult = await UserManager.AddToRoleAsync(user, PharmacistRoleName);
-
-            if (!roleResult.Succeeded)
-            {
-                message = "تم إنشاء الحساب لكن تعذر إضافة Role الصيدلي: "
-                    + string.Join(" | ", roleResult.Errors.Select(e => e.Description));
-                return;
-            }
-
-            messageOk = true;
-            message = "تم إنشاء حساب الصيدلية بنجاح. كلمة المرور: 12345678";
-
-            await Task.Delay(650);
-
-            Nav.NavigateTo("/admin/pharmacies", forceLoad: true);
-        }
-        catch
-        {
-            message = "حدث خطأ أثناء إنشاء حساب الصيدلية.";
-        }
-        finally
-        {
-            saving = false;
-        }
-    }
-
-    private async Task EnsurePharmacistRole()
-    {
-        if (!await RoleManager.RoleExistsAsync(PharmacistRoleName))
-        {
-            await RoleManager.CreateAsync(new IdentityRole(PharmacistRoleName));
-        }
-    }
-
-    private static UserType ResolvePharmacistUserType()
-    {
-        return Enum.TryParse<UserType>("Pharmacist", ignoreCase: true, out var pharmacistType)
-            ? pharmacistType
-            : UserType.Staff;
-    }
-
-    private sealed class PharmacyCreateModel
-    {
-        public string NameAr { get; set; } = string.Empty;
-        public string? NameEn { get; set; }
-        public string Email { get; set; } = string.Empty;
-        public string? PhoneNumber { get; set; }
-    }
-}
+<PartnerAdminCreate PrimaryRoleName="Pharmacy"
+                    PrimaryRoleLabel="صيدلية"
+                    SecondaryRoleName="Pharmacist"
+                    SecondaryRoleLabel="صيدلي"
+                    AccountUserType="@UserType.Pharmacy"
+                    SingularLabel="صيدلية"
+                    Kicker="Create Pharmacy"
+                    Icon="💊"
+                    ListUrl="/admin/pharmacies"
+                    ArabicPlaceholder="مثال: صيدلية الرحمة"
+                    EnglishPlaceholder="Al Rahma Pharmacy"
+                    EmailPlaceholder="pharmacy@example.com"
+                    ShowDiscountPercentage="true"
+                    AccentColor="#f59e0b"
+                    AccentSoft="#fffbeb"
+                    AccentBorder="#fde68a" />

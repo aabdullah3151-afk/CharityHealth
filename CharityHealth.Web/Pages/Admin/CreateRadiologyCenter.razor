@@ -1,0 +1,21 @@
+@page "/admin/radiology-centers/create"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Components.Partners
+<PageTitle>إضافة مركز أشعة</PageTitle>
+<PartnerAdminCreate PrimaryRoleName="RadiologyCenter"
+                    PrimaryRoleLabel="مركز أشعة"
+                    AccountUserType="@UserType.RadiologyCenter"
+                    SingularLabel="مركز أشعة"
+                    Kicker="Create Radiology Center"
+                    Icon="🩻"
+                    ListUrl="/admin/radiology-centers"
+                    ArabicPlaceholder="اسم مركز الأشعة بالعربي"
+                    EnglishPlaceholder="Radiology Center Name"
+                    EmailPlaceholder="radiology@example.com"
+                    ShowWorkingDays="true"
+                    AccentColor="#2563eb"
+                    AccentSoft="#eff6ff"
+                    AccentBorder="#bfdbfe" />

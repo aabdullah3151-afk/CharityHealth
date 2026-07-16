@@ -33,7 +33,7 @@
                 class="beneficiary-primary-btn"
                 @onclick='() => Nav.NavigateTo("/portal/request/new")'>
             <span>+</span>
-            طلب كشف جديد
+            طلب خدمة صحية
         </button>
     </header>
 
@@ -103,7 +103,7 @@
                         <strong>لا توجد طلبات حتى الآن</strong>
 
                         <span>
-                            ابدأ بتقديم طلب كشف جديد وسيظهر هنا.
+                            ابدأ بتقديم طلب خدمة صحية وسيظهر هنا.
                         </span>
 
                         <button type="button"
@@ -319,7 +319,7 @@
         {
             if (TotalRequests == 0)
             {
-                return "قم بتقديم طلب كشف جديد وسيتم مراجعته من الإدارة.";
+                return "قم بتقديم طلب خدمة صحية وسيتم مراجعته من الإدارة.";
             }
 
             if (ApprovedRequests > 0)
@@ -347,7 +347,7 @@
         {
             if (TotalRequests == 0 || RejectedRequests > 0)
             {
-                return "طلب كشف جديد";
+                return "طلب خدمة صحية";
             }
 
             return "عرض الطلبات";

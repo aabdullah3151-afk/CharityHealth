@@ -1,0 +1,367 @@
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Identity
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject NavigationManager Nav
+@inject CharityHealth.Application.Interfaces.Services.IAuditService Audit
+
+<div class="admin-pharmacy-form-page" dir="rtl" style="--provider-accent:@AccentColor;--provider-soft:@AccentSoft;--provider-border:@AccentBorder;">
+    <header class="admin-pharmacy-form-head">
+        <button type="button" class="admin-pharmacy-back" @onclick="GoBack">›</button>
+        <div>
+            <div class="admin-pharmacy-kicker">@Kicker @Icon</div>
+            <h1>إضافة @SingularLabel جديد</h1>
+            <p>أدخل بيانات الجهة كاملة وحدد السعة القصوى للطلبات اليومية.</p>
+        </div>
+    </header>
+
+    <section class="admin-pharmacy-form-card" style="border-top:4px solid @AccentColor;">
+        <EditForm Model="@model" OnValidSubmit="HandleCreate">
+            <DataAnnotationsValidator />
+
+            <div class="provider-form-section-title">
+                <strong>بيانات الحساب</strong>
+                <span>بيانات الدخول والتواصل الأساسية</span>
+            </div>
+
+            <div class="pharmacy-form-grid">
+                <label>
+                    <span>اسم @SingularLabel بالعربي *</span>
+                    <InputText @bind-Value="model.NameAr" placeholder="@ArabicPlaceholder" class="pharmacy-input" />
+                </label>
+                <label>
+                    <span>الاسم بالإنجليزي</span>
+                    <InputText @bind-Value="model.NameEn" placeholder="@EnglishPlaceholder" class="pharmacy-input" />
+                </label>
+                <label>
+                    <span>البريد الإلكتروني *</span>
+                    <InputText @bind-Value="model.Email" placeholder="@EmailPlaceholder" class="pharmacy-input" autocomplete="off" />
+                </label>
+                <label>
+                    <span>رقم الهاتف *</span>
+                    <InputText @bind-Value="model.PhoneNumber" placeholder="01000000000" class="pharmacy-input" />
+                </label>
+                <label>
+                    <span>كلمة المرور</span>
+                    <InputText @bind-Value="model.Password" type="password" placeholder="اتركها فارغة لاستخدام 12345678" class="pharmacy-input" autocomplete="new-password" />
+                </label>
+                @if (!string.IsNullOrWhiteSpace(SecondaryRoleName))
+                {
+                    <label>
+                        <span>نوع الحساب *</span>
+                        <InputSelect @bind-Value="model.RoleName" class="pharmacy-input">
+                            <option value="@PrimaryRoleName">@PrimaryRoleLabel</option>
+                            <option value="@SecondaryRoleName">@SecondaryRoleLabel</option>
+                        </InputSelect>
+                    </label>
+                }
+                <label>
+                    <span>اسم مسؤول التواصل</span>
+                    <InputText @bind-Value="model.ContactPersonName" placeholder="اسم المسؤول" class="pharmacy-input" />
+                </label>
+                <label>
+                    <span>رقم الترخيص</span>
+                    <InputText @bind-Value="model.LicenseNumber" placeholder="رقم الترخيص أو الاعتماد" class="pharmacy-input" />
+                </label>
+                <label>
+                    <span>الحد الأقصى اليومي *</span>
+                    <InputNumber @bind-Value="model.DailyRequestCapacity" min="1" max="1000" class="pharmacy-input" />
+                </label>
+                @if (ShowWorkingDays)
+                {
+                    <label>
+                        <span>الحالة</span>
+                        <InputSelect @bind-Value="model.IsActive" class="pharmacy-input">
+                            <option value="true">متاح</option>
+                            <option value="false">غير متاح</option>
+                        </InputSelect>
+                    </label>
+                }
+                @if (ShowDiscountPercentage)
+                {
+                    <label class="provider-discount-input-wrap">
+                        <span>نسبة الخصم للمستفيد (%)</span>
+                        <InputNumber @bind-Value="model.DiscountPercentage" min="0" max="100" step="0.5" class="pharmacy-input provider-discount-input" />
+                        <small>ستظهر النسبة للمستفيد عند اختيار @SingularLabel.</small>
+                    </label>
+                }
+            </div>
+
+            <div class="provider-form-section-title">
+                <strong>العنوان ومواعيد العمل</strong>
+                <span>تظهر هذه البيانات للمستفيد عند اختيار الجهة</span>
+            </div>
+
+            <div class="pharmacy-form-grid">
+                <label>
+                    <span>المحافظة *</span>
+                    <InputText @bind-Value="model.Governorate" placeholder="مثال: الشرقية" class="pharmacy-input" />
+                </label>
+                <label>
+                    <span>المدينة / المركز *</span>
+                    <InputText @bind-Value="model.City" placeholder="مثال: بلبيس" class="pharmacy-input" />
+                </label>
+                @if (ShowWorkingDays)
+                {
+                    <label>
+                        <span>بداية وقت العمل</span>
+                        <InputText @bind-Value="model.WorkStartTime" type="time" class="pharmacy-input" />
+                    </label>
+                    <label>
+                        <span>نهاية وقت العمل</span>
+                        <InputText @bind-Value="model.WorkEndTime" type="time" class="pharmacy-input" />
+                    </label>
+                    <div class="provider-wide-field provider-days-field">
+                        <span>أيام العمل *</span>
+                        <div class="provider-days-grid">
+                            @foreach (var day in Days)
+                            {
+                                <label class="provider-day-chip">
+                                    <input type="checkbox" checked="@model.WorkingDays.Contains(day.Code)" @onchange="e => ToggleWorkingDay(day.Code, e)" />
+                                    <b>@day.Name</b>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <label class="provider-wide-field">
+                        <span>ساعات ومواعيد العمل</span>
+                        <InputText @bind-Value="model.WorkingHours" placeholder="مثال: يوميًا من 9 صباحًا إلى 10 مساءً" class="pharmacy-input" />
+                    </label>
+                }
+                <label class="provider-wide-field">
+                    <span>@(ShowWorkingDays ? $"عنوان {SingularLabel} بالتفصيل *" : "العنوان بالتفصيل *")</span>
+                    <InputTextArea @bind-Value="model.AddressAr" placeholder="الشارع، المنطقة، علامة مميزة..." class="pharmacy-input provider-address-textarea" rows="3" />
+                </label>
+                <label class="provider-wide-field">
+                    <span>وصف الخدمات والتفاصيل</span>
+                    <InputTextArea @bind-Value="model.DescriptionAr" rows="4" maxlength="1500" placeholder="اكتب الخدمات المتاحة وأي تعليمات مهمة للمستفيد..." class="pharmacy-input provider-textarea" />
+                </label>
+            </div>
+
+            <div class="pharmacy-default-password" style="background:@AccentSoft;border-color:@AccentBorder;">
+                <span>🔐</span>
+                <div>
+                    <strong>بيانات الدخول</strong>
+                    <p>يمكنك كتابة كلمة مرور مخصصة، وإذا تركتها فارغة ستكون: <b>@DefaultPassword</b></p>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <div class="admin-pharmacy-message @(messageOk ? "ok" : "bad")">@message</div>
+            }
+
+            <footer class="pharmacy-form-actions">
+                <button type="button" class="secondary" disabled="@saving" @onclick="GoBack">إلغاء</button>
+                <button type="submit" class="primary" disabled="@saving" style="background:@AccentColor;">
+                    @(saving ? "جارٍ الحفظ..." : $"حفظ {SingularLabel}")
+                </button>
+            </footer>
+        </EditForm>
+    </section>
+</div>
+
+<style>
+    .provider-form-section-title{margin:8px 0 18px;padding:14px 18px;border-radius:18px;background:#f8fafc;border:1px solid #eef2f6;display:flex;justify-content:space-between;gap:12px;align-items:center}.provider-form-section-title strong{font-size:16px;font-weight:950;color:#111827}.provider-form-section-title span{font-size:12px;font-weight:800;color:#98a2b3}.provider-wide-field{grid-column:1/-1}.provider-textarea{height:auto!important;min-height:115px!important;padding-top:14px!important;resize:vertical}.provider-address-textarea{height:auto!important;min-height:100px!important;padding-top:14px!important;resize:vertical}.provider-discount-input-wrap{border:1px solid var(--provider-border);border-radius:18px;background:var(--provider-soft);padding:12px}.provider-discount-input-wrap small{color:var(--provider-accent);font-size:11px;font-weight:900}.provider-discount-input{background:#fff!important;border-color:var(--provider-border)!important}.provider-days-field{display:grid;gap:10px}.provider-days-field>span{color:#344054;font-size:13px;font-weight:900}.provider-days-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:9px}.provider-day-chip{border:1px solid #e5e7eb;border-radius:15px;background:#f8fafc;padding:11px 8px;display:flex!important;align-items:center;justify-content:center;gap:7px;cursor:pointer}.provider-day-chip input{width:17px;height:17px;accent-color:var(--provider-accent,#05a843)}.provider-day-chip b{font-size:12px;color:#344054}@@media(max-width:900px){.provider-days-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}@@media(max-width:700px){.provider-form-section-title{display:grid}.provider-wide-field{grid-column:auto}.provider-days-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+
+@code {
+    [Parameter, EditorRequired] public string PrimaryRoleName { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string PrimaryRoleLabel { get; set; } = string.Empty;
+    [Parameter] public string? SecondaryRoleName { get; set; }
+    [Parameter] public string? SecondaryRoleLabel { get; set; }
+    [Parameter, EditorRequired] public UserType AccountUserType { get; set; }
+    [Parameter, EditorRequired] public string SingularLabel { get; set; } = string.Empty;
+    [Parameter] public string Kicker { get; set; } = "Create Partner";
+    [Parameter] public string Icon { get; set; } = "🏥";
+    [Parameter, EditorRequired] public string ListUrl { get; set; } = string.Empty;
+    [Parameter] public string ArabicPlaceholder { get; set; } = "اسم الجهة بالعربي";
+    [Parameter] public string EnglishPlaceholder { get; set; } = "Provider Name";
+    [Parameter] public string EmailPlaceholder { get; set; } = "provider@example.com";
+    [Parameter] public string AccentColor { get; set; } = "#05a843";
+    [Parameter] public string AccentSoft { get; set; } = "#ecfdf3";
+    [Parameter] public string AccentBorder { get; set; } = "#a7f3d0";
+    [Parameter] public bool ShowDiscountPercentage { get; set; }
+    [Parameter] public bool ShowWorkingDays { get; set; }
+
+    private const string DefaultPassword = "12345678";
+    private PartnerCreateModel model = new();
+    private bool saving;
+    private bool messageOk;
+    private string? message;
+    private readonly List<DayOption> Days =
+    [
+        new("Sat", "السبت"), new("Sun", "الأحد"), new("Mon", "الاثنين"),
+        new("Tue", "الثلاثاء"), new("Wed", "الأربعاء"), new("Thu", "الخميس"), new("Fri", "الجمعة")
+    ];
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrWhiteSpace(model.RoleName)) model.RoleName = PrimaryRoleName;
+    }
+
+    private void GoBack() => Nav.NavigateTo(ListUrl);
+
+    private void ToggleWorkingDay(string code, ChangeEventArgs args)
+    {
+        if (args.Value is bool selected && selected) model.WorkingDays.Add(code);
+        else model.WorkingDays.Remove(code);
+    }
+
+    private async Task HandleCreate()
+    {
+        message = null;
+        messageOk = false;
+        var validation = Validate();
+        if (validation is not null) { message = validation; return; }
+
+        saving = true;
+        try
+        {
+            var roleName = string.IsNullOrWhiteSpace(model.RoleName) ? PrimaryRoleName : model.RoleName;
+            await EnsureRole(roleName);
+            var normalizedEmail = model.Email.Trim();
+            if (await UserManager.FindByEmailAsync(normalizedEmail) is not null)
+            {
+                message = "يوجد حساب مسجل بالفعل بهذا البريد الإلكتروني.";
+                return;
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = normalizedEmail,
+                Email = normalizedEmail,
+                EmailConfirmed = true,
+                PhoneNumber = Clean(model.PhoneNumber),
+                PhoneNumberConfirmed = true,
+                FullNameAr = model.NameAr.Trim(),
+                FullNameEn = Clean(model.NameEn) ?? model.NameAr.Trim(),
+                UserType = ResolveUserType(roleName),
+                IsActive = model.IsActive,
+                LockoutEnabled = !model.IsActive,
+                LockoutEnd = model.IsActive ? null : DateTimeOffset.UtcNow.AddYears(100),
+                ContactPersonName = Clean(model.ContactPersonName),
+                LicenseNumber = Clean(model.LicenseNumber),
+                Governorate = model.Governorate.Trim(),
+                City = model.City.Trim(),
+                AddressAr = model.AddressAr.Trim(),
+                WorkingHours = ShowWorkingDays ? BuildWorkingHours(model.WorkStartTime, model.WorkEndTime) : Clean(model.WorkingHours),
+                WorkingDays = ShowWorkingDays ? string.Join(",", model.WorkingDays) : null,
+                DescriptionAr = Clean(model.DescriptionAr),
+                DailyRequestCapacity = model.DailyRequestCapacity,
+                DiscountPercentage = ShowDiscountPercentage ? model.DiscountPercentage : 0m,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var selectedPassword = string.IsNullOrWhiteSpace(model.Password) ? DefaultPassword : model.Password.Trim();
+            var createResult = await UserManager.CreateAsync(user, selectedPassword);
+            if (!createResult.Succeeded) { message = JoinErrors(createResult); return; }
+
+            var roleResult = await UserManager.AddToRoleAsync(user, roleName);
+            if (!roleResult.Succeeded)
+            {
+                await UserManager.DeleteAsync(user);
+                message = "تعذر إضافة صلاحية الحساب: " + JoinErrors(roleResult);
+                return;
+            }
+
+            await UserManager.AddClaimAsync(user, new Claim("FullNameAr", user.FullNameAr));
+            await UserManager.AddClaimAsync(user, new Claim("UserType", roleName));
+
+            try
+            {
+                var json = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    user.FullNameAr, user.Email, user.PhoneNumber, roleName,
+                    user.Governorate, user.City, user.AddressAr, user.WorkingHours, user.WorkingDays,
+                    user.DailyRequestCapacity, user.DiscountPercentage, user.IsActive
+                });
+                await Audit.LogAsync($"{roleName}.Created", roleName, user.Id, newValues: json);
+            }
+            catch { }
+
+            messageOk = true;
+            message = $"تم إنشاء حساب {SingularLabel} بنجاح. كلمة المرور: {selectedPassword}";
+            Nav.NavigateTo(ListUrl, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            message = $"حدث خطأ أثناء إنشاء حساب {SingularLabel}: {ex.Message}";
+        }
+        finally { saving = false; }
+    }
+
+    private string? Validate()
+    {
+        if (string.IsNullOrWhiteSpace(model.NameAr)) return $"اسم {SingularLabel} مطلوب.";
+        if (string.IsNullOrWhiteSpace(model.Email) || !model.Email.Contains('@') || !model.Email.Contains('.')) return "البريد الإلكتروني غير صحيح.";
+        if (string.IsNullOrWhiteSpace(model.PhoneNumber)) return "رقم الهاتف مطلوب.";
+        if (string.IsNullOrWhiteSpace(model.Governorate)) return "المحافظة مطلوبة.";
+        if (string.IsNullOrWhiteSpace(model.City)) return "المدينة أو المركز مطلوب.";
+        if (string.IsNullOrWhiteSpace(model.AddressAr)) return "العنوان بالتفصيل مطلوب.";
+        if (model.DailyRequestCapacity is < 1 or > 1000) return "عدد الطلبات اليومية يجب أن يكون بين 1 و1000.";
+        if (!string.IsNullOrWhiteSpace(model.Password) && model.Password.Trim().Length < 8) return "كلمة المرور يجب ألا تقل عن 8 أحرف أو أرقام.";
+        if (ShowDiscountPercentage && model.DiscountPercentage is < 0 or > 100) return "نسبة الخصم يجب أن تكون بين 0 و100%.";
+        if (ShowWorkingDays && model.WorkingDays.Count == 0) return "اختر يوم عمل واحدًا على الأقل.";
+        if (ShowWorkingDays && !ValidTimeRange(model.WorkStartTime, model.WorkEndTime)) return "وقت نهاية العمل يجب أن يكون بعد وقت البداية.";
+        return null;
+    }
+
+    private async Task EnsureRole(string roleName)
+    {
+        if (!await RoleManager.RoleExistsAsync(roleName))
+            await RoleManager.CreateAsync(new IdentityRole(roleName));
+    }
+
+    private UserType ResolveUserType(string roleName) =>
+        Enum.TryParse<UserType>(roleName, true, out var parsed) ? parsed : AccountUserType;
+
+    private static string? BuildWorkingHours(string? start, string? end)
+    {
+        start = Clean(start);
+        end = Clean(end);
+        if (start is null && end is null) return null;
+        if (start is not null && end is not null) return $"{start} - {end}";
+        return start is not null ? $"من {start}" : $"حتى {end}";
+    }
+
+    private static bool ValidTimeRange(string? start, string? end)
+    {
+        if (string.IsNullOrWhiteSpace(start) || string.IsNullOrWhiteSpace(end)) return true;
+        return TimeOnly.TryParse(start, out var from) && TimeOnly.TryParse(end, out var to) && to > from;
+    }
+
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string JoinErrors(IdentityResult result) => string.Join(" | ", result.Errors.Select(e => e.Description));
+
+    private sealed record DayOption(string Code, string Name);
+
+    private sealed class PartnerCreateModel
+    {
+        public string NameAr { get; set; } = string.Empty;
+        public string? NameEn { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
+        public string? Password { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+        public string? ContactPersonName { get; set; }
+        public string? LicenseNumber { get; set; }
+        public string Governorate { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string AddressAr { get; set; } = string.Empty;
+        public string? WorkingHours { get; set; }
+        public string? WorkStartTime { get; set; } = "09:00";
+        public string? WorkEndTime { get; set; } = "17:00";
+        public bool IsActive { get; set; } = true;
+        public HashSet<string> WorkingDays { get; set; } = [];
+        public string? DescriptionAr { get; set; }
+        public int DailyRequestCapacity { get; set; } = 20;
+        public decimal DiscountPercentage { get; set; }
+    }
+}

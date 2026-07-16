@@ -29,6 +29,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
         // Rename Identity tables to cleaner names
         builder.Entity<ApplicationUser>().ToTable("Users");
+        builder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(x => x.ContactPersonName).HasMaxLength(200);
+            entity.Property(x => x.LicenseNumber).HasMaxLength(100);
+            entity.Property(x => x.Governorate).HasMaxLength(150);
+            entity.Property(x => x.City).HasMaxLength(150);
+            entity.Property(x => x.AddressAr).HasMaxLength(500);
+            entity.Property(x => x.WorkingHours).HasMaxLength(250);
+            entity.Property(x => x.WorkingDays).HasMaxLength(100);
+            entity.Property(x => x.DescriptionAr).HasMaxLength(1500);
+            entity.Property(x => x.DailyRequestCapacity).HasDefaultValue(20);
+            entity.Property(x => x.DiscountPercentage).HasPrecision(5, 2).HasDefaultValue(0m);
+        });
         builder.HasDefaultSchema("charity");
     }
 

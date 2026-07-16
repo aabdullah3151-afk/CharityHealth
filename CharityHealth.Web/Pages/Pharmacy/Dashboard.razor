@@ -1,70 +1,17 @@
 @page "/pharmacy/dashboard"
 @layout MainLayout
-@attribute [Authorize(Roles = "Pharmacy,Pharmacist")]
+@attribute [Authorize(Roles = "Pharmacy")]
 
 @using Microsoft.AspNetCore.Authorization
-
-@inject NavigationManager Nav
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Components.Partners
 
 <PageTitle>لوحة الصيدلية</PageTitle>
 
-<div class="pharmacy-home-page" dir="rtl" style="padding:32px;min-height:calc(100vh - 80px);background:#f8fafc;">
-    <section style="
-        border-radius:34px;
-        padding:34px;
-        margin-bottom:24px;
-        background:linear-gradient(135deg,#2563eb,#0f9f93);
-        color:#fff;
-        box-shadow:0 22px 48px rgba(37,99,235,.20);">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;">
-            <div>
-                <div style="font-size:14px;font-weight:900;color:rgba(255,255,255,.82);margin-bottom:8px;">Pharmacy Workspace</div>
-                <h1 style="margin:0;font-size:36px;font-weight:950;color:#fff;">لوحة الصيدلية</h1>
-                <p style="margin:10px 0 0;font-size:16px;font-weight:800;color:rgba(255,255,255,.86);">
-                    الصيدلية تتابع الطلبات الخاصة بها فقط. إدارة الصيدليات والإضافة والتعديل من الأدمن فقط.
-                </p>
-            </div>
-
-            <button type="button"
-                    @onclick='() => Nav.NavigateTo("/pharmacy/requests")'
-                    style="
-                        border:0;
-                        border-radius:999px;
-                        min-height:50px;
-                        padding:0 22px;
-                        background:#fff;
-                        color:#2563eb;
-                        font-size:15px;
-                        font-weight:950;
-                        cursor:pointer;
-                        box-shadow:0 14px 26px rgba(15,23,42,.16);">
-                طلبات الصيدلية
-            </button>
-        </div>
-    </section>
-
-    <section style="
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:18px;">
-        <article style="border-radius:30px;background:#fff;border:1px solid #e5e7eb;padding:26px;box-shadow:0 16px 34px rgba(15,23,42,.06);">
-            <h2 style="margin:0 0 12px;color:#111827;font-size:24px;font-weight:950;">طلبات الأدوية</h2>
-            <p style="margin:0 0 18px;color:#64748b;font-size:15px;font-weight:800;line-height:1.8;">
-                متابعة الطلبات الواردة للصيدلية وصرف العلاج حسب صلاحيات الصيدلية.
-            </p>
-            <button type="button"
-                    @onclick='() => Nav.NavigateTo("/pharmacy/requests")'
-                    style="border:0;border-radius:999px;background:#eff6ff;color:#2563eb;min-height:42px;padding:0 18px;font-weight:950;cursor:pointer;">
-                فتح الطلبات
-            </button>
-        </article>
-
-        <article style="border-radius:30px;background:#fff;border:1px solid #e5e7eb;padding:26px;box-shadow:0 16px 34px rgba(15,23,42,.06);">
-            <h2 style="margin:0 0 12px;color:#111827;font-size:24px;font-weight:950;">صلاحيات الصيدلية</h2>
-            <p style="margin:0;color:#64748b;font-size:15px;font-weight:800;line-height:1.8;">
-                لا يمكن من حساب الصيدلية إضافة صيدلية جديدة أو تعديل الصيدليات أو عرض قائمة الصيدليات العامة.
-                هذه الصلاحيات للأدمن فقط.
-            </p>
-        </article>
-    </section>
-</div>
+<ProviderCasesDashboard ArabicTitle="الصيدلية"
+                        EnglishTitle="Pharmacy"
+                        Icon="💊"
+                        ServiceType="@ServiceRequestType.PharmacyMedication"
+                        ScanUrl="/pharmacy/scan"
+                        AccentColor="#2563eb"
+                        AccentDark="#1d4ed8" />

@@ -91,6 +91,16 @@
                     </div>
 
                     <div class="doctor-field">
+                        <label>كلمة المرور</label>
+                        <InputText class="doctor-input"
+                                   @bind-Value="model.Password"
+                                   placeholder="اتركها فارغة لاستخدام 12345678"
+                                   dir="ltr"
+                                   type="password"
+                                   autocomplete="new-password" />
+                    </div>
+
+                    <div class="doctor-field">
                         <label>رقم الهاتف</label>
                         <InputText class="doctor-input"
                                    @bind-Value="model.PhoneNumber"
@@ -100,7 +110,16 @@
                     </div>
 
                     <div class="doctor-field">
-                        <label>التخصص <span>*</span></label>
+                        <div class="doctor-specialty-header">
+                            <label>التخصص <span>*</span></label>
+
+                            <button type="button"
+                                    class="doctor-refresh-specialties"
+                                    disabled="@loadingSpecialties"
+                                    @onclick="LoadSpecialtiesAsync">
+                                @(loadingSpecialties ? "جارٍ التحديث..." : "↻ تحديث التخصصات")
+                            </button>
+                        </div>
                         <InputSelect class="doctor-input"
                                      @bind-Value="model.SpecialtyId">
                             <option value="">اختر التخصص</option>
@@ -109,6 +128,14 @@
                                 <option value="@specialty.Id">@specialty.NameAr</option>
                             }
                         </InputSelect>
+
+                        @if (specialties.Count == 0 && !loadingSpecialties)
+                        {
+                            <div class="doctor-specialties-empty">
+                                لا توجد تخصصات مفعّلة حاليًا. أضف تخصصًا أو فعّله من صفحة التخصصات.
+                            </div>
+                        }
+
                         <ValidationMessage For="@(() => model.SpecialtyId)" />
                     </div>
 
@@ -179,7 +206,7 @@
                     <span>🔐</span>
                     <div>
                         <strong>بيانات الدخول</strong>
-                        <p>سيتم إنشاء حساب الطبيب باستخدام البريد الإلكتروني، وكلمة المرور الافتراضية ستكون <b>12345678</b>.</p>
+                        <p>يمكنك كتابة كلمة مرور مخصصة، وإذا تركتها فارغة ستكون <b>12345678</b>.</p>
                     </div>
                 </div>
 
@@ -202,10 +229,47 @@
     </section>
 </div>
 
+
+<style>
+    .doctor-specialty-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    .doctor-refresh-specialties {
+        border: 1px solid #b9e8cb;
+        background: #effcf4;
+        color: #079447;
+        border-radius: 12px;
+        padding: 7px 12px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .doctor-refresh-specialties:disabled {
+        cursor: wait;
+        opacity: .65;
+    }
+
+    .doctor-specialties-empty {
+        margin-top: 8px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #fff8e7;
+        color: #9a6700;
+        font-size: 13px;
+        font-weight: 700;
+    }
+</style>
+
 @code {
     private const string DefaultDoctorPassword = "12345678";
 
     private bool loading = true;
+    private bool loadingSpecialties;
     private bool saving;
     private string? errorMsg;
     private string? successMsg;
@@ -226,14 +290,35 @@
 
     protected override async Task OnInitializedAsync()
     {
-        specialties = await Db.Specialties
-            .AsNoTracking()
-            .Where(s => s.IsActive)
-            .OrderBy(s => s.NameAr)
-            .Select(s => new SpecialtyOption(s.Id, s.NameAr))
-            .ToListAsync();
-
+        await LoadSpecialtiesAsync();
         loading = false;
+    }
+
+    private async Task LoadSpecialtiesAsync()
+    {
+        loadingSpecialties = true;
+
+        try
+        {
+            var selectedSpecialtyId = model.SpecialtyId;
+
+            specialties = await Db.Specialties
+                .AsNoTracking()
+                .Where(s => s.IsActive && !s.IsDeleted)
+                .OrderBy(s => s.NameAr)
+                .Select(s => new SpecialtyOption(s.Id, s.NameAr))
+                .ToListAsync();
+
+            if (selectedSpecialtyId.HasValue &&
+                specialties.All(s => s.Id != selectedSpecialtyId.Value))
+            {
+                model.SpecialtyId = null;
+            }
+        }
+        finally
+        {
+            loadingSpecialties = false;
+        }
     }
 
     private void ToggleDay(string code, ChangeEventArgs e)
@@ -273,6 +358,12 @@
                 return;
             }
 
+            if (!string.IsNullOrWhiteSpace(model.Password) && model.Password.Trim().Length < 8)
+            {
+                errorMsg = "كلمة المرور يجب ألا تقل عن 8 أحرف أو أرقام.";
+                return;
+            }
+
             var user = new ApplicationUser
             {
                 UserName = email,
@@ -283,7 +374,8 @@
                 FullNameEn = string.IsNullOrWhiteSpace(model.FullNameEn) ? string.Empty : model.FullNameEn.Trim()
             };
 
-            var createResult = await UserManager.CreateAsync(user, DefaultDoctorPassword);
+            var selectedPassword = string.IsNullOrWhiteSpace(model.Password) ? DefaultDoctorPassword : model.Password.Trim();
+            var createResult = await UserManager.CreateAsync(user, selectedPassword);
 
             if (!createResult.Succeeded)
             {
@@ -299,7 +391,7 @@
             {
                 UserId = user.Id,
                 SpecialtyId = model.SpecialtyId!.Value,
-                LicenseNumber = string.IsNullOrWhiteSpace(model.LicenseNumber) ? "غير محدد" : model.LicenseNumber.Trim(),
+                LicenseNumber = string.IsNullOrWhiteSpace(model.LicenseNumber) ? null : model.LicenseNumber.Trim(),
                 ClinicAddress = string.IsNullOrWhiteSpace(model.ClinicAddress) ? null : model.ClinicAddress.Trim(),
                 MaxDailySlots = model.MaxDailySlots,
                 IsAvailable = model.IsAvailable,
@@ -311,7 +403,7 @@
             Db.Doctors.Add(doctor);
             await Db.SaveChangesAsync();
 
-            successMsg = "تم إضافة الطبيب بنجاح. كلمة المرور الافتراضية: 12345678";
+            successMsg = $"تم إضافة الطبيب بنجاح. كلمة المرور: {selectedPassword}";
 
             await Task.Delay(700);
             Nav.NavigateTo("/admin/doctors");
@@ -343,6 +435,8 @@
         public string Email { get; set; } = string.Empty;
 
         public string? PhoneNumber { get; set; }
+
+        public string? Password { get; set; }
 
         [Required(ErrorMessage = "التخصص مطلوب")]
         public Guid? SpecialtyId { get; set; }

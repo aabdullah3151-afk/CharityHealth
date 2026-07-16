@@ -1,0 +1,7 @@
+@page "/laboratory/settings"
+@layout MainLayout
+@attribute [Authorize(Roles = "Laboratory")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Web.Components.Settings
+<PageTitle>إعدادات معمل التحاليل</PageTitle>
+<PartnerSelfSettings AccountLabel="معمل التحاليل" Icon="🧪" ShowDiscount="true" ShowWorkingDays="true" AccentColor="#0f766e" AccentSoft="#f0fdfa" />

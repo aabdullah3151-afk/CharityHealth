@@ -19,7 +19,7 @@
         <div>
             <div class="my-requests-kicker">📁 My Requests</div>
             <h1>حالة طلباتي</h1>
-            <p>تابع حالة الطلبات، قرار الإدارة، والملاحظات من مكان واحد.</p>
+            <p>تابع طلبات الكشف والعلاج والتحاليل والأشعة من مكان واحد.</p>
         </div>
 
         <button type="button"
@@ -79,7 +79,7 @@
             <section class="my-requests-empty">
                 <div>📄</div>
                 <h2>لا توجد طلبات في هذا التصنيف</h2>
-                <p>ابدأ بتقديم طلب كشف جديد، وسيظهر هنا بعد الإرسال.</p>
+                <p>ابدأ بتقديم طلب خدمة صحية جديدة، وسيظهر هنا بعد الإرسال.</p>
 
                 <button type="button"
                         @onclick='() => Nav.NavigateTo("/portal/request/new")'>
@@ -95,7 +95,7 @@
                     <article class="my-request-card">
                         <div class="my-request-main">
                             <div class="my-request-title-row">
-                                <h2>@item.SpecialtyName</h2>
+                                <h2>@HealthcareUiService.ServiceTypeIcon(item.ServiceType) @item.SpecialtyName</h2>
 
                                 <span class="my-request-status @StatusClass(item)">
                                     <i>@StatusIcon(item.Status)</i>
@@ -235,10 +235,16 @@
 
     private static string DoctorLine(RequestWorkItem item)
     {
+        var provider = item.ServiceType == ServiceRequestType.MedicalConsultation
+            ? item.DoctorName
+            : item.ProviderName;
+
         return item.Status switch
         {
-            RequestStatus.Approved => "تمت الموافقة — بانتظار التنسيق",
-            RequestStatus.Completed => "تم إنهاء الكشف",
+            RequestStatus.Approved when !string.IsNullOrWhiteSpace(provider) => $"تمت الموافقة — الجهة: {provider}",
+            RequestStatus.Approved => "تمت الموافقة — اعرض QR عند تقديم الخدمة",
+            RequestStatus.Completed when item.ServiceType == ServiceRequestType.MedicalConsultation => "تم إنهاء الكشف",
+            RequestStatus.Completed => "تم تنفيذ الخدمة",
             RequestStatus.Rejected => "تم رفض الطلب",
             RequestStatus.Submitted => "تم التقديم للإدارة",
             RequestStatus.UnderReview => "قيد مراجعة الإدارة",

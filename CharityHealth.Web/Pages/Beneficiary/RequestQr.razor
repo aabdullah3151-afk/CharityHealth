@@ -19,7 +19,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<PageTitle>QR الكشف</PageTitle>
+<PageTitle>@QrTitle</PageTitle>
 
 <div dir="rtl" style="
     min-height:calc(100vh - 76px);
@@ -37,9 +37,9 @@
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;">
             <div>
                 <div style="font-size:15px;font-weight:900;color:rgba(255,255,255,.82);margin-bottom:10px;">QR Code</div>
-                <h1 style="margin:0;font-size:42px;line-height:1.15;font-weight:950;">QR الكشف</h1>
+                <h1 style="margin:0;font-size:42px;line-height:1.15;font-weight:950;">@QrTitle</h1>
                 <p style="margin:12px 0 0;color:rgba(255,255,255,.86);font-size:16px;font-weight:800;">
-                    اعرض هذا الرمز للطبيب ليقوم بمسحه وتسجيل نتيجة الكشف.
+                    @QrIntro
                 </p>
             </div>
 
@@ -123,13 +123,18 @@
 
                 <div style="padding:24px 28px;border-bottom:1px solid #edf0f4;">
                     <h2 style="margin:0;color:#111827;font-size:26px;font-weight:950;">تفاصيل الطلب</h2>
-                    <p style="margin:8px 0 0;color:#98a2b3;font-size:14px;font-weight:850;">لا تشارك QR إلا مع الطبيب داخل النظام.</p>
+                    <p style="margin:8px 0 0;color:#98a2b3;font-size:14px;font-weight:850;">لا تشارك QR إلا مع الجهة المحددة داخل الطلب.</p>
                 </div>
 
                 <div style="padding:24px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
                     <div style="@InfoBoxStyle">
-                        <span style="@InfoLabelStyle">التخصص</span>
-                        <strong style="@InfoValueStyle">@request.Specialty.NameAr</strong>
+                        <span style="@InfoLabelStyle">نوع الطلب</span>
+                        <strong style="@InfoValueStyle">@HealthcareUiService.ServiceTypeAr(request.ServiceType)</strong>
+                    </div>
+
+                    <div style="@InfoBoxStyle">
+                        <span style="@InfoLabelStyle">الجهة</span>
+                        <strong style="@InfoValueStyle">@RequestTarget</strong>
                     </div>
 
                     <div style="@InfoBoxStyle">
@@ -141,6 +146,14 @@
                         <span style="@InfoLabelStyle">تاريخ الطلب</span>
                         <strong style="@InfoValueStyle">@request.SubmittedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</strong>
                     </div>
+
+                    @if (request.ServiceType == ServiceRequestType.LaboratoryTest && request.AppointmentDate is not null)
+                    {
+                        <div style="@InfoBoxStyle">
+                            <span style="@InfoLabelStyle">يوم إجراء التحاليل</span>
+                            <strong style="@InfoValueStyle">@request.AppointmentDate.Value.ToString("yyyy/MM/dd")</strong>
+                        </div>
+                    }
 
                     <div style="@InfoBoxStyle">
                         <span style="@InfoLabelStyle">المستندات</span>
@@ -195,6 +208,8 @@
 
         request = await Db.MedicalRequests
             .Include(r => r.Specialty)
+            .Include(r => r.Doctor).ThenInclude(d => d!.User)
+            .Include(r => r.AssignedProvider)
             .Include(r => r.Documents)
             .Include(r => r.QRCodeToken)
             .FirstOrDefaultAsync(r => r.Id == RequestId && r.BeneficiaryId == beneficiary.Id && !r.IsDeleted);
@@ -226,9 +241,40 @@
         loading = false;
     }
 
+    private string QrTitle => request?.ServiceType switch
+    {
+        ServiceRequestType.MedicalConsultation => "QR الكشف",
+        ServiceRequestType.PharmacyMedication => "QR صرف العلاج",
+        ServiceRequestType.LaboratoryTest => "QR التحاليل",
+        ServiceRequestType.RadiologyScan => "QR الأشعة",
+        _ => "QR الخدمة"
+    };
+
+    private string QrIntro => request?.ServiceType switch
+    {
+        ServiceRequestType.MedicalConsultation => "اعرض هذا الرمز للطبيب عند الكشف.",
+        ServiceRequestType.PharmacyMedication => "اعرض هذا الرمز للصيدلية عند استلام العلاج.",
+        ServiceRequestType.LaboratoryTest => "اعرض هذا الرمز لمعمل التحاليل قبل إجراء الخدمة.",
+        ServiceRequestType.RadiologyScan => "اعرض هذا الرمز لمركز الأشعة قبل إجراء الخدمة.",
+        _ => "اعرض هذا الرمز للجهة المحددة داخل الطلب."
+    };
+
+    private string RequestTarget => request?.ServiceType == ServiceRequestType.MedicalConsultation
+        ? request.Doctor?.User?.FullNameAr ?? request.Specialty?.NameAr ?? "الطبيب"
+        : request?.AssignedProvider?.FullNameAr ?? "الجهة المختارة";
+
     private string BuildQrDataUri(Guid qrId)
     {
-        var scanUrl = new Uri(new Uri(Nav.BaseUri), $"/doctor/scan?token={qrId}").ToString();
+        var route = request?.ServiceType switch
+        {
+            ServiceRequestType.MedicalConsultation => $"/doctor/scan?token={qrId}",
+            ServiceRequestType.PharmacyMedication => $"/pharmacy/scan?token={qrId}",
+            ServiceRequestType.LaboratoryTest => $"/laboratory/scan?token={qrId}",
+            ServiceRequestType.RadiologyScan => $"/radiology/scan?token={qrId}",
+            _ => $"/portal/request/{RequestId}"
+        };
+
+        var scanUrl = new Uri(new Uri(Nav.BaseUri), route).ToString();
 
         using var generator = new QRCodeGenerator();
         using var qrData = generator.CreateQrCode(scanUrl, QRCodeGenerator.ECCLevel.Q);

@@ -1,0 +1,289 @@
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<div class="partner-dashboard-page" dir="rtl" style="--accent:@AccentColor;--accent-dark:@AccentDark;">
+    <header class="hero">
+        <div>
+            <span>@EnglishTitle Workspace</span>
+            <h1>لوحة @ArabicTitle</h1>
+            <p>طلبات اليوم وكل الطلبات المعتمدة والمكتملة. يمكن تنفيذ الطلب مباشرة أو استخدام QR كطريقة اختيارية.</p>
+        </div>
+        <button type="button" @onclick='() => Nav.NavigateTo(ScanUrl)'>مسح QR اختياري</button>
+    </header>
+
+    @if (loading)
+    {
+        <section class="state">جارٍ تحميل الطلبات...</section>
+    }
+    else if (!string.IsNullOrWhiteSpace(error))
+    {
+        <section class="error">@error</section>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="message @(messageOk ? "ok" : "bad")">@message</div>
+        }
+
+        <section class="stats">
+            <article><span>طلبات اليوم</span><strong>@TodayCount</strong><small>تشمل المكتملة اليوم</small></article>
+            <article><span>جاهزة للتنفيذ</span><strong>@ReadyCount</strong><small>تم اعتمادها من الإدارة</small></article>
+            <article><span>مكتملة</span><strong>@CompletedCount</strong><small>يمكن معاينتها وتعديلها</small></article>
+            <article><span>كل الطلبات</span><strong>@rows.Count</strong><small>السجل الكامل للحساب</small></article>
+        </section>
+
+        @if (dashboard is not null)
+        {
+            <section class="account">
+                <div><span>اسم الجهة</span><strong>@dashboard.NameAr</strong></div>
+                <div><span>الهاتف</span><strong>@dashboard.PhoneNumber</strong></div>
+                <div><span>المدينة</span><strong>@Safe(dashboard.City)</strong></div>
+                <div><span>الخصم</span><strong>@dashboard.DiscountPercentage.ToString("0.##")%</strong></div>
+            </section>
+        }
+
+        <section class="toolbar">
+            <div class="tabs">
+                <button class="@(filter == CaseFilter.Today ? "active" : "")" @onclick="() => filter = CaseFilter.Today">اليوم <b>@TodayCount</b></button>
+                <button class="@(filter == CaseFilter.Ready ? "active" : "")" @onclick="() => filter = CaseFilter.Ready">جاهزة <b>@ReadyCount</b></button>
+                <button class="@(filter == CaseFilter.Upcoming ? "active" : "")" @onclick="() => filter = CaseFilter.Upcoming">قادمة <b>@UpcomingCount</b></button>
+                <button class="@(filter == CaseFilter.Completed ? "active" : "")" @onclick="() => filter = CaseFilter.Completed">مكتملة <b>@CompletedCount</b></button>
+                <button class="@(filter == CaseFilter.All ? "active" : "")" @onclick="() => filter = CaseFilter.All">الكل <b>@rows.Count</b></button>
+            </div>
+
+            <label class="search">
+                <span>🔎</span>
+                <input @bind="search" @bind:event="oninput" placeholder="ابحث باسم المستفيد أو الهاتف أو رقم الطلب..." />
+            </label>
+        </section>
+
+        @if (!FilteredRows.Any())
+        {
+            <section class="empty"><div>@Icon</div><h2>لا توجد طلبات مطابقة</h2><p>الطلبات التي تعتمدها الإدارة وتخصصها لهذا الحساب ستظهر هنا.</p></section>
+        }
+        else
+        {
+            <section class="grid">
+                @foreach (var item in FilteredRows)
+                {
+                    <article class="case">
+                        <div class="case-head">
+                            <div class="avatar">@Icon</div>
+                            <div><h2>@item.BeneficiaryName</h2><p>@RequestCode(item.Id) · @item.BeneficiaryPhone</p></div>
+                            <span class="status @(item.Status == RequestStatus.Completed ? "completed" : "approved")">@item.StatusAr</span>
+                        </div>
+
+                        <div class="info">
+                            <div><span>نوع الخدمة</span><strong>@item.ServiceTypeAr</strong></div>
+                            <div><span>موعد الخدمة</span><strong>@AppointmentText(item)</strong></div>
+                            <div><span>المدينة</span><strong>@Safe(item.City)</strong></div>
+                            <div><span>المستندات</span><strong>@item.DocumentsCount</strong></div>
+                        </div>
+
+                        <div class="description">
+                            <span>تفاصيل الطلب</span>
+                            <p>@Safe(item.DescriptionAr, "لا توجد تفاصيل مرفقة.")</p>
+                        </div>
+
+                        @if (documents.TryGetValue(item.Id, out var itemDocuments) && itemDocuments.Count > 0)
+                        {
+                            <div class="docs">
+                                @foreach (var document in itemDocuments)
+                                {
+                                    <a href="@DocumentUrl(document.FilePath)" target="_blank" rel="noopener">
+                                        <span>📎</span><b>@document.FileName</b><small>@FileSizeText(document.FileSizeBytes)</small>
+                                    </a>
+                                }
+                            </div>
+                        }
+
+                        <div class="result">
+                            <label>@ResultLabel(item.Status)</label>
+                            <textarea @bind="notes[item.Id]" rows="5" placeholder="@ResultPlaceholder"></textarea>
+
+                            <div class="actions">
+                                <button type="button" class="primary" disabled="@busyIds.Contains(item.Id)" @onclick="() => Save(item)">
+                                    @(busyIds.Contains(item.Id)
+                                        ? "جارٍ الحفظ..."
+                                        : item.Status == RequestStatus.Completed
+                                            ? "حفظ تعديل النتيجة"
+                                            : DirectButtonText)
+                                </button>
+
+                                @if (item.Status == RequestStatus.Approved)
+                                {
+                                    <button type="button" class="secondary" @onclick='() => Nav.NavigateTo(ScanUrl)'>QR اختياري</button>
+                                }
+                            </div>
+                        </div>
+                    </article>
+                }
+            </section>
+        }
+    }
+</div>
+
+<style>
+.partner-dashboard-page{min-height:calc(100vh - 76px);padding:32px;background:#f8fafc;color:#101828}.hero{border-radius:34px;padding:34px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;display:flex;align-items:center;justify-content:space-between;gap:18px}.hero>div>span{font-size:13px;font-weight:950;color:rgba(255,255,255,.78)}.hero h1{margin:7px 0 0;font-size:37px;font-weight:950;color:#fff}.hero p{max-width:760px;margin:10px 0 0;color:rgba(255,255,255,.88);font-size:15px;line-height:1.9;font-weight:800}.hero button{border:0;border-radius:999px;background:#fff;color:var(--accent);min-height:50px;padding:0 22px;font-weight:950;cursor:pointer}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;margin:22px 0}.stats article{border:1px solid #e5e7eb;border-radius:25px;background:#fff;padding:21px}.stats span,.stats small,.account span{display:block;color:#94a3b8;font-size:12px;font-weight:900}.stats strong{display:block;margin:8px 0 4px;font-size:32px;font-weight:950;color:var(--accent)}.account{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:20px;border:1px solid #e5e7eb;border-radius:22px;background:#fff;padding:15px}.account>div{border-radius:14px;background:#f8fafc;padding:12px}.account strong{display:block;margin-top:5px;color:#334155;font-size:12px;font-weight:950}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-bottom:20px}.tabs{display:flex;gap:9px;flex-wrap:wrap}.tabs button{border:1px solid #e5e7eb;border-radius:999px;background:#fff;color:#64748b;min-height:43px;padding:0 17px;font-weight:950;cursor:pointer}.tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}.tabs b{margin-right:7px}.search{min-width:300px;height:46px;border:1px solid #e5e7eb;border-radius:999px;background:#fff;padding:0 15px;display:flex;align-items:center;gap:9px}.search input{width:100%;border:0;outline:0;background:transparent;font:inherit;font-size:13px;font-weight:850}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}.case{border:1px solid #e5e7eb;border-radius:28px;background:#fff;padding:21px}.case-head{display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center}.avatar{width:52px;height:52px;border-radius:18px;background:#f1f5f9;display:grid;place-items:center;font-size:25px}.case-head h2{margin:0;font-size:19px;font-weight:950}.case-head p{margin:5px 0 0;color:#94a3b8;font-size:11px;font-weight:850}.status{border-radius:999px;padding:7px 11px;font-size:11px;font-weight:950}.status.approved{background:#ecfdf3;color:#047857}.status.completed{background:#eff6ff;color:#1d4ed8}.info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:17px 0}.info div{border-radius:15px;background:#f8fafc;padding:12px}.info span,.description span{display:block;color:#94a3b8;font-size:10px;font-weight:900}.info strong{display:block;margin-top:6px;color:#334155;font-size:12px;font-weight:950}.description{border-radius:16px;background:#f8fafc;padding:14px}.description p{margin:7px 0 0;color:#64748b;font-size:12px;line-height:1.8;font-weight:800;white-space:pre-wrap}.docs{display:grid;gap:7px;margin-top:12px}.docs a{border:1px solid #e5e7eb;border-radius:13px;background:#f8fafc;padding:9px;display:grid;grid-template-columns:28px 1fr auto;gap:7px;align-items:center;text-decoration:none;color:#334155;font-size:11px}.docs small{color:#94a3b8}.result{margin-top:14px;border-radius:17px;background:#f8fafc;padding:14px}.result label{display:block;margin-bottom:7px;color:#344054;font-size:12px;font-weight:950}.result textarea{width:100%;border:1px solid #e5e7eb;border-radius:14px;background:#fff;padding:11px 13px;font:inherit;font-size:12px;font-weight:800;resize:vertical;outline:none}.actions{display:flex;gap:9px;margin-top:11px}.actions button{border:0;border-radius:999px;min-height:43px;padding:0 16px;font-weight:950;cursor:pointer}.actions .primary{flex:1;background:var(--accent);color:#fff}.actions .secondary{background:#fff;color:var(--accent);border:1px solid #e5e7eb}.state,.error,.empty{margin-top:22px;border:1px solid #e5e7eb;border-radius:28px;background:#fff;padding:30px;text-align:center;font-weight:900}.error,.message.bad{background:#fef2f2;color:#991b1b}.empty div{font-size:42px}.empty h2{margin:10px 0 5px}.empty p{color:#94a3b8}.message{margin:18px 0;border-radius:17px;padding:14px 17px;font-weight:900}.message.ok{background:#ecfdf3;color:#047857}@@media(max-width:1000px){.stats,.account{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}@@media(max-width:650px){.partner-dashboard-page{padding:18px 12px}.hero{padding:25px 20px;align-items:flex-start;flex-direction:column}.hero h1{font-size:29px}.stats,.account{grid-template-columns:1fr 1fr}.search{width:100%;min-width:0}.case-head{grid-template-columns:48px 1fr}.case-head .status{grid-column:1/-1;width:max-content}.info{grid-template-columns:1fr}.actions{flex-direction:column}}
+</style>
+
+@code {
+    [Parameter, EditorRequired] public string ArabicTitle { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string EnglishTitle { get; set; } = string.Empty;
+    [Parameter] public string Icon { get; set; } = "🏥";
+    [Parameter, EditorRequired] public ServiceRequestType ServiceType { get; set; }
+    [Parameter, EditorRequired] public string ScanUrl { get; set; } = string.Empty;
+    [Parameter] public string AccentColor { get; set; } = "#05a843";
+    [Parameter] public string AccentDark { get; set; } = "#047857";
+
+    private bool loading = true;
+    private bool messageOk;
+    private string? error;
+    private string? message;
+    private string userId = string.Empty;
+    private string search = string.Empty;
+    private CaseFilter filter = CaseFilter.Today;
+    private PartnerDashboardDto? dashboard;
+    private List<RequestWorkItem> rows = [];
+    private Dictionary<Guid, string?> notes = [];
+    private Dictionary<Guid, List<PartnerRequestDocument>> documents = [];
+    private HashSet<Guid> busyIds = [];
+
+    private DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+    private int TodayCount => rows.Count(IsToday);
+    private int ReadyCount => rows.Count(x => x.Status == RequestStatus.Approved);
+    private int CompletedCount => rows.Count(x => x.Status == RequestStatus.Completed);
+    private int UpcomingCount => rows.Count(x => x.AppointmentDate > Today && x.Status != RequestStatus.Completed);
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        loading = true;
+        error = null;
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            dashboard = await Ui.GetPartnerDashboardAsync(userId, ServiceType);
+            rows = await Ui.GetPartnerRequestsAsync(userId, ServiceType);
+
+            notes.Clear();
+            documents.Clear();
+
+            foreach (var item in rows)
+            {
+                notes[item.Id] = item.ProviderNoteAr;
+                documents[item.Id] = await Ui.GetPartnerRequestDocumentsAsync(item.Id, userId, ServiceType);
+            }
+        }
+        catch
+        {
+            error = "حدث خطأ أثناء تحميل طلبات الجهة.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private IEnumerable<RequestWorkItem> FilteredRows
+    {
+        get
+        {
+            IEnumerable<RequestWorkItem> result = filter switch
+            {
+                CaseFilter.Today => rows.Where(IsToday),
+                CaseFilter.Ready => rows.Where(x => x.Status == RequestStatus.Approved),
+                CaseFilter.Upcoming => rows.Where(x => x.AppointmentDate > Today && x.Status != RequestStatus.Completed),
+                CaseFilter.Completed => rows.Where(x => x.Status == RequestStatus.Completed),
+                _ => rows
+            };
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                result = result.Where(x =>
+                    Contains(x.BeneficiaryName, term) ||
+                    Contains(x.BeneficiaryPhone, term) ||
+                    Contains(x.City, term) ||
+                    Contains(x.ServiceTypeAr, term) ||
+                    RequestCode(x.Id).Contains(term, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return result
+                .OrderBy(x => x.AppointmentDate ?? DateOnly.MaxValue)
+                .ThenByDescending(x => x.SubmittedAt);
+        }
+    }
+
+    private async Task Save(RequestWorkItem item)
+    {
+        busyIds.Add(item.Id);
+        message = null;
+
+        try
+        {
+            var result = await Ui.CompletePartnerRequestAsync(
+                item.Id,
+                userId,
+                ServiceType,
+                notes.GetValueOrDefault(item.Id));
+
+            messageOk = result.Succeeded;
+            message = result.Message;
+
+            if (result.Succeeded)
+            {
+                await Load();
+                messageOk = true;
+                message = result.Message;
+            }
+        }
+        catch
+        {
+            messageOk = false;
+            message = "تعذر حفظ بيانات تنفيذ الطلب.";
+        }
+        finally
+        {
+            busyIds.Remove(item.Id);
+        }
+    }
+
+    private bool IsToday(RequestWorkItem item) => item.AppointmentDate == Today;
+    private static bool Contains(string? value, string term) => !string.IsNullOrWhiteSpace(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+    private static string Safe(string? value, string fallback = "غير محدد") => string.IsNullOrWhiteSpace(value) ? fallback : value;
+    private static string RequestCode(Guid id) => $"REQ-{id.ToString("N")[..6].ToUpperInvariant()}";
+    private static string FileSizeText(long bytes) => bytes < 1024 * 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes / 1024d / 1024d:0.##} MB";
+    private string AppointmentText(RequestWorkItem item) => item.AppointmentDate is null ? "غير محدد" : item.AppointmentDate.Value == Today ? "اليوم" : item.AppointmentDate.Value.ToString("dd/MM/yyyy");
+    private string ResultLabel(RequestStatus status) => status == RequestStatus.Completed ? "النتيجة المحفوظة — يمكن تعديلها" : ResultInputLabel;
+    private string ResultInputLabel => ServiceType switch { ServiceRequestType.PharmacyMedication => "الأدوية التي تم صرفها", ServiceRequestType.LaboratoryTest => "نتيجة التحاليل أو بيانات التنفيذ", _ => "نتيجة تنفيذ الخدمة" };
+    private string ResultPlaceholder => ServiceType switch { ServiceRequestType.PharmacyMedication => "اكتب أسماء الأدوية والكميات وتعليمات الصرف...", ServiceRequestType.LaboratoryTest => "اكتب التحاليل المنفذة والنتائج أو رقم العينة...", _ => "اكتب نتيجة تنفيذ الخدمة..." };
+    private string DirectButtonText => ServiceType switch { ServiceRequestType.PharmacyMedication => "تأكيد صرف العلاج مباشرة", ServiceRequestType.LaboratoryTest => "تأكيد تنفيذ التحاليل مباشرة", _ => "تأكيد التنفيذ مباشرة" };
+
+    private static string DocumentUrl(string path)
+    {
+        var value = (path ?? string.Empty).Trim().Replace("\\", "/");
+        if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || value.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)) return value;
+        if (value.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase)) return "/" + value;
+        return "/uploads/" + value.TrimStart('/');
+    }
+
+    private enum CaseFilter { Today, Ready, Upcoming, Completed, All }
+}

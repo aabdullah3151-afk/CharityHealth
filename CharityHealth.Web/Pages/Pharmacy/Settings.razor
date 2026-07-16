@@ -1,0 +1,7 @@
+@page "/pharmacy/settings"
+@layout MainLayout
+@attribute [Authorize(Roles = "Pharmacy,Pharmacist")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Web.Components.Settings
+<PageTitle>إعدادات الصيدلية</PageTitle>
+<PartnerSelfSettings AccountLabel="الصيدلية" Icon="💊" ShowDiscount="true" AccentColor="#f59e0b" AccentSoft="#fffbeb" />

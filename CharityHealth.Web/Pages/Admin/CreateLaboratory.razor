@@ -1,0 +1,22 @@
+@page "/admin/laboratories/create"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Components.Partners
+<PageTitle>إضافة معمل تحاليل</PageTitle>
+<PartnerAdminCreate PrimaryRoleName="Laboratory"
+                    PrimaryRoleLabel="معمل تحاليل"
+                    AccountUserType="@UserType.Laboratory"
+                    SingularLabel="معمل تحاليل"
+                    Kicker="Create Laboratory"
+                    Icon="🧪"
+                    ListUrl="/admin/laboratories"
+                    ArabicPlaceholder="اسم المعمل بالعربي"
+                    EnglishPlaceholder="Laboratory Name"
+                    EmailPlaceholder="lab@example.com"
+                    ShowDiscountPercentage="true"
+                    ShowWorkingDays="true"
+                    AccentColor="#0f766e"
+                    AccentSoft="#f0fdfa"
+                    AccentBorder="#99f6e4" />

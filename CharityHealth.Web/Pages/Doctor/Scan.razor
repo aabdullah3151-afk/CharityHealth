@@ -495,7 +495,13 @@
                 return;
             }
 
-            if (doctor.SpecialtyId != request.SpecialtyId)
+            if (request.ServiceType != ServiceRequestType.MedicalConsultation)
+            {
+                message = "هذا QR تابع لصيدلية أو معمل أو مركز أشعة، وليس لطلب كشف طبي.";
+                return;
+            }
+
+            if (request.SpecialtyId is null || doctor.SpecialtyId != request.SpecialtyId.Value)
             {
                 message = "هذا الطلب تابع لتخصص آخر ولا يمكن للطبيب الحالي التعامل معه.";
                 return;
@@ -506,7 +512,7 @@
                 request.Id,
                 request.Beneficiary.User.FullNameAr,
                 request.Beneficiary.User.PhoneNumber ?? "—",
-                request.Specialty.NameAr,
+                request.Specialty?.NameAr ?? "استشارة طبية",
                 request.Beneficiary.City ?? "—",
                 request.Status,
                 HealthcareUiService.StatusAr(request.Status),

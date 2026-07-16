@@ -1,4 +1,4 @@
-﻿using CharityHealth.Application.Interfaces.Services;
+using CharityHealth.Application.Interfaces.Services;
 using CharityHealth.Domain.Entities;
 using CharityHealth.Domain.Enums;
 using Microsoft.AspNetCore.Authentication;
@@ -247,7 +247,20 @@ namespace CharityHealth.Web.Controllers
             }
 
             if (returnUrl.StartsWith("/pharmacy", StringComparison.OrdinalIgnoreCase)
-                && !HasRole(roles, "Pharmacist"))
+                && !HasRole(roles, "Pharmacist")
+                && !HasRole(roles, "Pharmacy"))
+            {
+                return fallback;
+            }
+
+            if (returnUrl.StartsWith("/laboratory", StringComparison.OrdinalIgnoreCase)
+                && !HasRole(roles, "Laboratory"))
+            {
+                return fallback;
+            }
+
+            if (returnUrl.StartsWith("/radiology", StringComparison.OrdinalIgnoreCase)
+                && !HasRole(roles, "RadiologyCenter"))
             {
                 return fallback;
             }
@@ -257,7 +270,17 @@ namespace CharityHealth.Web.Controllers
 
         private static string GetDefaultUrl(UserType userType, IList<string> roles)
         {
-            if (HasRole(roles, "Pharmacist"))
+            if (HasRole(roles, "Laboratory"))
+            {
+                return "/laboratory/dashboard";
+            }
+
+            if (HasRole(roles, "RadiologyCenter"))
+            {
+                return "/radiology/dashboard";
+            }
+
+            if (HasRole(roles, "Pharmacy") || HasRole(roles, "Pharmacist"))
             {
                 return "/pharmacy/dashboard";
             }
@@ -288,12 +311,31 @@ namespace CharityHealth.Web.Controllers
                 UserType.Staff => "/admin/dashboard",
                 UserType.Doctor => "/doctor/dashboard",
                 UserType.Beneficiary => "/portal/dashboard",
+                UserType.Laboratory => "/laboratory/dashboard",
+                UserType.RadiologyCenter => "/radiology/dashboard",
+                UserType.Pharmacy => "/pharmacy/dashboard",
+                UserType.Pharmacist => "/pharmacy/dashboard",
                 _ => "/"
             };
         }
 
         private static string ResolveUserType(UserType userType, IList<string> roles)
         {
+            if (HasRole(roles, "Laboratory"))
+            {
+                return "Laboratory";
+            }
+
+            if (HasRole(roles, "RadiologyCenter"))
+            {
+                return "RadiologyCenter";
+            }
+
+            if (HasRole(roles, "Pharmacy"))
+            {
+                return "Pharmacy";
+            }
+
             if (HasRole(roles, "Pharmacist"))
             {
                 return "Pharmacist";

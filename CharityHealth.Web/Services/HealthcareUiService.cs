@@ -13,6 +13,12 @@ public record UiActionResult(bool Succeeded, string Message)
     public static UiActionResult Fail(string message) => new(false, message);
 }
 
+public record UiCreateResult(bool Succeeded, string Message, Guid? EntityId)
+{
+    public static UiCreateResult Ok(Guid id, string message) => new(true, message, id);
+    public static UiCreateResult Fail(string message) => new(false, message, null);
+}
+
 public record DashboardStatsDto(
     int TotalBeneficiaries,
     int TotalDoctors,
@@ -23,7 +29,17 @@ public record DashboardStatsDto(
     int CompletedRequests,
     int SpecialtiesCount
 );
-
+ 
+public record DoctorCapacityStatusDto(
+    Guid DoctorId,
+    string DoctorName,
+    int DailyCapacity,
+    int UsedToday,
+    int RemainingToday,
+    bool IsFull,
+    string WorkingDays
+);
+ 
 public record RequestWorkItem(
     Guid Id,
     string BeneficiaryName,
@@ -42,7 +58,135 @@ public record RequestWorkItem(
     Guid? DoctorId = null,
     string? DoctorName = null,
     DateOnly? AppointmentDate = null,
-    int? DoctorMaxDailySlots = null
+    int? DoctorMaxDailySlots = null,
+    ServiceRequestType ServiceType = ServiceRequestType.MedicalConsultation,
+    string ServiceTypeAr = "استشارة طبية",
+    string? AssignedProviderUserId = null,
+    string? ProviderName = null,
+    string? ProviderNoteAr = null,
+    DateTime? FulfilledAt = null
+);
+
+public record PartnerAccountOption(
+    string UserId,
+    string NameAr,
+    string Email,
+    string PhoneNumber,
+    ServiceRequestType ServiceType,
+    string? Governorate,
+    string? City,
+    string? AddressAr,
+    string? WorkingHours,
+    string? WorkingDays,
+    string? DescriptionAr,
+    decimal DiscountPercentage,
+    int DailyCapacity,
+    int TodayRequests,
+    int RemainingToday,
+    bool IsFull
+);
+
+public record PartnerAvailableDay(
+    DateOnly Date,
+    string DayNameAr,
+    int BookedRequests,
+    int DailyCapacity,
+    int RemainingRequests,
+    bool IsFull
+);
+
+public record PartnerDashboardDto(
+    string NameAr,
+    string Email,
+    string PhoneNumber,
+    string? ContactPersonName,
+    string? LicenseNumber,
+    string? Governorate,
+    string? City,
+    string? AddressAr,
+    string? WorkingHours,
+    string? WorkingDays,
+    string? DescriptionAr,
+    decimal DiscountPercentage,
+    int DailyCapacity,
+    int TodayRequests,
+    int RemainingToday,
+    int PendingApprovedRequests,
+    int CompletedRequests
+);
+
+public record PartnerRequestDocument(
+    Guid Id,
+    string FileName,
+    string FilePath,
+    long FileSizeBytes,
+    DocumentType DocumentType
+);
+
+
+public record PartnerQrScanDto(
+    Guid QrTokenId,
+    Guid RequestId,
+    string BeneficiaryName,
+    string BeneficiaryPhone,
+    string City,
+    string ServiceTypeAr,
+    string ProviderName,
+    DateTime SubmittedAt,
+    DateOnly? AppointmentDate,
+    DateTime? ReviewedAt,
+    DateTime ExpiresAt,
+    string? DescriptionAr,
+    int DocumentsCount,
+    IReadOnlyList<PartnerRequestDocument> Documents
+);
+
+public record PartnerQrLookupResult(
+    bool Succeeded,
+    string Message,
+    PartnerQrScanDto? Data
+)
+{
+    public static PartnerQrLookupResult Ok(PartnerQrScanDto data) =>
+        new(true, "تم التحقق من QR بنجاح.", data);
+
+    public static PartnerQrLookupResult Fail(string message) =>
+        new(false, message, null);
+}
+
+public record PartnerQrCompletionInput(
+    string PrimaryResult,
+    string? ReferenceNumber,
+    DateTime? ExpectedDeliveryAt,
+    string? AdditionalNotes
+);
+
+
+public record DoctorCaseDetailsDto(
+    Guid Id,
+    string BeneficiaryName,
+    string BeneficiaryPhone,
+    string City,
+    string SpecialtyName,
+    RequestStatus Status,
+    string StatusAr,
+    DateTime SubmittedAt,
+    DateTime? ReviewedAt,
+    DateOnly? AppointmentDate,
+    string? DescriptionAr,
+    string? ReviewNoteAr,
+    IReadOnlyList<PartnerRequestDocument> Documents,
+    string? DiagnosisAr,
+    string? RecommendationsAr,
+    string? NotesAr,
+    DateTime? ConsultedAt,
+    bool HasQrCode
+);
+
+public record DoctorCaseInput(
+    string DiagnosisAr,
+    string? RecommendationsAr,
+    string? NotesAr
 );
 
 public record DoctorListItem(
@@ -51,7 +195,7 @@ public record DoctorListItem(
     string FullNameAr,
     string PhoneNumber,
     string SpecialtyName,
-    string LicenseNumber,
+    string? LicenseNumber,
     string? ClinicAddress,
     int MaxDailySlots,
     bool IsAvailable,
@@ -145,6 +289,7 @@ public sealed class HealthcareUiService(AppDbContext db)
             .Include(r => r.Specialty)
             .Include(r => r.Doctor)
                 .ThenInclude(d => d!.User)
+            .Include(r => r.AssignedProvider)
             .Include(r => r.Documents)
             .Include(r => r.QRCodeToken)
             .Include(r => r.Beneficiary)
@@ -162,7 +307,7 @@ public sealed class HealthcareUiService(AppDbContext db)
                 r.Id,
                 r.Beneficiary.User.FullNameAr,
                 r.Beneficiary.User.PhoneNumber ?? "—",
-                r.Specialty.NameAr,
+                r.Specialty == null ? ServiceTypeAr(r.ServiceType) : r.Specialty.NameAr,
                 r.Beneficiary.City ?? "—",
                 r.Status,
                 StatusAr(r.Status),
@@ -176,7 +321,13 @@ public sealed class HealthcareUiService(AppDbContext db)
                 r.DoctorId,
                 r.Doctor == null ? null : r.Doctor.User.FullNameAr,
                 r.AppointmentDate,
-                r.Doctor == null ? null : r.Doctor.MaxDailySlots
+                r.Doctor == null ? null : r.Doctor.MaxDailySlots,
+                r.ServiceType,
+                ServiceTypeAr(r.ServiceType),
+                r.AssignedProviderUserId,
+                r.AssignedProvider == null ? null : r.AssignedProvider.FullNameAr,
+                r.ProviderNoteAr,
+                r.FulfilledAt
             ))
             .ToListAsync(ct);
     }
@@ -197,6 +348,7 @@ public sealed class HealthcareUiService(AppDbContext db)
             .Include(r => r.Specialty)
             .Include(r => r.Doctor)
                 .ThenInclude(d => d!.User)
+            .Include(r => r.AssignedProvider)
             .Include(r => r.Documents)
             .Include(r => r.QRCodeToken)
             .Include(r => r.Beneficiary)
@@ -207,7 +359,7 @@ public sealed class HealthcareUiService(AppDbContext db)
                 r.Id,
                 r.Beneficiary.User.FullNameAr,
                 r.Beneficiary.User.PhoneNumber ?? "—",
-                r.Specialty.NameAr,
+                r.Specialty == null ? ServiceTypeAr(r.ServiceType) : r.Specialty.NameAr,
                 r.Beneficiary.City ?? "—",
                 r.Status,
                 StatusAr(r.Status),
@@ -221,7 +373,13 @@ public sealed class HealthcareUiService(AppDbContext db)
                 r.DoctorId,
                 r.Doctor == null ? null : r.Doctor.User.FullNameAr,
                 r.AppointmentDate,
-                r.Doctor == null ? null : r.Doctor.MaxDailySlots
+                r.Doctor == null ? null : r.Doctor.MaxDailySlots,
+                r.ServiceType,
+                ServiceTypeAr(r.ServiceType),
+                r.AssignedProviderUserId,
+                r.AssignedProvider == null ? null : r.AssignedProvider.FullNameAr,
+                r.ProviderNoteAr,
+                r.FulfilledAt
             ))
             .ToListAsync(ct);
     }
@@ -240,11 +398,13 @@ public sealed class HealthcareUiService(AppDbContext db)
         return await db.MedicalRequests
             .Where(r =>
                 r.DoctorId == doctor.Id &&
-                (r.Status == RequestStatus.Approved || r.Status == RequestStatus.UnderReview)
+                r.Status != RequestStatus.Draft &&
+                r.Status != RequestStatus.Rejected
             )
             .Include(r => r.Specialty)
             .Include(r => r.Doctor)
                 .ThenInclude(d => d!.User)
+            .Include(r => r.AssignedProvider)
             .Include(r => r.Documents)
             .Include(r => r.QRCodeToken)
             .Include(r => r.Beneficiary)
@@ -256,7 +416,7 @@ public sealed class HealthcareUiService(AppDbContext db)
                 r.Id,
                 r.Beneficiary.User.FullNameAr,
                 r.Beneficiary.User.PhoneNumber ?? "—",
-                r.Specialty.NameAr,
+                r.Specialty == null ? ServiceTypeAr(r.ServiceType) : r.Specialty.NameAr,
                 r.Beneficiary.City ?? "—",
                 r.Status,
                 StatusAr(r.Status),
@@ -270,10 +430,868 @@ public sealed class HealthcareUiService(AppDbContext db)
                 r.DoctorId,
                 r.Doctor == null ? null : r.Doctor.User.FullNameAr,
                 r.AppointmentDate,
-                r.Doctor == null ? null : r.Doctor.MaxDailySlots
+                r.Doctor == null ? null : r.Doctor.MaxDailySlots,
+                r.ServiceType,
+                ServiceTypeAr(r.ServiceType),
+                r.AssignedProviderUserId,
+                r.AssignedProvider == null ? null : r.AssignedProvider.FullNameAr,
+                r.ProviderNoteAr,
+                r.FulfilledAt
             ))
             .ToListAsync(ct);
     }
+
+    public async Task<List<PartnerAccountOption>> GetActivePartnerAccountsAsync(
+        ServiceRequestType serviceType,
+        CancellationToken ct = default)
+    {
+        if (serviceType == ServiceRequestType.MedicalConsultation)
+        {
+            return [];
+        }
+
+        var roles = ExpectedProviderRoles(serviceType);
+        var providerIds = await (
+            from user in db.Users.AsNoTracking()
+            join userRole in db.UserRoles.AsNoTracking() on user.Id equals userRole.UserId
+            join role in db.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+            where user.IsActive && role.Name != null && roles.Contains(role.Name)
+            select user.Id
+        ).Distinct().ToListAsync(ct);
+
+        if (providerIds.Count == 0)
+        {
+            return [];
+        }
+
+        var todayOnly = DateOnly.FromDateTime(DateTime.UtcNow);
+        var todayCounts = await db.MedicalRequests.AsNoTracking()
+            .Where(r => r.AssignedProviderUserId != null
+                        && providerIds.Contains(r.AssignedProviderUserId)
+                        && r.ServiceType == serviceType
+                        && r.AppointmentDate == todayOnly
+                        && r.Status != RequestStatus.Draft
+                        && r.Status != RequestStatus.Rejected)
+            .GroupBy(r => r.AssignedProviderUserId!)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.UserId, x => x.Count, ct);
+
+        var users = await db.Users.AsNoTracking()
+            .Where(u => providerIds.Contains(u.Id) && u.IsActive)
+            .OrderBy(u => u.FullNameAr)
+            .ToListAsync(ct);
+
+        return users.Select(user =>
+        {
+            var capacity = user.DailyRequestCapacity <= 0 ? 20 : user.DailyRequestCapacity;
+            var used = todayCounts.GetValueOrDefault(user.Id);
+            var remaining = Math.Max(0, capacity - used);
+            return new PartnerAccountOption(
+                user.Id,
+                user.FullNameAr,
+                user.Email ?? "—",
+                user.PhoneNumber ?? "—",
+                serviceType,
+                user.Governorate,
+                user.City,
+                user.AddressAr,
+                user.WorkingHours,
+                user.WorkingDays,
+                user.DescriptionAr,
+                NormalizeDiscount(user.DiscountPercentage),
+                capacity,
+                used,
+                remaining,
+                false);
+        }).ToList();
+    }
+
+    public async Task<List<PartnerAvailableDay>> GetPartnerAvailableDaysAsync(
+        string providerUserId,
+        ServiceRequestType serviceType,
+        int daysAhead = 30,
+        CancellationToken ct = default)
+    {
+        if (serviceType == ServiceRequestType.MedicalConsultation) return [];
+        var provider = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == providerUserId && u.IsActive, ct);
+        if (provider is null) return [];
+
+        var capacity = provider.DailyRequestCapacity <= 0 ? 20 : provider.DailyRequestCapacity;
+        var start = DateOnly.FromDateTime(DateTime.UtcNow);
+        var end = start.AddDays(Math.Clamp(daysAhead, 7, 60));
+        var counts = await db.MedicalRequests.AsNoTracking()
+            .Where(r => r.AssignedProviderUserId == providerUserId
+                        && r.ServiceType == serviceType
+                        && r.AppointmentDate != null
+                        && r.AppointmentDate.Value >= start
+                        && r.AppointmentDate.Value <= end
+                        && r.Status != RequestStatus.Draft
+                        && r.Status != RequestStatus.Rejected)
+            .GroupBy(r => r.AppointmentDate!.Value)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Date, x => x.Count, ct);
+
+        var result = new List<PartnerAvailableDay>();
+        for (var date = start; date <= end && result.Count < 14; date = date.AddDays(1))
+        {
+            if (!IsWorkingOnDate(provider.WorkingDays, date)) continue;
+            var booked = counts.GetValueOrDefault(date);
+            var remaining = Math.Max(0, capacity - booked);
+            result.Add(new PartnerAvailableDay(date, DayNameAr(date.DayOfWeek), booked, capacity, remaining, remaining <= 0));
+        }
+
+        return result;
+    }
+
+    public async Task<PartnerDashboardDto?> GetPartnerDashboardAsync(
+        string providerUserId,
+        ServiceRequestType serviceType,
+        CancellationToken ct = default)
+    {
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == providerUserId, ct);
+        if (user is null) return null;
+
+        var todayOnly = DateOnly.FromDateTime(DateTime.UtcNow);
+        var todayRequests = await db.MedicalRequests.AsNoTracking().CountAsync(r =>
+            r.AssignedProviderUserId == providerUserId
+            && r.ServiceType == serviceType
+            && r.AppointmentDate == todayOnly
+            && r.Status != RequestStatus.Draft && r.Status != RequestStatus.Rejected, ct);
+
+        var pendingApproved = await db.MedicalRequests.AsNoTracking().CountAsync(r =>
+            r.AssignedProviderUserId == providerUserId
+            && r.ServiceType == serviceType
+            && r.Status == RequestStatus.Approved, ct);
+
+        var completed = await db.MedicalRequests.AsNoTracking().CountAsync(r =>
+            r.AssignedProviderUserId == providerUserId
+            && r.ServiceType == serviceType
+            && r.Status == RequestStatus.Completed, ct);
+
+        var capacity = user.DailyRequestCapacity <= 0 ? 20 : user.DailyRequestCapacity;
+        return new PartnerDashboardDto(
+            user.FullNameAr,
+            user.Email ?? "—",
+            user.PhoneNumber ?? "—",
+            user.ContactPersonName,
+            user.LicenseNumber ?? "—",
+            user.Governorate,
+            user.City,
+            user.AddressAr,
+            user.WorkingHours,
+            user.WorkingDays,
+            user.DescriptionAr,
+            NormalizeDiscount(user.DiscountPercentage),
+            capacity,
+            todayRequests,
+            Math.Max(0, capacity - todayRequests),
+            pendingApproved,
+            completed);
+    }
+
+    public async Task<UiCreateResult> SubmitPartnerServiceRequestAsync(
+        string beneficiaryUserId,
+        ServiceRequestType serviceType,
+        string providerUserId,
+        string? descriptionAr,
+        DateOnly? appointmentDate = null,
+        CancellationToken ct = default)
+    {
+        if (serviceType == ServiceRequestType.MedicalConsultation)
+        {
+            return UiCreateResult.Fail("استخدم نموذج الكشف الطبي لطلب الاستشارة.");
+        }
+
+        if (string.IsNullOrWhiteSpace(descriptionAr))
+        {
+            return UiCreateResult.Fail("يجب كتابة تفاصيل الطلب.");
+        }
+
+        if (descriptionAr.Trim().Length > 2000)
+        {
+            return UiCreateResult.Fail("تفاصيل الطلب لا تتجاوز 2000 حرف.");
+        }
+
+        var beneficiary = await db.Beneficiaries
+            .Include(b => b.User)
+            .FirstOrDefaultAsync(b => b.UserId == beneficiaryUserId, ct);
+
+        if (beneficiary is null)
+        {
+            return UiCreateResult.Fail("لم يتم العثور على بيانات المستفيد.");
+        }
+
+        var expectedRoles = ExpectedProviderRoles(serviceType);
+        var providerIsValid = await (
+            from user in db.Users
+            join userRole in db.UserRoles on user.Id equals userRole.UserId
+            join role in db.Roles on userRole.RoleId equals role.Id
+            where user.Id == providerUserId
+                  && user.IsActive
+                  && role.Name != null
+                  && expectedRoles.Contains(role.Name)
+            select user.Id
+        ).AnyAsync(ct);
+
+        if (!providerIsValid)
+        {
+            return UiCreateResult.Fail("الجهة المختارة غير متاحة حالياً.");
+        }
+
+        var provider = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == providerUserId, ct);
+        if (provider is null)
+        {
+            return UiCreateResult.Fail("تعذر قراءة بيانات الجهة المختارة.");
+        }
+
+        var minDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var capacity = provider.DailyRequestCapacity <= 0 ? 20 : provider.DailyRequestCapacity;
+        if (appointmentDate is null) return UiCreateResult.Fail(AppointmentRequiredMessage(serviceType));
+        if (appointmentDate < minDate) return UiCreateResult.Fail("لا يمكن اختيار يوم سابق.");
+        if (!IsWorkingOnDate(provider.WorkingDays, appointmentDate.Value))
+            return UiCreateResult.Fail($"{ProviderNameAr(serviceType)} لا يعمل في اليوم المختار.");
+
+        var bookedRequests = await db.MedicalRequests.CountAsync(r =>
+            r.AssignedProviderUserId == providerUserId
+            && r.ServiceType == serviceType
+            && r.AppointmentDate == appointmentDate
+            && r.Status != RequestStatus.Draft && r.Status != RequestStatus.Rejected, ct);
+
+        if (bookedRequests >= capacity)
+        {
+            return UiCreateResult.Fail($"اكتمل عدد طلبات {ProviderNameAr(serviceType)} في اليوم المختار. اختر يومًا آخر.");
+        }
+
+        var hasActiveRequest = await db.MedicalRequests.AnyAsync(r =>
+            r.BeneficiaryId == beneficiary.Id
+            && r.ServiceType == serviceType
+            && (r.Status == RequestStatus.Submitted
+                || r.Status == RequestStatus.UnderReview
+                || r.Status == RequestStatus.Approved), ct);
+
+        if (hasActiveRequest)
+        {
+            return UiCreateResult.Fail($"لديك {ServiceTypeAr(serviceType)} قيد المتابعة بالفعل. انتظر إتمامه أولاً.");
+        }
+
+        var request = new MedicalRequest
+        {
+            BeneficiaryId = beneficiary.Id,
+            SpecialtyId = null,
+            DoctorId = null,
+            AppointmentDate = appointmentDate,
+            ServiceType = serviceType,
+            AssignedProviderUserId = providerUserId,
+            DescriptionAr = descriptionAr.Trim(),
+            Status = RequestStatus.Submitted,
+            SubmittedAt = DateTime.UtcNow
+        };
+
+        db.MedicalRequests.Add(request);
+
+        AddAuditLog(
+            beneficiaryUserId,
+            "ServiceRequest.Submitted",
+            "MedicalRequest",
+            request.Id.ToString(),
+            null,
+            $"ServiceType={serviceType}; ProviderUserId={providerUserId}; BeneficiaryId={beneficiary.Id}; AppointmentDate={appointmentDate}");
+
+        await db.SaveChangesAsync(ct);
+        return UiCreateResult.Ok(request.Id, "تم تقديم الطلب بنجاح وهو الآن قيد مراجعة الإدارة.");
+    }
+
+    public async Task CancelNewPartnerServiceRequestAsync(
+        Guid requestId,
+        string beneficiaryUserId,
+        CancellationToken ct = default)
+    {
+        var request = await db.MedicalRequests
+            .Include(r => r.Beneficiary)
+            .FirstOrDefaultAsync(r => r.Id == requestId
+                                      && r.Beneficiary.UserId == beneficiaryUserId
+                                      && r.Status == RequestStatus.Submitted
+                                      && r.ServiceType != ServiceRequestType.MedicalConsultation, ct);
+
+        if (request is null) return;
+
+        db.MedicalRequests.Remove(request);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<List<RequestWorkItem>> GetPartnerRequestsAsync(
+        string providerUserId,
+        ServiceRequestType serviceType,
+        CancellationToken ct = default)
+    {
+        var rows = await GetRequestsAsync(null, ct);
+
+        return rows
+            .Where(r => r.ServiceType == serviceType
+                        && r.AssignedProviderUserId == providerUserId
+                        && r.Status is RequestStatus.Approved or RequestStatus.Completed)
+            .OrderByDescending(r => r.Status == RequestStatus.Approved)
+            .ThenByDescending(r => r.ReviewedAt ?? r.SubmittedAt)
+            .ToList();
+    }
+
+    public async Task<List<PartnerRequestDocument>> GetPartnerRequestDocumentsAsync(
+        Guid requestId,
+        string providerUserId,
+        ServiceRequestType serviceType,
+        CancellationToken ct = default)
+    {
+        return await db.RequestDocuments
+            .AsNoTracking()
+            .Where(d => d.RequestId == requestId
+                        && d.Request.ServiceType == serviceType
+                        && d.Request.AssignedProviderUserId == providerUserId
+                        && (d.Request.Status == RequestStatus.Approved
+                            || d.Request.Status == RequestStatus.Completed))
+            .OrderBy(d => d.DocumentType)
+            .ThenBy(d => d.FileName)
+            .Select(d => new PartnerRequestDocument(
+                d.Id,
+                d.FileName,
+                d.FilePath,
+                d.FileSizeBytes,
+                d.DocumentType))
+            .ToListAsync(ct);
+    }
+
+
+    public async Task<PartnerQrLookupResult> GetPartnerRequestByQrAsync(
+        Guid qrCodeTokenId,
+        string providerUserId,
+        ServiceRequestType serviceType,
+        CancellationToken ct = default)
+    {
+        if (serviceType == ServiceRequestType.MedicalConsultation)
+        {
+            return PartnerQrLookupResult.Fail("استخدم شاشة الطبيب لمسح QR الخاص بالكشف الطبي.");
+        }
+
+        if (string.IsNullOrWhiteSpace(providerUserId))
+        {
+            return PartnerQrLookupResult.Fail("تعذر قراءة حساب الجهة الحالية. سجّل الدخول مرة أخرى.");
+        }
+
+        var providerIsActive = await IsActiveProviderForServiceAsync(providerUserId, serviceType, ct);
+        if (!providerIsActive)
+        {
+            return PartnerQrLookupResult.Fail("حساب الجهة غير نشط أو لا يملك الصلاحية المطلوبة.");
+        }
+
+        var qr = await db.QRCodeTokens
+            .AsNoTracking()
+            .Include(q => q.Request)
+                .ThenInclude(r => r.Beneficiary)
+                    .ThenInclude(b => b.User)
+            .Include(q => q.Request)
+                .ThenInclude(r => r.AssignedProvider)
+            .Include(q => q.Request)
+                .ThenInclude(r => r.Documents)
+            .FirstOrDefaultAsync(q => q.Id == qrCodeTokenId && !q.IsDeleted, ct);
+
+        if (qr is null)
+        {
+            return PartnerQrLookupResult.Fail("رمز QR غير موجود أو غير صالح.");
+        }
+
+        var request = qr.Request;
+
+        if (request.ServiceType != serviceType)
+        {
+            return PartnerQrLookupResult.Fail($"هذا QR خاص بـ {ServiceTypeAr(request.ServiceType)} وليس بالخدمة الحالية.");
+        }
+
+        if (!string.Equals(request.AssignedProviderUserId, providerUserId, StringComparison.Ordinal))
+        {
+            return PartnerQrLookupResult.Fail("هذا الطلب مخصص لجهة أخرى ولا يمكن لحسابك تنفيذه.");
+        }
+
+        if (request.Status == RequestStatus.Completed || qr.IsUsed)
+        {
+            return PartnerQrLookupResult.Fail("تم استخدام QR وإنهاء هذا الطلب من قبل.");
+        }
+
+        if (request.Status != RequestStatus.Approved)
+        {
+            return PartnerQrLookupResult.Fail("لا يمكن تنفيذ الطلب قبل موافقة الإدارة.");
+        }
+
+        if (qr.ExpiresAt <= DateTime.UtcNow)
+        {
+            return PartnerQrLookupResult.Fail("انتهت صلاحية QR. اطلب من الإدارة إعادة اعتماد الطلب.");
+        }
+
+        var documents = request.Documents
+            .Where(d => !d.IsDeleted)
+            .OrderBy(d => d.DocumentType)
+            .ThenBy(d => d.FileName)
+            .Select(d => new PartnerRequestDocument(
+                d.Id,
+                d.FileName,
+                d.FilePath,
+                d.FileSizeBytes,
+                d.DocumentType))
+            .ToList();
+
+        var data = new PartnerQrScanDto(
+            qr.Id,
+            request.Id,
+            request.Beneficiary.User.FullNameAr,
+            request.Beneficiary.User.PhoneNumber ?? "—",
+            request.Beneficiary.City ?? "—",
+            ServiceTypeAr(request.ServiceType),
+            request.AssignedProvider?.FullNameAr ?? "الجهة المختارة",
+            request.SubmittedAt,
+            request.AppointmentDate,
+            request.ReviewedAt,
+            qr.ExpiresAt,
+            request.DescriptionAr,
+            documents.Count,
+            documents);
+
+        return PartnerQrLookupResult.Ok(data);
+    }
+
+    public async Task<UiActionResult> CompletePartnerRequestByQrAsync(
+        Guid qrCodeTokenId,
+        string providerUserId,
+        ServiceRequestType serviceType,
+        PartnerQrCompletionInput input,
+        CancellationToken ct = default)
+    {
+        if (serviceType == ServiceRequestType.MedicalConsultation)
+        {
+            return UiActionResult.Fail("استخدم شاشة الطبيب لإنهاء طلب الكشف.");
+        }
+
+        if (input is null || string.IsNullOrWhiteSpace(input.PrimaryResult))
+        {
+            return UiActionResult.Fail(PrimaryResultRequiredMessage(serviceType));
+        }
+
+        if (input.PrimaryResult.Trim().Length > 3000
+            || (input.AdditionalNotes?.Trim().Length ?? 0) > 3000
+            || (input.ReferenceNumber?.Trim().Length ?? 0) > 120)
+        {
+            return UiActionResult.Fail("البيانات المدخلة أطول من الحد المسموح.");
+        }
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var qr = await db.QRCodeTokens
+            .Include(q => q.Request)
+                .ThenInclude(r => r.Beneficiary)
+            .Include(q => q.Request)
+                .ThenInclude(r => r.AssignedProvider)
+            .FirstOrDefaultAsync(q => q.Id == qrCodeTokenId && !q.IsDeleted, ct);
+
+        if (qr is null)
+        {
+            return UiActionResult.Fail("رمز QR غير موجود أو غير صالح.");
+        }
+
+        var request = qr.Request;
+
+        if (request.ServiceType != serviceType)
+        {
+            return UiActionResult.Fail($"هذا QR خاص بـ {ServiceTypeAr(request.ServiceType)} وليس بالخدمة الحالية.");
+        }
+
+        if (!string.Equals(request.AssignedProviderUserId, providerUserId, StringComparison.Ordinal))
+        {
+            return UiActionResult.Fail("هذا الطلب مخصص لجهة أخرى ولا يمكن لحسابك تنفيذه.");
+        }
+
+        if (!await IsActiveProviderForServiceAsync(providerUserId, serviceType, ct))
+        {
+            return UiActionResult.Fail("حساب الجهة غير نشط أو لا يملك الصلاحية المطلوبة.");
+        }
+
+        if (request.Status == RequestStatus.Completed || qr.IsUsed)
+        {
+            return UiActionResult.Fail("تم استخدام QR وإنهاء هذا الطلب من قبل.");
+        }
+
+        if (request.Status != RequestStatus.Approved)
+        {
+            return UiActionResult.Fail("لا يمكن تنفيذ الطلب قبل موافقة الإدارة.");
+        }
+
+        if (qr.ExpiresAt <= DateTime.UtcNow)
+        {
+            return UiActionResult.Fail("انتهت صلاحية QR. اطلب من الإدارة إعادة اعتماد الطلب.");
+        }
+
+        var finalNote = BuildPartnerCompletionNote(serviceType, input);
+
+        request.Status = RequestStatus.Completed;
+        request.ProviderNoteAr = finalNote;
+        request.FulfilledAt = DateTime.UtcNow;
+
+        qr.IsUsed = true;
+        qr.UsedAt = DateTime.UtcNow;
+        qr.UsedByDoctorId = providerUserId;
+
+        AddNotification(
+            request.Beneficiary.UserId,
+            NotificationType.ServiceCompleted,
+            CompletionTitle(serviceType),
+            $"تم إنهاء {ServiceTypeAr(serviceType)} بواسطة {request.AssignedProvider?.FullNameAr ?? "الجهة المختارة"}. يمكنك مراجعة النتيجة من صفحة طلباتي.",
+            $"/portal/request/{request.Id}",
+            "MedicalRequest",
+            request.Id.ToString());
+
+        AddAuditLog(
+            providerUserId,
+            "ServiceRequest.CompletedByQr",
+            "MedicalRequest",
+            request.Id.ToString(),
+            null,
+            $"ServiceType={serviceType}; ProviderUserId={providerUserId}; QRCodeTokenId={qr.Id}; Note={finalNote}");
+
+        AddAuditLog(
+            providerUserId,
+            "QR.Used",
+            "QRCodeToken",
+            qr.Id.ToString(),
+            null,
+            $"RequestId={request.Id}; ServiceType={serviceType}; UsedAt={qr.UsedAt:O}");
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        return UiActionResult.Ok(PartnerCompletionSuccessMessage(serviceType));
+    }
+
+
+public async Task<UiActionResult> CompletePartnerRequestAsync(
+    Guid requestId,
+    string providerUserId,
+    ServiceRequestType serviceType,
+    string? providerNote,
+    CancellationToken ct = default)
+{
+    if (serviceType == ServiceRequestType.MedicalConsultation)
+    {
+        return UiActionResult.Fail("استخدم شاشة الطبيب لإنهاء طلب الكشف.");
+    }
+
+    providerNote = providerNote?.Trim();
+
+    if (string.IsNullOrWhiteSpace(providerNote))
+    {
+        return UiActionResult.Fail(PrimaryResultRequiredMessage(serviceType));
+    }
+
+    if (providerNote.Length > 3000)
+    {
+        return UiActionResult.Fail("النتيجة أو بيانات التنفيذ أطول من الحد المسموح.");
+    }
+
+    if (string.IsNullOrWhiteSpace(providerUserId)
+        || !await IsActiveProviderForServiceAsync(providerUserId, serviceType, ct))
+    {
+        return UiActionResult.Fail("حساب الجهة غير نشط أو لا يملك الصلاحية المطلوبة.");
+    }
+
+    await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+    var request = await db.MedicalRequests
+        .Include(r => r.QRCodeToken)
+        .Include(r => r.Beneficiary)
+        .Include(r => r.AssignedProvider)
+        .FirstOrDefaultAsync(r => r.Id == requestId, ct);
+
+    if (request is null)
+    {
+        return UiActionResult.Fail("الطلب غير موجود.");
+    }
+
+    if (request.ServiceType != serviceType)
+    {
+        return UiActionResult.Fail($"هذا الطلب خاص بـ {ServiceTypeAr(request.ServiceType)} وليس بالخدمة الحالية.");
+    }
+
+    if (!string.Equals(request.AssignedProviderUserId, providerUserId, StringComparison.Ordinal))
+    {
+        return UiActionResult.Fail("هذا الطلب مخصص لجهة أخرى ولا يمكن لحسابك فتحه أو تعديله.");
+    }
+
+    if (request.Status is not RequestStatus.Approved and not RequestStatus.Completed)
+    {
+        return UiActionResult.Fail("يمكن استكمال الطلب بعد موافقة الإدارة فقط.");
+    }
+
+    var wasCompleted = request.Status == RequestStatus.Completed;
+
+    request.Status = RequestStatus.Completed;
+    request.ProviderNoteAr = providerNote;
+    request.FulfilledAt ??= DateTime.UtcNow;
+
+    if (request.QRCodeToken is not null && !request.QRCodeToken.IsUsed)
+    {
+        request.QRCodeToken.IsUsed = true;
+        request.QRCodeToken.UsedAt = DateTime.UtcNow;
+        request.QRCodeToken.UsedByDoctorId = providerUserId;
+    }
+
+    AddNotification(
+        request.Beneficiary.UserId,
+        NotificationType.ServiceCompleted,
+        wasCompleted ? $"تم تحديث نتيجة {ServiceTypeAr(serviceType)}" : CompletionTitle(serviceType),
+        wasCompleted
+            ? $"تم تحديث نتيجة {ServiceTypeAr(serviceType)} بواسطة {request.AssignedProvider?.FullNameAr ?? "الجهة المختارة"}."
+            : $"تم إنهاء {ServiceTypeAr(serviceType)} بواسطة {request.AssignedProvider?.FullNameAr ?? "الجهة المختارة"}. يمكنك مراجعة النتيجة من صفحة طلباتي.",
+        $"/portal/request/{request.Id}",
+        "MedicalRequest",
+        request.Id.ToString());
+
+    AddAuditLog(
+        providerUserId,
+        wasCompleted ? "ServiceRequest.ResultUpdatedDirectly" : "ServiceRequest.CompletedDirectly",
+        "MedicalRequest",
+        request.Id.ToString(),
+        null,
+        $"ServiceType={serviceType}; ProviderUserId={providerUserId}; QRWasScanned=false; Note={providerNote}");
+
+    await db.SaveChangesAsync(ct);
+    await tx.CommitAsync(ct);
+
+    return UiActionResult.Ok(
+        wasCompleted
+            ? "تم تحديث بيانات التنفيذ بنجاح."
+            : "تم تنفيذ الطلب مباشرة بنجاح. مسح QR ما زال متاحًا كطريقة اختيارية للطلبات الأخرى.");
+}
+
+
+public async Task<DoctorCaseDetailsDto?> GetDoctorCaseAsync(
+    Guid requestId,
+    string doctorUserId,
+    CancellationToken ct = default)
+{
+    var doctor = await db.Doctors
+        .AsNoTracking()
+        .FirstOrDefaultAsync(d =>
+            d.UserId == doctorUserId &&
+            d.IsAvailable &&
+            !d.IsDeleted,
+            ct);
+
+    if (doctor is null)
+    {
+        return null;
+    }
+
+    var request = await db.MedicalRequests
+        .Include(r => r.Beneficiary)
+            .ThenInclude(b => b.User)
+        .Include(r => r.Specialty)
+        .Include(r => r.Documents)
+        .Include(r => r.QRCodeToken)
+        .Include(r => r.Consultation)
+        .AsNoTracking()
+        .FirstOrDefaultAsync(r =>
+            r.Id == requestId &&
+            r.DoctorId == doctor.Id &&
+            r.ServiceType == ServiceRequestType.MedicalConsultation &&
+            r.Status != RequestStatus.Draft &&
+            r.Status != RequestStatus.Rejected,
+            ct);
+
+    if (request is null)
+    {
+        return null;
+    }
+
+    var documents = request.Documents
+        .Where(d => !d.IsDeleted)
+        .OrderBy(d => d.DocumentType)
+        .ThenBy(d => d.FileName)
+        .Select(d => new PartnerRequestDocument(
+            d.Id,
+            d.FileName,
+            d.FilePath,
+            d.FileSizeBytes,
+            d.DocumentType))
+        .ToList();
+
+    return new DoctorCaseDetailsDto(
+        request.Id,
+        request.Beneficiary.User.FullNameAr,
+        request.Beneficiary.User.PhoneNumber ?? "—",
+        request.Beneficiary.City ?? "—",
+        request.Specialty?.NameAr ?? "استشارة طبية",
+        request.Status,
+        StatusAr(request.Status),
+        request.SubmittedAt,
+        request.ReviewedAt,
+        request.AppointmentDate,
+        request.DescriptionAr,
+        request.ReviewNoteAr,
+        documents,
+        request.Consultation?.DiagnosisAr,
+        request.Consultation?.RecommendationsAr,
+        request.Consultation?.NotesAr,
+        request.Consultation?.ConsultedAt,
+        request.QRCodeToken is not null);
+}
+
+public async Task<UiActionResult> SaveDoctorCaseAsync(
+    Guid requestId,
+    string doctorUserId,
+    DoctorCaseInput input,
+    CancellationToken ct = default)
+{
+    if (input is null || string.IsNullOrWhiteSpace(input.DiagnosisAr))
+    {
+        return UiActionResult.Fail("التشخيص أو نتيجة المعاينة مطلوبة.");
+    }
+
+    var diagnosis = input.DiagnosisAr.Trim();
+    var recommendations = string.IsNullOrWhiteSpace(input.RecommendationsAr)
+        ? null
+        : input.RecommendationsAr.Trim();
+    var notes = string.IsNullOrWhiteSpace(input.NotesAr)
+        ? null
+        : input.NotesAr.Trim();
+
+    if (diagnosis.Length > 3000
+        || (recommendations?.Length ?? 0) > 3000
+        || (notes?.Length ?? 0) > 3000)
+    {
+        return UiActionResult.Fail("إحدى الخانات أطول من الحد المسموح.");
+    }
+
+    var doctor = await db.Doctors
+        .FirstOrDefaultAsync(d =>
+            d.UserId == doctorUserId &&
+            d.IsAvailable &&
+            !d.IsDeleted,
+            ct);
+
+    if (doctor is null)
+    {
+        return UiActionResult.Fail("حساب الطبيب غير متاح أو غير نشط.");
+    }
+
+    await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+    var request = await db.MedicalRequests
+        .Include(r => r.Beneficiary)
+        .Include(r => r.QRCodeToken)
+        .Include(r => r.Consultation)
+        .FirstOrDefaultAsync(r =>
+            r.Id == requestId &&
+            r.DoctorId == doctor.Id &&
+            r.ServiceType == ServiceRequestType.MedicalConsultation,
+            ct);
+
+    if (request is null)
+    {
+        return UiActionResult.Fail("الحالة غير موجودة أو غير مخصصة للطبيب الحالي.");
+    }
+
+    if (request.Status is not RequestStatus.Approved and not RequestStatus.Completed)
+    {
+        return UiActionResult.Fail("يمكن تسجيل المعاينة بعد موافقة الإدارة فقط.");
+    }
+
+    if (request.QRCodeToken is null)
+    {
+        return UiActionResult.Fail("الطلب المعتمد لا يحتوي على رمز خدمة داخلي. أعد اعتماد الطلب من الإدارة ثم حاول مرة أخرى.");
+    }
+
+    var wasCompleted = request.Status == RequestStatus.Completed;
+    var now = DateTime.UtcNow;
+
+    request.Status = RequestStatus.Completed;
+    request.FulfilledAt ??= now;
+
+    if (!request.QRCodeToken.IsUsed)
+    {
+        request.QRCodeToken.IsUsed = true;
+        request.QRCodeToken.UsedAt = now;
+        request.QRCodeToken.UsedByDoctorId = doctorUserId;
+    }
+
+    if (request.Consultation is null)
+    {
+        db.Consultations.Add(new Consultation
+        {
+            RequestId = request.Id,
+            QRCodeTokenId = request.QRCodeToken.Id,
+            DoctorId = doctorUserId,
+            DiagnosisAr = diagnosis,
+            DiagnosisEn = string.Empty,
+            RecommendationsAr = recommendations,
+            RecommendationsEn = null,
+            NotesAr = notes,
+            NotesEn = null,
+            ConsultedAt = now
+        });
+    }
+    else
+    {
+        request.Consultation.DoctorId = doctorUserId;
+        request.Consultation.DiagnosisAr = diagnosis;
+        request.Consultation.RecommendationsAr = recommendations;
+        request.Consultation.NotesAr = notes;
+        request.Consultation.ConsultedAt = now;
+    }
+
+    const string resultMarker = "\n--- نتيجة الطبيب ---\n";
+    var adminNote = request.ReviewNoteAr ?? string.Empty;
+    var markerIndex = adminNote.IndexOf(resultMarker, StringComparison.Ordinal);
+    if (markerIndex >= 0)
+    {
+        adminNote = adminNote[..markerIndex].TrimEnd();
+    }
+
+    var resultText = $"التشخيص: {diagnosis}";
+    if (!string.IsNullOrWhiteSpace(recommendations))
+    {
+        resultText += $"\nالعلاج والتوصيات: {recommendations}";
+    }
+    if (!string.IsNullOrWhiteSpace(notes))
+    {
+        resultText += $"\nملاحظات الطبيب: {notes}";
+    }
+
+    request.ReviewNoteAr = string.IsNullOrWhiteSpace(adminNote)
+        ? resultText
+        : adminNote + resultMarker + resultText;
+
+    AddNotification(
+        request.Beneficiary.UserId,
+        NotificationType.ConsultationCompleted,
+        wasCompleted ? "تم تحديث نتيجة الكشف" : "تم تسجيل نتيجة الكشف",
+        wasCompleted
+            ? "قام الطبيب بتحديث بيانات المعاينة. يمكنك مراجعة النتيجة من صفحة طلباتي."
+            : "تم تسجيل نتيجة الكشف بواسطة الطبيب. يمكنك مراجعة النتيجة من صفحة طلباتي.",
+        $"/portal/request/{request.Id}",
+        "MedicalRequest",
+        request.Id.ToString());
+
+    AddAuditLog(
+        doctorUserId,
+        wasCompleted ? "Consultation.UpdatedDirectly" : "Consultation.CompletedDirectly",
+        "MedicalRequest",
+        request.Id.ToString(),
+        null,
+        $"DoctorUserId={doctorUserId}; QRWasScanned=false; Diagnosis={diagnosis}");
+
+    await db.SaveChangesAsync(ct);
+    await tx.CommitAsync(ct);
+
+    return UiActionResult.Ok(
+        wasCompleted
+            ? "تم تحديث بيانات المعاينة بنجاح."
+            : "تم حفظ المعاينة وإكمال الحالة بنجاح دون إلزام بمسح QR.");
+}
 
     public async Task<List<DoctorListItem>> GetDoctorsAsync(CancellationToken ct = default)
     {
@@ -288,7 +1306,7 @@ public sealed class HealthcareUiService(AppDbContext db)
                 d.User.FullNameAr,
                 d.User.PhoneNumber ?? "—",
                 d.Specialty.NameAr,
-                d.LicenseNumber,
+                d.LicenseNumber ?? "—",
                 d.ClinicAddress,
                 d.MaxDailySlots,
                 d.IsAvailable,
@@ -499,7 +1517,8 @@ public sealed class HealthcareUiService(AppDbContext db)
         var rows = await db.MedicalRequests
             .Include(r => r.Specialty)
             .AsNoTracking()
-            .Select(r => r.Specialty.NameAr)
+            .Where(r => r.ServiceType == ServiceRequestType.MedicalConsultation && r.Specialty != null)
+            .Select(r => r.Specialty!.NameAr)
             .ToListAsync(ct);
 
         if (rows.Count == 0)
@@ -635,19 +1654,20 @@ public sealed class HealthcareUiService(AppDbContext db)
             .Include(r => r.Specialty)
             .Include(r => r.Doctor)
                 .ThenInclude(d => d!.User)
+            .Include(r => r.AssignedProvider)
             .FirstOrDefaultAsync(r => r.Id == requestId, ct);
 
         if (request is null) return UiActionResult.Fail("الطلب غير موجود");
         if (request.Status == RequestStatus.Completed) return UiActionResult.Fail("الطلب مكتمل بالفعل");
         if (request.Status == RequestStatus.Rejected) return UiActionResult.Fail("لا يمكن الموافقة على طلب مرفوض إلا بعد إعادة تقديمه.");
 
-        Doctor? doctor = request.Doctor;
+        Doctor? doctor = null;
 
-        if (request.DoctorId is not null || request.AppointmentDate is not null)
+        if (request.ServiceType == ServiceRequestType.MedicalConsultation)
         {
-            if (request.DoctorId is null || request.AppointmentDate is null)
+            if (request.SpecialtyId is null || request.DoctorId is null || request.AppointmentDate is null)
             {
-                return UiActionResult.Fail("الطلب غير مكتمل: يجب أن يحتوي على طبيب ويوم كشف.");
+                return UiActionResult.Fail("طلب الكشف غير مكتمل: يجب اختيار التخصص والطبيب ويوم الكشف.");
             }
 
             doctor = await db.Doctors
@@ -659,21 +1679,22 @@ public sealed class HealthcareUiService(AppDbContext db)
                 return UiActionResult.Fail("الطبيب المختار غير متاح أو تم حذفه.");
             }
 
-            if (doctor.SpecialtyId != request.SpecialtyId)
+            if (doctor.SpecialtyId != request.SpecialtyId.Value)
             {
                 return UiActionResult.Fail("الطبيب المختار لا يتبع تخصص الطلب.");
             }
 
-            if (!IsDoctorWorkingOnDate(doctor.WorkingDays, request.AppointmentDate.Value))
+            if (!IsWorkingOnDate(doctor.WorkingDays, request.AppointmentDate.Value))
             {
                 return UiActionResult.Fail("الطبيب غير متاح في اليوم المختار.");
             }
 
             var approvedCountBefore = await db.MedicalRequests.CountAsync(r =>
-                r.Id != request.Id &&
-                r.DoctorId == request.DoctorId &&
-                r.AppointmentDate == request.AppointmentDate &&
-                r.Status == RequestStatus.Approved,
+                r.Id != request.Id
+                && r.ServiceType == ServiceRequestType.MedicalConsultation
+                && r.DoctorId == request.DoctorId
+                && r.AppointmentDate == request.AppointmentDate
+                && r.Status == RequestStatus.Approved,
                 ct);
 
             if (approvedCountBefore >= doctor.MaxDailySlots)
@@ -681,32 +1702,76 @@ public sealed class HealthcareUiService(AppDbContext db)
                 return UiActionResult.Fail("هذا اليوم مكتمل للطبيب المختار ولا يمكن قبول طلبات إضافية.");
             }
         }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.AssignedProviderUserId))
+            {
+                return UiActionResult.Fail("يجب أن يحتوي الطلب على جهة خدمة محددة.");
+            }
+
+            if (request.AppointmentDate is null)
+                return UiActionResult.Fail(AppointmentApprovalRequiredMessage(request.ServiceType));
+            if (request.AppointmentDate < DateOnly.FromDateTime(DateTime.UtcNow))
+                return UiActionResult.Fail("اليوم المختار أصبح في الماضي.");
+
+            var provider = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == request.AssignedProviderUserId, ct);
+            if (provider is null || !IsWorkingOnDate(provider.WorkingDays, request.AppointmentDate.Value))
+                return UiActionResult.Fail($"{ProviderNameAr(request.ServiceType)} لا يعمل في اليوم المختار.");
+
+            var capacity = provider.DailyRequestCapacity <= 0 ? 20 : provider.DailyRequestCapacity;
+            var booked = await db.MedicalRequests.CountAsync(r => r.Id != request.Id
+                && r.AssignedProviderUserId == request.AssignedProviderUserId
+                && r.ServiceType == request.ServiceType
+                && r.AppointmentDate == request.AppointmentDate
+                && r.Status == RequestStatus.Approved, ct);
+            if (booked >= capacity)
+                return UiActionResult.Fail($"اليوم المختار مكتمل لدى {ProviderNameAr(request.ServiceType)}. اطلب من المستفيد اختيار يوم آخر.");
+
+            var expectedRoles = ExpectedProviderRoles(request.ServiceType);
+            var providerIsValid = await (
+                from user in db.Users
+                join userRole in db.UserRoles on user.Id equals userRole.UserId
+                join role in db.Roles on userRole.RoleId equals role.Id
+                where user.Id == request.AssignedProviderUserId
+                      && user.IsActive
+                      && role.Name != null
+                      && expectedRoles.Contains(role.Name)
+                select user.Id
+            ).AnyAsync(ct);
+
+            if (!providerIsValid)
+            {
+                return UiActionResult.Fail("الجهة المختارة غير نشطة أو لا تتبع نوع الخدمة المطلوب.");
+            }
+        }
 
         request.Status = RequestStatus.Approved;
         request.ReviewedBy = reviewerId;
         request.ReviewedAt = DateTime.UtcNow;
         request.ReviewNoteAr = string.IsNullOrWhiteSpace(note)
-            ? "تمت الموافقة على الطلب. برجاء التوجه للطبيب في اليوم المحدد بعد التنسيق."
+            ? DefaultApprovalNote(request.ServiceType)
             : note.Trim();
+
+        var qrExpiresAt = GetQrExpiryUtc(request.AppointmentDate);
 
         var qrWasCreated = request.QRCodeToken is null;
 
         if (request.QRCodeToken is null)
         {
-            var raw = $"REQ:{request.Id}:BEN:{request.BeneficiaryId}:EXP:{DateTime.UtcNow.AddDays(7):O}:{Guid.NewGuid():N}";
+            var raw = $"REQ:{request.Id}:BEN:{request.BeneficiaryId}:EXP:{qrExpiresAt:O}:{Guid.NewGuid():N}";
             var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
 
             db.QRCodeTokens.Add(new QRCodeToken
             {
                 RequestId = request.Id,
                 TokenHash = tokenHash,
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                ExpiresAt = qrExpiresAt,
                 IsUsed = false
             });
         }
         else
         {
-            request.QRCodeToken.ExpiresAt = DateTime.UtcNow.AddDays(7);
+            request.QRCodeToken.ExpiresAt = qrExpiresAt;
             request.QRCodeToken.IsUsed = false;
             request.QRCodeToken.UsedAt = null;
             request.QRCodeToken.UsedByDoctorId = null;
@@ -724,7 +1789,10 @@ public sealed class HealthcareUiService(AppDbContext db)
 
         var autoRejectedCount = 0;
 
-        if (request.DoctorId is not null && request.AppointmentDate is not null && doctor is not null)
+        if (request.ServiceType == ServiceRequestType.MedicalConsultation
+            && request.DoctorId is not null
+            && request.AppointmentDate is not null
+            && doctor is not null)
         {
             autoRejectedCount = await RejectOtherPendingRequestsIfDayIsFullAsync(
                 request.Id,
@@ -741,7 +1809,7 @@ public sealed class HealthcareUiService(AppDbContext db)
             "MedicalRequest",
             request.Id.ToString(),
             null,
-            $"Status={request.Status}; BeneficiaryId={request.BeneficiaryId}; SpecialtyId={request.SpecialtyId}; DoctorId={request.DoctorId}; AppointmentDate={request.AppointmentDate}");
+            $"Status={request.Status}; ServiceType={request.ServiceType}; BeneficiaryId={request.BeneficiaryId}; SpecialtyId={request.SpecialtyId}; DoctorId={request.DoctorId}; ProviderUserId={request.AssignedProviderUserId}; AppointmentDate={request.AppointmentDate}");
 
         AddAuditLog(
             reviewerId,
@@ -749,7 +1817,7 @@ public sealed class HealthcareUiService(AppDbContext db)
             "QRCodeToken",
             request.Id.ToString(),
             null,
-            $"RequestId={request.Id}; ExpiresAt={DateTime.UtcNow.AddDays(7):O}");
+            $"RequestId={request.Id}; ExpiresAt={qrExpiresAt:O}");
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -780,7 +1848,7 @@ public sealed class HealthcareUiService(AppDbContext db)
             request.Beneficiary.UserId,
             NotificationType.RequestRejected,
             "تم رفض طلبك",
-            $"تم رفض طلب {request.Specialty.NameAr}. يمكنك مراجعة تفاصيل الطلب من صفحة طلباتي.",
+            $"تم رفض {ServiceTypeAr(request.ServiceType)}. يمكنك مراجعة تفاصيل الطلب من صفحة طلباتي.",
             "/portal/requests",
             "MedicalRequest",
             request.Id.ToString()
@@ -807,6 +1875,7 @@ public sealed class HealthcareUiService(AppDbContext db)
             .FirstOrDefaultAsync(r => r.Id == requestId, ct);
 
         if (request is null) return UiActionResult.Fail("الطلب غير موجود");
+        if (request.ServiceType != ServiceRequestType.MedicalConsultation) return UiActionResult.Fail("هذا الطلب تابع لجهة خدمة وليس لطبيب.");
         if (request.Status != RequestStatus.Approved) return UiActionResult.Fail("لا يمكن إنهاء الطلب قبل الموافقة عليه");
 
         var qr = request.QRCodeToken;
@@ -848,6 +1917,9 @@ public sealed class HealthcareUiService(AppDbContext db)
 
         var request = qr.Request;
 
+        if (request.ServiceType != ServiceRequestType.MedicalConsultation)
+            return UiActionResult.Fail("هذا QR تابع لصيدلية أو معمل أو مركز أشعة ولا يمكن للطبيب استخدامه.");
+
         if (qr.IsUsed && request.Consultation is not null)
         {
             return UiActionResult.Fail("تم استخدام رمز QR من قبل.");
@@ -870,7 +1942,7 @@ public sealed class HealthcareUiService(AppDbContext db)
         if (doctor is null)
             return UiActionResult.Fail("حساب الطبيب غير متاح أو غير نشط.");
 
-        if (doctor.SpecialtyId != request.SpecialtyId)
+        if (request.SpecialtyId is null || doctor.SpecialtyId != request.SpecialtyId.Value)
             return UiActionResult.Fail("هذا الطلب تابع لتخصص آخر ولا يمكن للطبيب الحالي إنهاؤه.");
 
         if (request.DoctorId is not null && request.DoctorId != doctor.Id)
@@ -952,7 +2024,68 @@ public sealed class HealthcareUiService(AppDbContext db)
     }
 
 
-    private static bool IsDoctorWorkingOnDate(string? workingDays, DateOnly date)
+
+    public async Task<int> NormalizeActiveQrExpiryAsync(CancellationToken ct = default)
+    {
+        var tokens = await db.QRCodeTokens
+            .Include(q => q.Request)
+            .Where(q =>
+                !q.IsDeleted
+                && !q.IsUsed
+                && q.Request.Status == RequestStatus.Approved
+                && q.Request.AppointmentDate != null)
+            .ToListAsync(ct);
+
+        var changed = 0;
+
+        foreach (var token in tokens)
+        {
+            var expectedExpiry = GetQrExpiryUtc(token.Request.AppointmentDate);
+
+            if (Math.Abs((token.ExpiresAt - expectedExpiry).TotalSeconds) <= 1)
+            {
+                continue;
+            }
+
+            token.ExpiresAt = expectedExpiry;
+            changed++;
+        }
+
+        if (changed > 0)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
+        return changed;
+    }
+
+    private static DateTime GetQrExpiryUtc(DateOnly? appointmentDate)
+    {
+        if (appointmentDate is null)
+        {
+            return DateTime.UtcNow;
+        }
+
+        var localEndOfDay = appointmentDate.Value.ToDateTime(
+            new TimeOnly(23, 59, 59, 999),
+            DateTimeKind.Unspecified);
+
+        try
+        {
+            var cairo = TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
+            return TimeZoneInfo.ConvertTimeToUtc(localEndOfDay, cairo);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.ConvertTimeToUtc(localEndOfDay, TimeZoneInfo.Local);
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.ConvertTimeToUtc(localEndOfDay, TimeZoneInfo.Local);
+        }
+    }
+
+    private static bool IsWorkingOnDate(string? workingDays, DateOnly date)
     {
         if (string.IsNullOrWhiteSpace(workingDays))
         {
@@ -976,9 +2109,28 @@ public sealed class HealthcareUiService(AppDbContext db)
             .Any(d => string.Equals(d, dayCode, StringComparison.OrdinalIgnoreCase));
     }
 
+    private static string DayNameAr(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Saturday => "السبت", DayOfWeek.Sunday => "الأحد", DayOfWeek.Monday => "الاثنين",
+        DayOfWeek.Tuesday => "الثلاثاء", DayOfWeek.Wednesday => "الأربعاء", DayOfWeek.Thursday => "الخميس",
+        DayOfWeek.Friday => "الجمعة", _ => string.Empty
+    };
+
     private static string BuildApprovalNotificationBody(MedicalRequest request, Doctor? doctor)
     {
+        if (request.ServiceType != ServiceRequestType.MedicalConsultation)
+        {
+            var providerName = request.AssignedProvider?.FullNameAr ?? "الجهة المختارة";
+            if (request.AppointmentDate is not null)
+            {
+                return $"تم قبول {ServiceTypeAr(request.ServiceType)} لدى {providerName} ليوم {request.AppointmentDate.Value:dd/MM/yyyy}. تم توليد QR لتقديمه عند تنفيذ الخدمة.";
+            }
+
+            return $"تم قبول {ServiceTypeAr(request.ServiceType)} لدى {providerName}. تم توليد QR لتقديمه عند تنفيذ الخدمة.";
+        }
+
         var doctorName = doctor?.User?.FullNameAr;
+        var specialtyName = request.Specialty?.NameAr ?? "الاستشارة الطبية";
 
         var dateText = request.AppointmentDate is null
             ? "لم يتم تحديد يوم كشف"
@@ -986,10 +2138,10 @@ public sealed class HealthcareUiService(AppDbContext db)
 
         if (string.IsNullOrWhiteSpace(doctorName))
         {
-            return $"تم قبول طلب {request.Specialty.NameAr} وتوليد QR الخاص بالحالة. يوم الكشف: {dateText}.";
+            return $"تم قبول طلب {specialtyName} وتوليد QR الخاص بالحالة. يوم الكشف: {dateText}.";
         }
 
-        return $"تم قبول طلب {request.Specialty.NameAr} مع الطبيب {doctorName}. يوم الكشف: {dateText}. تم توليد QR الخاص بالحالة.";
+        return $"تم قبول طلب {specialtyName} مع الطبيب {doctorName}. يوم الكشف: {dateText}. تم توليد QR الخاص بالحالة.";
     }
 
     private async Task<int> RejectOtherPendingRequestsIfDayIsFullAsync(
@@ -1032,7 +2184,7 @@ public sealed class HealthcareUiService(AppDbContext db)
                 item.Beneficiary.UserId,
                 NotificationType.RequestRejected,
                 "تم إلغاء طلبك تلقائيًا",
-                $"تم إلغاء طلب {item.Specialty.NameAr} لأن يوم الطبيب المختار اكتمل. يمكنك تقديم طلب جديد في يوم آخر.",
+                $"تم إلغاء طلب {item.Specialty?.NameAr ?? "الاستشارة الطبية"} لأن يوم الطبيب المختار اكتمل. يمكنك تقديم طلب جديد في يوم آخر.",
                 "/portal/requests",
                 "MedicalRequest",
                 item.Id.ToString()
@@ -1050,6 +2202,161 @@ public sealed class HealthcareUiService(AppDbContext db)
         return pendingRequests.Count;
     }
 
+
+    private static string AppointmentRequiredMessage(ServiceRequestType type) => type switch
+    {
+        ServiceRequestType.PharmacyMedication => "اختر يوم استلام العلاج.",
+        ServiceRequestType.LaboratoryTest => "اختر يوم إجراء التحاليل.",
+        ServiceRequestType.RadiologyScan => "اختر يوم إجراء الأشعة.",
+        _ => "اختر يوم تنفيذ الخدمة."
+    };
+
+    private static string AppointmentApprovalRequiredMessage(ServiceRequestType type) => type switch
+    {
+        ServiceRequestType.PharmacyMedication => "يجب اختيار يوم استلام العلاج قبل الموافقة.",
+        ServiceRequestType.LaboratoryTest => "يجب اختيار يوم إجراء التحاليل قبل الموافقة.",
+        ServiceRequestType.RadiologyScan => "يجب اختيار يوم إجراء الأشعة قبل الموافقة.",
+        _ => "يجب اختيار يوم تنفيذ الخدمة قبل الموافقة."
+    };
+
+    private static string ProviderNameAr(ServiceRequestType type) => type switch
+    {
+        ServiceRequestType.PharmacyMedication => "الصيدلية",
+        ServiceRequestType.LaboratoryTest => "المعمل",
+        ServiceRequestType.RadiologyScan => "مركز الأشعة",
+        _ => "الجهة"
+    };
+
+    public static string ServiceTypeAr(ServiceRequestType serviceType) => serviceType switch
+    {
+        ServiceRequestType.MedicalConsultation => "طلب كشف طبي",
+        ServiceRequestType.PharmacyMedication => "طلب علاج من صيدلية",
+        ServiceRequestType.LaboratoryTest => "طلب تحاليل طبية",
+        ServiceRequestType.RadiologyScan => "طلب أشعة",
+        _ => "طلب خدمة صحية"
+    };
+
+    public static string ServiceTypeIcon(ServiceRequestType serviceType) => serviceType switch
+    {
+        ServiceRequestType.MedicalConsultation => "🩺",
+        ServiceRequestType.PharmacyMedication => "💊",
+        ServiceRequestType.LaboratoryTest => "🧪",
+        ServiceRequestType.RadiologyScan => "🩻",
+        _ => "🏥"
+    };
+
+
+    private async Task<bool> IsActiveProviderForServiceAsync(
+        string providerUserId,
+        ServiceRequestType serviceType,
+        CancellationToken ct)
+    {
+        var expectedRoles = ExpectedProviderRoles(serviceType);
+
+        return await (
+            from user in db.Users
+            join userRole in db.UserRoles on user.Id equals userRole.UserId
+            join role in db.Roles on userRole.RoleId equals role.Id
+            where user.Id == providerUserId
+                  && user.IsActive
+                  && role.Name != null
+                  && expectedRoles.Contains(role.Name)
+            select user.Id
+        ).AnyAsync(ct);
+    }
+
+    private static string BuildPartnerCompletionNote(
+        ServiceRequestType serviceType,
+        PartnerQrCompletionInput input)
+    {
+        var lines = new List<string>();
+
+        switch (serviceType)
+        {
+            case ServiceRequestType.PharmacyMedication:
+                lines.Add($"الأدوية المصروفة: {input.PrimaryResult.Trim()}");
+                if (!string.IsNullOrWhiteSpace(input.ReferenceNumber))
+                    lines.Add($"رقم الصرف / الوصفة: {input.ReferenceNumber.Trim()}");
+                if (input.ExpectedDeliveryAt is not null)
+                    lines.Add($"موعد الاستلام: {input.ExpectedDeliveryAt.Value.ToLocalTime():yyyy/MM/dd HH:mm}");
+                break;
+
+            case ServiceRequestType.LaboratoryTest:
+                lines.Add($"التحاليل التي تم تنفيذها: {input.PrimaryResult.Trim()}");
+                if (!string.IsNullOrWhiteSpace(input.ReferenceNumber))
+                    lines.Add($"رقم العينة / المرجع: {input.ReferenceNumber.Trim()}");
+                if (input.ExpectedDeliveryAt is not null)
+                    lines.Add($"موعد تسليم النتيجة: {input.ExpectedDeliveryAt.Value.ToLocalTime():yyyy/MM/dd HH:mm}");
+                break;
+
+            case ServiceRequestType.RadiologyScan:
+                lines.Add($"الأشعة التي تم تنفيذها: {input.PrimaryResult.Trim()}");
+                if (!string.IsNullOrWhiteSpace(input.ReferenceNumber))
+                    lines.Add($"رقم الفحص / المرجع: {input.ReferenceNumber.Trim()}");
+                if (input.ExpectedDeliveryAt is not null)
+                    lines.Add($"موعد تسليم التقرير: {input.ExpectedDeliveryAt.Value.ToLocalTime():yyyy/MM/dd HH:mm}");
+                break;
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.AdditionalNotes))
+        {
+            lines.Add($"ملاحظات الجهة: {input.AdditionalNotes.Trim()}");
+        }
+
+        lines.Add($"تم التنفيذ بتاريخ: {DateTime.Now:yyyy/MM/dd HH:mm}");
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string PrimaryResultRequiredMessage(ServiceRequestType serviceType) => serviceType switch
+    {
+        ServiceRequestType.PharmacyMedication => "اكتب الأدوية التي تم صرفها للمستفيد.",
+        ServiceRequestType.LaboratoryTest => "اكتب التحاليل التي تم تنفيذها للمستفيد.",
+        ServiceRequestType.RadiologyScan => "اكتب نوع الأشعة التي تم تنفيذها للمستفيد.",
+        _ => "اكتب نتيجة تنفيذ الخدمة."
+    };
+
+    private static decimal NormalizeDiscount(decimal value) => Math.Clamp(value, 0m, 100m);
+
+    private static string PartnerCompletionSuccessMessage(ServiceRequestType serviceType) => serviceType switch
+    {
+        ServiceRequestType.PharmacyMedication => "تم صرف العلاج واستخدام QR وإبلاغ المستفيد بنجاح.",
+        ServiceRequestType.LaboratoryTest => "تم تسجيل تنفيذ التحاليل واستخدام QR وإبلاغ المستفيد بنجاح.",
+        ServiceRequestType.RadiologyScan => "تم تسجيل تنفيذ الأشعة واستخدام QR وإبلاغ المستفيد بنجاح.",
+        _ => "تم تنفيذ الخدمة واستخدام QR وإبلاغ المستفيد بنجاح."
+    };
+
+    private static string[] ExpectedProviderRoles(ServiceRequestType serviceType) => serviceType switch
+    {
+        ServiceRequestType.PharmacyMedication => ["Pharmacist", "Pharmacy"],
+        ServiceRequestType.LaboratoryTest => ["Laboratory"],
+        ServiceRequestType.RadiologyScan => ["RadiologyCenter"],
+        _ => []
+    };
+
+    private static string DefaultApprovalNote(ServiceRequestType serviceType) => serviceType switch
+    {
+        ServiceRequestType.MedicalConsultation => "تمت الموافقة على الطلب. برجاء التوجه للطبيب في اليوم المحدد بعد التنسيق.",
+        ServiceRequestType.PharmacyMedication => "تمت الموافقة على صرف العلاج. برجاء التوجه للصيدلية المختارة ومعك QR.",
+        ServiceRequestType.LaboratoryTest => "تمت الموافقة على طلب التحاليل. برجاء التوجه للمعمل المختار ومعك QR.",
+        ServiceRequestType.RadiologyScan => "تمت الموافقة على طلب الأشعة. برجاء التوجه لمركز الأشعة المختار ومعك QR.",
+        _ => "تمت الموافقة على الطلب."
+    };
+
+    private static string DefaultCompletionNote(ServiceRequestType serviceType) => serviceType switch
+    {
+        ServiceRequestType.PharmacyMedication => "تم صرف العلاج للمستفيد.",
+        ServiceRequestType.LaboratoryTest => "تم إجراء التحاليل للمستفيد.",
+        ServiceRequestType.RadiologyScan => "تم إجراء الأشعة للمستفيد.",
+        _ => "تم تنفيذ الخدمة للمستفيد."
+    };
+
+    private static string CompletionTitle(ServiceRequestType serviceType) => serviceType switch
+    {
+        ServiceRequestType.PharmacyMedication => "تم صرف العلاج",
+        ServiceRequestType.LaboratoryTest => "تم إجراء التحاليل",
+        ServiceRequestType.RadiologyScan => "تم إجراء الأشعة",
+        _ => "تم تنفيذ الخدمة"
+    };
 
     private void AddAuditLog(
         string? userId,
@@ -1135,6 +2442,7 @@ public sealed class HealthcareUiService(AppDbContext db)
         NotificationType.DocumentRequired => "📎",
         NotificationType.AppointmentReminder => "📅",
         NotificationType.ConsultationCompleted => "🩺",
+        NotificationType.ServiceCompleted => "✅",
         _ => "🔔"
     };
 
@@ -1145,6 +2453,7 @@ public sealed class HealthcareUiService(AppDbContext db)
         NotificationType.DocumentRequired => "#fffbeb",
         NotificationType.AppointmentReminder => "#eff6ff",
         NotificationType.ConsultationCompleted => "#ecfdf3",
+        NotificationType.ServiceCompleted => "#ecfdf3",
         _ => "#f1f5f9"
     };
 
@@ -1155,6 +2464,7 @@ public sealed class HealthcareUiService(AppDbContext db)
         NotificationType.DocumentRequired => "#b45309",
         NotificationType.AppointmentReminder => "#2563eb",
         NotificationType.ConsultationCompleted => "#047857",
+        NotificationType.ServiceCompleted => "#047857",
         _ => "#475467"
     };
 }

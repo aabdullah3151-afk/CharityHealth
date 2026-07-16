@@ -1,3 +1,4 @@
+@using Microsoft.EntityFrameworkCore
 @inherits LayoutComponentBase
 @implements IDisposable
 
@@ -8,6 +9,7 @@
 @inject UiThemeService Theme
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
+@inject IDbContextFactory<CharityHealth.Infrastructure.Persistence.AppDbContext> DbFactory
 
 <style>
     /*
@@ -561,6 +563,33 @@
         }
     }
 
+
+    /* CharityHealth vector logo */
+    .brand-logo-image {
+        width: 54px !important;
+        height: 54px !important;
+        flex: 0 0 54px !important;
+        display: block !important;
+        object-fit: contain !important;
+        border-radius: 16px !important;
+        filter: drop-shadow(0 9px 12px rgba(5, 168, 67, .20)) !important;
+        transition: transform .18s ease, filter .18s ease !important;
+    }
+
+    .brand-button:hover .brand-logo-image {
+        transform: translateY(-1px) scale(1.035) !important;
+        filter: drop-shadow(0 12px 16px rgba(5, 168, 67, .28)) !important;
+    }
+
+    @@media (max-width: 900px) {
+        .brand-logo-image {
+            width: 43px !important;
+            height: 43px !important;
+            flex-basis: 43px !important;
+            border-radius: 13px !important;
+        }
+    }
+
 </style>
 
 <div class="@($"app-root {Theme.CssClass}")" dir="rtl">
@@ -583,10 +612,9 @@
         <button type="button"
                 class="brand-button"
                 @onclick="GoHome">
-            <span class="brand-logo">
-                <span class="moon-a"></span>
-                <span class="moon-b"></span>
-            </span>
+            <img class="brand-logo-image"
+                 src="/images/charityhealth-logo.svg"
+                 alt="شعار مستشفى بلا مستشفى" />
 
             <span class="brand-text">
                 <strong>مستشفى بلا مستشفى</strong>
@@ -663,17 +691,27 @@
                             style="font-size:22px !important;">
                         <span style="line-height:1 !important;">🔔</span>
 
-                        <span style="
-                            position:absolute !important;
-                            top:8px !important;
-                            right:9px !important;
-                            min-width:10px !important;
-                            height:10px !important;
-                            border-radius:999px !important;
-                            background:#ef4444 !important;
-                            border:2px solid #f1f5f9 !important;
-                            display:block !important;">
-                        </span>
+                        @if (UnreadNotifications > 0)
+                        {
+                            <span style="
+                                position:absolute !important;
+                                top:4px !important;
+                                right:4px !important;
+                                min-width:20px !important;
+                                height:20px !important;
+                                padding:0 5px !important;
+                                border-radius:999px !important;
+                                background:#ef4444 !important;
+                                color:white !important;
+                                font-size:11px !important;
+                                font-weight:900 !important;
+                                display:flex !important;
+                                align-items:center !important;
+                                justify-content:center !important;
+                                border:2px solid #fff !important;">
+                                @UnreadNotifications
+                            </span>
+                        }
                     </button>
                 </Authorized>
             </AuthorizeView>
@@ -720,6 +758,17 @@
 
         <NavMenu />
 
+        <AuthorizeView Roles="Administrator">
+            <Authorized>
+                <NavLink href="/admin/users"
+                         class="nav-link"
+                         Match="NavLinkMatch.Prefix">
+                    <span class="nav-icon">👥</span>
+                    <span>كل المستخدمين</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+
         <div class="sidebar-footer">
             <a class="sidebar-logout" href="/account/logout">
                 <span>تسجيل الخروج</span>
@@ -738,11 +787,41 @@
 
 @code {
     private bool mobileMenuOpen;
+    private int UnreadNotifications = 0;
 
     protected override void OnInitialized()
     {
         Theme.OnChange += StateHasChanged;
         Nav.LocationChanged += HandleLocationChanged;
+
+        _ = LoadUnreadNotifications();
+    }
+
+    private async Task LoadUnreadNotifications()
+    {
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                UnreadNotifications = 0;
+                return;
+            }
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            UnreadNotifications = await db.Notifications
+                .AsNoTracking()
+                .CountAsync(x => x.UserId == userId && !x.IsRead);
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            UnreadNotifications = 0;
+        }
     }
 
     public void Dispose()
@@ -802,21 +881,19 @@
 
     private static string UserType(ClaimsPrincipal user)
     {
-        var claimValue = user.FindFirst("UserType")?.Value;
-
-        if (!string.IsNullOrWhiteSpace(claimValue))
-        {
-            return claimValue;
-        }
-
+        // نعتمد على الـ Role الفعلي أولاً حتى يظهر نوع الحساب الصحيح
+        // حتى لو كان بالحساب Claim قديم مثل Staff أو User.
         if (user.IsInRole("Administrator")) return "Administrator";
-        if (user.IsInRole("Staff")) return "Staff";
-        if (user.IsInRole("Doctor")) return "Doctor";
-        if (user.IsInRole("Beneficiary")) return "Beneficiary";
         if (user.IsInRole("Pharmacy")) return "Pharmacy";
         if (user.IsInRole("Pharmacist")) return "Pharmacist";
+        if (user.IsInRole("Laboratory")) return "Laboratory";
+        if (user.IsInRole("RadiologyCenter")) return "RadiologyCenter";
+        if (user.IsInRole("Doctor")) return "Doctor";
+        if (user.IsInRole("Beneficiary")) return "Beneficiary";
+        if (user.IsInRole("Staff")) return "Staff";
 
-        return "User";
+        var claimValue = user.FindFirst("UserType")?.Value;
+        return string.IsNullOrWhiteSpace(claimValue) ? "User" : claimValue;
     }
 
     private static string RoleLabel(ClaimsPrincipal user)
@@ -829,6 +906,8 @@
             "Beneficiary" => "مستفيد",
             "Pharmacy" => "صيدلية",
             "Pharmacist" => "صيدلي",
+            "Laboratory" => "معمل تحاليل",
+            "RadiologyCenter" => "مركز أشعة",
             _ => "مستخدم"
         };
     }
@@ -843,6 +922,8 @@
             "Beneficiary" => "#047857",
             "Pharmacy" => "#d97706",
             "Pharmacist" => "#d97706",
+            "Laboratory" => "#0f766e",
+            "RadiologyCenter" => "#2563eb",
             _ => "#475467"
         };
     }
@@ -857,6 +938,8 @@
             "Beneficiary" => "#ecfdf3",
             "Pharmacy" => "#fffbeb",
             "Pharmacist" => "#fffbeb",
+            "Laboratory" => "#f0fdfa",
+            "RadiologyCenter" => "#eff6ff",
             _ => "#f8fafc"
         };
     }
@@ -871,6 +954,8 @@
             "Beneficiary" => "#a7f3d0",
             "Pharmacy" => "#fde68a",
             "Pharmacist" => "#fde68a",
+            "Laboratory" => "#99f6e4",
+            "RadiologyCenter" => "#bfdbfe",
             _ => "#e5e7eb"
         };
     }
@@ -928,6 +1013,8 @@
             "Beneficiary" => "#05a843",
             "Pharmacy" => "#f59e0b",
             "Pharmacist" => "#f59e0b",
+            "Laboratory" => "#0f766e",
+            "RadiologyCenter" => "#2563eb",
             _ => "#64748b"
         };
 
@@ -944,6 +1031,8 @@
             "Beneficiary" => "/beneficiary/dashboard",
             "Pharmacy" => "/pharmacy/dashboard",
             "Pharmacist" => "/pharmacy/dashboard",
+            "Laboratory" => "/laboratory/dashboard",
+            "RadiologyCenter" => "/radiology/dashboard",
             _ => "/portal/dashboard"
         };
     }
@@ -958,6 +1047,8 @@
             "Beneficiary" => "/portal/notifications",
             "Pharmacy" => "/pharmacy/notifications",
             "Pharmacist" => "/pharmacy/notifications",
+            "Laboratory" => "/laboratory/notifications",
+            "RadiologyCenter" => "/radiology/notifications",
             _ => "/portal/notifications"
         };
     }

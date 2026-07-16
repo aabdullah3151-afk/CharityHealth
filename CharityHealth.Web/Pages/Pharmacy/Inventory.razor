@@ -1,6 +1,6 @@
 @page "/pharmacy/inventory"
 @layout MainLayout
-@attribute [Authorize(Roles = "Pharmacist")]
+@attribute [Authorize(Roles = "Pharmacy,Pharmacist")]
 
 @using Microsoft.AspNetCore.Authorization
 @inject NavigationManager Nav

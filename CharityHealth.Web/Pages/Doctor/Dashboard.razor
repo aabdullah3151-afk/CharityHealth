@@ -14,149 +14,180 @@
 
 <PageTitle>لوحة الطبيب</PageTitle>
 
-<div class="doctor-home-page" dir="rtl" style="padding:32px;min-height:calc(100vh - 80px);background:#f8fafc;">
-    <section style="
-        border-radius:34px;
-        padding:34px;
-        margin-bottom:24px;
-        background:linear-gradient(135deg,#05a843,#0f9f93);
-        color:#fff;
-        box-shadow:0 22px 48px rgba(5,168,67,.22);">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;">
-            <div>
-                <div style="font-size:14px;font-weight:900;color:rgba(255,255,255,.82);margin-bottom:8px;">Doctor Workspace</div>
-                <h1 style="margin:0;font-size:36px;font-weight:950;color:#fff;">لوحة الطبيب</h1>
-                <p style="margin:10px 0 0;font-size:16px;font-weight:800;color:rgba(255,255,255,.86);">
-                    هنا الطبيب يشوف الحالات المعتمدة ويمسح QR ويسجل نتيجة الكشف فقط.
-                </p>
-            </div>
-
-            <button type="button"
-                    @onclick='() => Nav.NavigateTo("/doctor/scan")'
-                    style="
-                        border:0;
-                        border-radius:999px;
-                        min-height:50px;
-                        padding:0 22px;
-                        background:#fff;
-                        color:#05a843;
-                        font-size:15px;
-                        font-weight:950;
-                        cursor:pointer;
-                        box-shadow:0 14px 26px rgba(15,23,42,.16);">
-                مسح QR
-            </button>
+<div class="doctor-dashboard-page" dir="rtl">
+    <header class="hero">
+        <div>
+            <span>Doctor Workspace</span>
+            <h1>لوحة الطبيب</h1>
+            <p>حالات اليوم وكل الحالات المحولة إليك. افتح الحالة وسجل المعاينة مباشرة، أو استخدم QR كطريقة اختيارية.</p>
         </div>
-    </section>
+        <button type="button" @onclick='() => Nav.NavigateTo("/doctor/scan")'>مسح QR اختياري</button>
+    </header>
 
     @if (loading)
     {
-        <div style="border-radius:26px;background:#fff;border:1px solid #e5e7eb;padding:26px;font-weight:900;color:#64748b;">
-            جارٍ تحميل بيانات الطبيب...
-        </div>
+        <section class="state">جارٍ تحميل الحالات...</section>
+    }
+    else if (!string.IsNullOrWhiteSpace(error))
+    {
+        <section class="error">@error</section>
     }
     else
     {
-        <section style="
-            display:grid;
-            grid-template-columns:repeat(3,minmax(0,1fr));
-            gap:16px;
-            margin-bottom:24px;">
-            <article style="border-radius:26px;background:#fff;border:1px solid #e5e7eb;padding:24px;box-shadow:0 12px 28px rgba(15,23,42,.06);">
-                <div style="font-size:13px;font-weight:900;color:#94a3b8;margin-bottom:8px;">حالات في الانتظار</div>
-                <strong style="font-size:34px;color:#111827;font-weight:950;">@pendingCount</strong>
-            </article>
-
-            <article style="border-radius:26px;background:#fff;border:1px solid #e5e7eb;padding:24px;box-shadow:0 12px 28px rgba(15,23,42,.06);">
-                <div style="font-size:13px;font-weight:900;color:#94a3b8;margin-bottom:8px;">حالات معتمدة</div>
-                <strong style="font-size:34px;color:#05a843;font-weight:950;">@approvedCount</strong>
-            </article>
-
-            <article style="border-radius:26px;background:#fff;border:1px solid #e5e7eb;padding:24px;box-shadow:0 12px 28px rgba(15,23,42,.06);">
-                <div style="font-size:13px;font-weight:900;color:#94a3b8;margin-bottom:8px;">إجمالي ظاهر للطبيب</div>
-                <strong style="font-size:34px;color:#2563eb;font-weight:950;">@queue.Count</strong>
-            </article>
+        <section class="stats">
+            <article><span>حالات اليوم</span><strong>@TodayCount</strong><small>تشمل المكتملة اليوم</small></article>
+            <article><span>جاهزة للمعاينة</span><strong>@ReadyCount</strong><small>تم اعتمادها من الإدارة</small></article>
+            <article><span>مكتملة</span><strong>@CompletedCount</strong><small>يمكن معاينتها وتعديلها</small></article>
+            <article><span>كل الحالات</span><strong>@queue.Count</strong><small>السجل الكامل للطبيب</small></article>
         </section>
 
-        <section style="border-radius:30px;background:#fff;border:1px solid #e5e7eb;box-shadow:0 16px 34px rgba(15,23,42,.06);overflow:hidden;">
-            <div style="padding:22px 24px;border-bottom:1px solid #eef2f7;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
-                <div>
-                    <h2 style="margin:0;color:#111827;font-size:24px;font-weight:950;">الحالات المتاحة للطبيب</h2>
-                    <p style="margin:8px 0 0;color:#64748b;font-size:14px;font-weight:800;">لا يوجد هنا إضافة أو تعديل أطباء. الإدارة فقط مسؤولة عن ذلك.</p>
-                </div>
-
-                <button type="button"
-                        @onclick='() => Nav.NavigateTo("/doctor/scan")'
-                        style="border:0;border-radius:999px;background:#ecfdf3;color:#05a843;min-height:42px;padding:0 18px;font-weight:950;cursor:pointer;">
-                    فتح ماسح QR
-                </button>
+        <section class="toolbar">
+            <div class="tabs">
+                <button class="@(filter == CaseFilter.Today ? "active" : "")" @onclick="() => filter = CaseFilter.Today">اليوم <b>@TodayCount</b></button>
+                <button class="@(filter == CaseFilter.Ready ? "active" : "")" @onclick="() => filter = CaseFilter.Ready">جاهزة <b>@ReadyCount</b></button>
+                <button class="@(filter == CaseFilter.Upcoming ? "active" : "")" @onclick="() => filter = CaseFilter.Upcoming">قادمة <b>@UpcomingCount</b></button>
+                <button class="@(filter == CaseFilter.Completed ? "active" : "")" @onclick="() => filter = CaseFilter.Completed">مكتملة <b>@CompletedCount</b></button>
+                <button class="@(filter == CaseFilter.All ? "active" : "")" @onclick="() => filter = CaseFilter.All">الكل <b>@queue.Count</b></button>
             </div>
 
-            @if (queue.Count == 0)
-            {
-                <div style="padding:28px;text-align:center;color:#94a3b8;font-weight:900;">
-                    لا توجد حالات متاحة حاليًا.
-                </div>
-            }
-            else
-            {
-                <div style="overflow:auto;">
-                    <table style="width:100%;border-collapse:collapse;min-width:760px;">
-                        <thead>
-                            <tr style="background:#f8fafc;color:#64748b;font-size:13px;font-weight:950;">
-                                <th style="padding:16px;text-align:right;">المستفيد</th>
-                                <th style="padding:16px;text-align:right;">التخصص</th>
-                                <th style="padding:16px;text-align:right;">الهاتف</th>
-                                <th style="padding:16px;text-align:right;">المدينة</th>
-                                <th style="padding:16px;text-align:right;">الحالة</th>
-                                <th style="padding:16px;text-align:right;">تاريخ الطلب</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in queue)
-                            {
-                                <tr style="border-top:1px solid #eef2f7;">
-                                    <td style="padding:16px;font-weight:950;color:#111827;">@item.BeneficiaryName</td>
-                                    <td style="padding:16px;font-weight:850;color:#334155;">@item.SpecialtyName</td>
-                                    <td style="padding:16px;font-weight:850;color:#334155;">@item.BeneficiaryPhone</td>
-                                    <td style="padding:16px;font-weight:850;color:#334155;">@item.City</td>
-                                    <td style="padding:16px;">
-                                        <span style="border-radius:999px;padding:7px 12px;background:#ecfdf3;color:#047857;font-weight:950;font-size:12px;">
-                                            @item.StatusAr
-                                        </span>
-                                    </td>
-                                    <td style="padding:16px;font-weight:850;color:#334155;">@item.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
+            <label class="search">
+                <span>🔎</span>
+                <input @bind="search" @bind:event="oninput" placeholder="ابحث باسم المستفيد أو الهاتف أو التخصص..." />
+            </label>
         </section>
+
+        @if (!FilteredCases.Any())
+        {
+            <section class="empty"><div>🩺</div><h2>لا توجد حالات مطابقة</h2><p>الحالات التي تعتمدها الإدارة وتخصصها لك ستظهر هنا.</p></section>
+        }
+        else
+        {
+            <section class="grid">
+                @foreach (var item in FilteredCases)
+                {
+                    <article class="case">
+                        <div class="case-head">
+                            <div class="avatar">@Initial(item.BeneficiaryName)</div>
+                            <div>
+                                <h2>@item.BeneficiaryName</h2>
+                                <p>@RequestCode(item.Id) · @item.SpecialtyName</p>
+                            </div>
+                            <span class="status @StatusClass(item.Status)">@item.StatusAr</span>
+                        </div>
+
+                        <div class="info">
+                            <div><span>الهاتف</span><strong>@Safe(item.BeneficiaryPhone)</strong></div>
+                            <div><span>المدينة</span><strong>@Safe(item.City)</strong></div>
+                            <div><span>موعد الحالة</span><strong>@AppointmentText(item)</strong></div>
+                            <div><span>تاريخ الطلب</span><strong>@item.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</strong></div>
+                        </div>
+
+                        <div class="description">
+                            <span>وصف الحالة</span>
+                            <p>@ShortText(item.DescriptionAr)</p>
+                        </div>
+
+                        <div class="actions">
+                            <button type="button" class="primary" @onclick='() => Nav.NavigateTo($"/doctor/case/{item.Id}")'>
+                                @(item.Status == RequestStatus.Completed
+                                    ? "معاينة أو تعديل النتيجة"
+                                    : item.Status == RequestStatus.Approved
+                                        ? "بدء المعاينة واستكمال البيانات"
+                                        : "عرض الحالة")
+                            </button>
+
+                            @if (item.Status == RequestStatus.Approved && item.HasQrCode)
+                            {
+                                <button type="button" class="secondary" @onclick='() => Nav.NavigateTo("/doctor/scan")'>QR اختياري</button>
+                            }
+                        </div>
+                    </article>
+                }
+            </section>
+        }
     }
 </div>
 
+<style>
+.doctor-dashboard-page{min-height:calc(100vh - 76px);padding:32px;background:#f8fafc;color:#101828}.hero{border-radius:34px;padding:34px;background:linear-gradient(135deg,#05a843,#0f9f93);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:18px;box-shadow:0 22px 48px rgba(5,168,67,.22)}.hero>div>span{font-size:13px;font-weight:950;color:rgba(255,255,255,.78)}.hero h1{margin:7px 0 0;font-size:37px;font-weight:950;color:#fff}.hero p{max-width:760px;margin:10px 0 0;color:rgba(255,255,255,.88);font-size:15px;line-height:1.9;font-weight:800}.hero button{border:0;border-radius:999px;background:#fff;color:#05a843;min-height:50px;padding:0 22px;font-weight:950;cursor:pointer}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;margin:22px 0}.stats article{border:1px solid #e5e7eb;border-radius:25px;background:#fff;padding:21px;box-shadow:0 12px 28px rgba(15,23,42,.05)}.stats span,.stats small{display:block;color:#94a3b8;font-size:12px;font-weight:900}.stats strong{display:block;margin:8px 0 4px;font-size:32px;font-weight:950;color:#05a843}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-bottom:20px}.tabs{display:flex;gap:9px;flex-wrap:wrap}.tabs button{border:1px solid #e5e7eb;border-radius:999px;background:#fff;color:#64748b;min-height:43px;padding:0 17px;font-weight:950;cursor:pointer}.tabs button.active{background:#05a843;border-color:#05a843;color:#fff}.tabs b{margin-right:7px}.search{min-width:300px;height:46px;border:1px solid #e5e7eb;border-radius:999px;background:#fff;padding:0 15px;display:flex;align-items:center;gap:9px}.search input{width:100%;border:0;outline:0;background:transparent;font:inherit;font-size:13px;font-weight:850}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}.case{border:1px solid #e5e7eb;border-radius:28px;background:#fff;padding:21px;box-shadow:0 14px 32px rgba(15,23,42,.06)}.case-head{display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center}.avatar{width:52px;height:52px;border-radius:18px;background:#ecfdf3;color:#05a843;display:grid;place-items:center;font-size:22px;font-weight:950}.case-head h2{margin:0;font-size:19px;font-weight:950}.case-head p{margin:5px 0 0;color:#94a3b8;font-size:11px;font-weight:850}.status{border-radius:999px;padding:7px 11px;font-size:11px;font-weight:950}.status.approved{background:#ecfdf3;color:#047857}.status.completed{background:#eff6ff;color:#1d4ed8}.status.pending{background:#fff7ed;color:#c2410c}.info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:17px 0}.info div{border-radius:15px;background:#f8fafc;padding:12px}.info span,.description span{display:block;color:#94a3b8;font-size:10px;font-weight:900}.info strong{display:block;margin-top:6px;color:#334155;font-size:12px;font-weight:950}.description{border-radius:16px;background:#f8fafc;padding:14px}.description p{margin:7px 0 0;color:#64748b;font-size:12px;line-height:1.8;font-weight:800}.actions{display:flex;gap:9px;margin-top:15px}.actions button{border:0;border-radius:999px;min-height:44px;padding:0 17px;font-weight:950;cursor:pointer}.actions .primary{flex:1;background:#05a843;color:#fff}.actions .secondary{background:#ecfdf3;color:#047857}.state,.error,.empty{margin-top:22px;border:1px solid #e5e7eb;border-radius:28px;background:#fff;padding:30px;text-align:center;font-weight:900}.error{background:#fef2f2;color:#991b1b}.empty div{font-size:42px}.empty h2{margin:10px 0 5px}.empty p{color:#94a3b8}@@media(max-width:1000px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}@@media(max-width:650px){.doctor-dashboard-page{padding:18px 12px}.hero{padding:25px 20px;align-items:flex-start;flex-direction:column}.hero h1{font-size:29px}.stats{grid-template-columns:1fr 1fr}.search{width:100%;min-width:0}.case-head{grid-template-columns:48px 1fr}.case-head .status{grid-column:1/-1;width:max-content}.info{grid-template-columns:1fr}.actions{flex-direction:column}}
+</style>
+
 @code {
     private bool loading = true;
+    private string? error;
+    private string search = string.Empty;
+    private CaseFilter filter = CaseFilter.Today;
     private List<RequestWorkItem> queue = [];
-    private int pendingCount;
-    private int approvedCount;
+
+    private DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+    private int TodayCount => queue.Count(IsToday);
+    private int ReadyCount => queue.Count(x => x.Status == RequestStatus.Approved);
+    private int CompletedCount => queue.Count(x => x.Status == RequestStatus.Completed);
+    private int UpcomingCount => queue.Count(x => x.AppointmentDate > Today && x.Status != RequestStatus.Completed);
 
     protected override async Task OnInitializedAsync()
     {
-        var auth = await AuthState.GetAuthenticationStateAsync();
-        var userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (string.IsNullOrWhiteSpace(userId))
+        try
         {
-            Nav.NavigateTo("/login", forceLoad: true);
-            return;
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            queue = await Ui.GetDoctorQueueAsync(userId);
         }
-
-        queue = await Ui.GetDoctorQueueAsync(userId);
-        pendingCount = queue.Count(x => x.Status == RequestStatus.UnderReview);
-        approvedCount = queue.Count(x => x.Status == RequestStatus.Approved);
-
-        loading = false;
+        catch
+        {
+            error = "حدث خطأ أثناء تحميل الحالات.";
+        }
+        finally
+        {
+            loading = false;
+        }
     }
+
+    private IEnumerable<RequestWorkItem> FilteredCases
+    {
+        get
+        {
+            IEnumerable<RequestWorkItem> result = filter switch
+            {
+                CaseFilter.Today => queue.Where(IsToday),
+                CaseFilter.Ready => queue.Where(x => x.Status == RequestStatus.Approved),
+                CaseFilter.Upcoming => queue.Where(x => x.AppointmentDate > Today && x.Status != RequestStatus.Completed),
+                CaseFilter.Completed => queue.Where(x => x.Status == RequestStatus.Completed),
+                _ => queue
+            };
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                result = result.Where(x =>
+                    Contains(x.BeneficiaryName, term) ||
+                    Contains(x.BeneficiaryPhone, term) ||
+                    Contains(x.SpecialtyName, term) ||
+                    Contains(x.City, term) ||
+                    Contains(x.DescriptionAr, term));
+            }
+
+            return result
+                .OrderBy(x => x.AppointmentDate ?? DateOnly.MaxValue)
+                .ThenByDescending(x => x.SubmittedAt);
+        }
+    }
+
+    private bool IsToday(RequestWorkItem item) => item.AppointmentDate == Today;
+    private static bool Contains(string? value, string term) => !string.IsNullOrWhiteSpace(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+    private static string Initial(string value) => string.IsNullOrWhiteSpace(value) ? "؟" : value.Trim()[0].ToString();
+    private static string Safe(string? value) => string.IsNullOrWhiteSpace(value) ? "غير محدد" : value;
+    private static string RequestCode(Guid id) => $"REQ-{id.ToString("N")[..6].ToUpperInvariant()}";
+    private static string StatusClass(RequestStatus status) => status switch { RequestStatus.Approved => "approved", RequestStatus.Completed => "completed", _ => "pending" };
+    private static string ShortText(string? value) => string.IsNullOrWhiteSpace(value) ? "لا يوجد وصف مرفق." : value.Length <= 180 ? value : value[..180] + "...";
+    private static string AppointmentText(RequestWorkItem item) => item.AppointmentDate is null ? "غير محدد" : item.AppointmentDate.Value == DateOnly.FromDateTime(DateTime.Today) ? "اليوم" : item.AppointmentDate.Value.ToString("dd/MM/yyyy");
+
+    private enum CaseFilter { Today, Ready, Upcoming, Completed, All }
 }

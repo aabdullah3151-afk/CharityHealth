@@ -275,7 +275,7 @@
             PhoneNumber = d.User?.PhoneNumber ?? "—",
             SpecialtyId = d.SpecialtyId,
             SpecialtyName = d.Specialty?.NameAr ?? "—",
-            LicenseNumber = d.LicenseNumber,
+            LicenseNumber = d.LicenseNumber ?? "—",
             MaxDailySlots = d.MaxDailySlots,
             IsAvailable = d.IsAvailable,
             IsActive = d.User?.IsActive ?? false,

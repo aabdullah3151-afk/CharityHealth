@@ -18,6 +18,18 @@ public class ApplicationUser : IdentityUser
     public string? CreatedBy { get; set; }
     public string PreferredLanguage { get; set; } = "ar";
 
+    // بيانات الجهة الطبية المتعاونة (صيدلية / معمل / مركز أشعة)
+    public string? ContactPersonName { get; set; }
+    public string? LicenseNumber { get; set; }
+    public string? Governorate { get; set; }
+    public string? City { get; set; }
+    public string? AddressAr { get; set; }
+    public string? WorkingHours { get; set; }
+    public string? WorkingDays { get; set; }
+    public string? DescriptionAr { get; set; }
+    public int DailyRequestCapacity { get; set; } = 20;
+    public decimal DiscountPercentage { get; set; } = 0m;
+
     // Navigation
     public Beneficiary? Beneficiary { get; set; }
     public Doctor? Doctor { get; set; }

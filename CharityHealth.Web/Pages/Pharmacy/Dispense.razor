@@ -1,6 +1,6 @@
 @page "/pharmacy/dispense"
 @layout MainLayout
-@attribute [Authorize(Roles = "Pharmacist")]
+@attribute [Authorize(Roles = "Pharmacy,Pharmacist")]
 
 @using Microsoft.AspNetCore.Authorization
 @using CharityHealth.Domain.Enums

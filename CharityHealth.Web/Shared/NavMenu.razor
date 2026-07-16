@@ -11,7 +11,7 @@
 
             <NavLink href="/portal/request/new" class="nav-link" ActiveClass="active">
                 <span class="nav-icon">＋</span>
-                <span>طلب استشارة</span>
+                <span>طلب خدمة صحية</span>
             </NavLink>
 
             <NavLink href="/portal/requests" class="nav-link" ActiveClass="active">
@@ -47,10 +47,15 @@
                 <span class="nav-icon">↺</span>
                 <span>السجل</span>
             </NavLink>
+
+            <NavLink href="/doctor/settings" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">⚙</span>
+                <span>الإعدادات</span>
+            </NavLink>
         </Authorized>
     </AuthorizeView>
 
-    <AuthorizeView Roles="Pharmacist">
+    <AuthorizeView Roles="Pharmacy,Pharmacist">
         <Authorized>
             <NavLink href="/pharmacy/dashboard" class="nav-link" ActiveClass="active" Match="NavLinkMatch.All">
                 <span class="nav-icon">⌂</span>
@@ -62,14 +67,68 @@
                 <span>الوصفات</span>
             </NavLink>
 
-            <NavLink href="/pharmacy/dispense" class="nav-link" ActiveClass="active">
+            <NavLink href="/pharmacy/scan" class="nav-link" ActiveClass="active">
                 <span class="nav-icon">▣</span>
-                <span>صرف وصفة</span>
+                <span>مسح QR وصرف العلاج</span>
             </NavLink>
 
             <NavLink href="/pharmacy/inventory" class="nav-link" ActiveClass="active">
                 <span class="nav-icon">▧</span>
                 <span>المخزون</span>
+            </NavLink>
+
+            <NavLink href="/pharmacy/settings" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">⚙</span>
+                <span>الإعدادات</span>
+            </NavLink>
+        </Authorized>
+    </AuthorizeView>
+
+
+    <AuthorizeView Roles="Laboratory">
+        <Authorized>
+            <NavLink href="/laboratory/dashboard" class="nav-link" ActiveClass="active" Match="NavLinkMatch.All">
+                <span class="nav-icon">🧪</span>
+                <span>الرئيسية</span>
+            </NavLink>
+
+            <NavLink href="/laboratory/requests" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▤</span>
+                <span>طلبات التحاليل</span>
+            </NavLink>
+
+            <NavLink href="/laboratory/scan" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▣</span>
+                <span>مسح QR وتنفيذ التحاليل</span>
+            </NavLink>
+
+            <NavLink href="/laboratory/settings" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">⚙</span>
+                <span>الإعدادات وأيام العمل</span>
+            </NavLink>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="RadiologyCenter">
+        <Authorized>
+            <NavLink href="/radiology/dashboard" class="nav-link" ActiveClass="active" Match="NavLinkMatch.All">
+                <span class="nav-icon">🩻</span>
+                <span>الرئيسية</span>
+            </NavLink>
+
+            <NavLink href="/radiology/requests" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▤</span>
+                <span>طلبات الأشعة</span>
+            </NavLink>
+
+            <NavLink href="/radiology/scan" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▣</span>
+                <span>مسح QR وتنفيذ الأشعة</span>
+            </NavLink>
+
+            <NavLink href="/radiology/settings" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">⚙</span>
+                <span>الإعدادات</span>
             </NavLink>
         </Authorized>
     </AuthorizeView>
@@ -115,15 +174,39 @@
                 <span>الصيدليات</span>
             </NavLink>
 
+
+            <NavLink href="/admin/laboratories" class="nav-link" ActiveClass="active" Match="NavLinkMatch.Prefix">
+                <span class="nav-icon">🧪</span>
+                <span>معامل التحاليل</span>
+            </NavLink>
+
+            <NavLink href="/admin/radiology-centers" class="nav-link" ActiveClass="active" Match="NavLinkMatch.Prefix">
+                <span class="nav-icon">🩻</span>
+                <span>مراكز الأشعة</span>
+            </NavLink>
+
             <NavLink href="/admin/specialties" class="nav-link" ActiveClass="active">
                 <span class="nav-icon">□</span>
                 <span>التخصصات</span>
+            </NavLink>
+
+            <NavLink href="/admin/operations" class="nav-link" ActiveClass="active">
+                <span class="nav-icon">▦</span>
+                <span>لوحة التشغيل</span>
             </NavLink>
 
             <NavLink href="/admin/reports" class="nav-link" ActiveClass="active">
                 <span class="nav-icon">▥</span>
                 <span>التقارير</span>
             </NavLink>
+
+                    <NavLink href="/admin/periodic-reports"
+                             class="nav-item"
+                             Match="NavLinkMatch.Prefix">
+                        <span class="nav-icon">📊</span>
+                        <span>التقارير الدورية</span>
+                    </NavLink>
+
 
             <NavLink href="/admin/audit-logs" class="nav-link" ActiveClass="active">
                 <span class="nav-icon">◇</span>

@@ -1,0 +1,105 @@
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+
+<section class="print-section page-break">
+    <header>
+        <h2>@Title</h2>
+        <span>@FilteredPartners.Count جهة</span>
+    </header>
+
+    <table>
+        <thead>
+            <tr>
+                <th>اسم الجهة</th>
+                <th>الهاتف</th>
+                <th>الخصم</th>
+                <th>الحد اليومي</th>
+                @foreach (var day in Week)
+                {
+                    <th>@DayAr(day.DayOfWeek)<small>@day.ToString("dd/MM")</small></th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var partner in FilteredPartners)
+            {
+                <tr>
+                    <td>@partner.FullNameAr</td>
+                    <td>@(partner.PhoneNumber ?? "—")</td>
+                    <td>@(partner.DiscountPercentage > 0 ? $"{partner.DiscountPercentage:0.#}%" : "—")</td>
+                    <td>@Math.Max(1, partner.DailyRequestCapacity)</td>
+                    @foreach (var day in Week)
+                    {
+                        var state = State(partner, day);
+                        <td class="@state.Css">@state.Text</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public UserType Type { get; set; }
+    [Parameter] public ServiceRequestType Service { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<ApplicationUser> Partners { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<DateOnly> Week { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<MedicalRequest> Requests { get; set; } = [];
+    [Parameter] public bool IncludePharmacist { get; set; }
+
+    private List<ApplicationUser> FilteredPartners => Partners
+        .Where(x => x.UserType == Type || (IncludePharmacist && x.UserType == UserType.Pharmacist))
+        .ToList();
+
+    private StatusCell State(ApplicationUser partner, DateOnly day)
+    {
+        if (!IsWorking(partner.WorkingDays, day.DayOfWeek))
+        {
+            return new("غير موجود", "off");
+        }
+
+        var capacity = Math.Max(1, partner.DailyRequestCapacity);
+        var used = Requests.Count(x => x.ServiceType == Service && x.AssignedProviderUserId == partner.Id && x.AppointmentDate == day);
+        var remaining = Math.Max(0, capacity - used);
+
+        if (remaining == 0)
+        {
+            return new($"مكتمل {used}/{capacity}", "full");
+        }
+
+        return new($"متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
+    }
+
+    private static bool IsWorking(string? raw, DayOfWeek day)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return true;
+
+        var token = day switch
+        {
+            DayOfWeek.Saturday => "Sat",
+            DayOfWeek.Sunday => "Sun",
+            DayOfWeek.Monday => "Mon",
+            DayOfWeek.Tuesday => "Tue",
+            DayOfWeek.Wednesday => "Wed",
+            DayOfWeek.Thursday => "Thu",
+            _ => "Fri"
+        };
+
+        return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(token, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string DayAr(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Saturday => "السبت",
+        DayOfWeek.Sunday => "الأحد",
+        DayOfWeek.Monday => "الاثنين",
+        DayOfWeek.Tuesday => "الثلاثاء",
+        DayOfWeek.Wednesday => "الأربعاء",
+        DayOfWeek.Thursday => "الخميس",
+        _ => "الجمعة"
+    };
+
+    private sealed record StatusCell(string Text, string Css);
+}

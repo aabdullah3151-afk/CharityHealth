@@ -12850,3 +12850,428 @@ html.theme-dark {
     }
 }
 
+
+
+/* ===== CharityHealth comprehensive dark-mode readability fix ===== */
+.theme-dark .partner-dashboard-page,
+.theme-dark .medical-reports-page { color: #f8fafc; }
+.theme-dark .partner-dashboard-card,
+.theme-dark .partner-dashboard-stats article,
+.theme-dark .reports-card,
+.theme-dark .report-kpi,
+.theme-dark .reports-chart-card { background:#1e293b !important; border-color:#334155 !important; }
+.theme-dark .partner-dashboard-card h1,
+.theme-dark .partner-dashboard-card h2,
+.theme-dark .partner-dashboard-card h3,
+.theme-dark .partner-dashboard-card strong,
+.theme-dark .partner-dashboard-stats strong,
+.theme-dark .reports-card strong,
+.theme-dark .reports-card h2 { color:#f8fafc !important; }
+.theme-dark .partner-dashboard-card p,
+.theme-dark .partner-dashboard-card span,
+.theme-dark .partner-dashboard-stats span,
+.theme-dark .reports-card p,
+.theme-dark .reports-card span { color:#cbd5e1; }
+.theme-dark .details-grid > div { background:#0f172a !important; border-color:#334155 !important; }
+.theme-dark input,
+.theme-dark select,
+.theme-dark textarea { background:#0f172a; color:#f8fafc; border-color:#475569; }
+
+/* ===== Admin operations & doctor reports ===== */
+.ops-page,.doctor-reports-page{direction:rtl;padding:28px 30px 48px;display:grid;gap:22px;color:var(--app-text,#101828)}
+.ops-hero,.doctor-reports-hero{border-radius:28px;padding:28px 30px;background:linear-gradient(135deg,#064e3b,#0f766e);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:22px;box-shadow:0 18px 50px rgba(15,118,110,.18)}
+.ops-kicker,.doctor-reports-hero>div>span{display:block;font-size:13px;font-weight:900;color:#a7f3d0;margin-bottom:8px}.ops-hero h1,.doctor-reports-hero h1{margin:0 0 8px;font-size:34px;color:#fff}.ops-hero p,.doctor-reports-hero p{margin:0;color:rgba(255,255,255,.78);font-weight:700}
+.ops-actions,.doctor-report-actions{display:flex;gap:10px;flex-wrap:wrap}.ops-btn,.doctor-report-actions button{border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:12px 18px;font-weight:900;cursor:pointer;background:rgba(255,255,255,.12);color:#fff}.ops-btn.primary,.doctor-report-actions button.primary{background:#fff;color:#0f766e}.ops-btn.secondary:hover,.doctor-report-actions button:hover{background:rgba(255,255,255,.2)}
+.ops-summary-grid,.doctor-report-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}.ops-summary-grid article,.doctor-report-kpis article{background:var(--app-card,#fff);border:1px solid var(--app-border,#e5e7eb);border-radius:20px;padding:20px;display:grid;gap:8px;box-shadow:0 10px 30px rgba(15,23,42,.05)}.ops-summary-grid span,.doctor-report-kpis span{color:var(--app-muted,#667085);font-size:13px;font-weight:850}.ops-summary-grid strong,.doctor-report-kpis strong{font-size:28px;color:var(--app-text,#101828)}
+.ops-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.ops-tabs,.ops-view-switch,.ops-specialty-filter,.ops-day-picker{display:flex;gap:8px;flex-wrap:wrap}.ops-tabs button,.ops-view-switch button,.ops-specialty-filter button,.ops-day-picker button{border:1px solid var(--app-border,#e5e7eb);background:var(--app-card,#fff);color:var(--app-text,#101828);border-radius:14px;padding:10px 14px;font-weight:900;cursor:pointer}.ops-tabs button.active,.ops-view-switch button.active,.ops-specialty-filter button.active,.ops-day-picker button.active{background:#0f766e;color:#fff;border-color:#0f766e}.ops-tabs button span{margin-left:7px}.ops-day-picker button{display:grid;gap:3px;min-width:92px}.ops-day-picker button span{font-size:12px;opacity:.75}
+.ops-table-card,.doctor-report-card{background:var(--app-card,#fff);border:1px solid var(--app-border,#e5e7eb);border-radius:24px;overflow:hidden;box-shadow:0 12px 36px rgba(15,23,42,.05)}.ops-table-head,.doctor-report-card-head{display:flex;justify-content:space-between;align-items:center;padding:22px 24px;border-bottom:1px solid var(--app-border,#e5e7eb)}.ops-table-head h2,.doctor-report-card-head h2{margin:0;color:var(--app-text,#101828)}.ops-table-head p{margin:5px 0 0;color:var(--app-muted,#667085);font-size:13px}.ops-count,.doctor-report-card-head span{background:#ecfdf5;color:#047857;border-radius:999px;padding:7px 12px;font-weight:900;font-size:12px}.ops-table-wrap{overflow:auto}.ops-table{width:100%;border-collapse:collapse;min-width:980px}.ops-table th{background:var(--app-subtle,#f8fafc);color:var(--app-muted,#475467);font-size:12px;font-weight:950;padding:15px 12px;border-bottom:1px solid var(--app-border,#e5e7eb);white-space:nowrap}.ops-table th small{display:block;margin-top:4px;font-size:10px}.ops-table td{padding:14px 12px;border-bottom:1px solid var(--app-border,#eef2f6);text-align:center;color:var(--app-text,#101828);font-size:13px}.ops-table td:first-child{text-align:right}.ops-table td strong{display:block}.ops-table td small{display:block;color:var(--app-muted,#98a2b3);margin-top:4px;max-width:220px}.ops-state{display:inline-flex;align-items:center;justify-content:center;min-width:105px;padding:8px 10px;border-radius:12px;font-weight:900;font-size:11px}.ops-state.available{background:#dcfce7;color:#166534}.ops-state.near{background:#fef3c7;color:#92400e}.ops-state.full{background:#fee2e2;color:#991b1b}.ops-state.off{background:#e2e8f0;color:#64748b}.ops-loading{padding:40px;text-align:center;background:var(--app-card,#fff);border-radius:20px;color:var(--app-muted,#667085);font-weight:900}
+.specialty-report-grid{padding:20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.specialty-report-grid article{border:1px solid var(--app-border,#e5e7eb);border-radius:18px;padding:18px;background:var(--app-subtle,#f8fafc)}.specialty-report-grid h3{margin:0 0 14px;color:var(--app-text,#101828)}.specialty-report-grid article div{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--app-border,#d0d5dd)}.specialty-report-grid article div:last-child{border-bottom:0}.specialty-report-grid span{color:var(--app-muted,#667085)}
+html[data-theme="dark"] .ops-page,html[data-theme="dark"] .doctor-reports-page,body.dark .ops-page,body.dark .doctor-reports-page{--app-card:#1e293b;--app-subtle:#111c2f;--app-border:#334155;--app-text:#f8fafc;--app-muted:#cbd5e1}.dark .ops-table th,.dark .ops-table td{color:var(--app-text)}
+@media(max-width:1100px){.ops-summary-grid,.doctor-report-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.specialty-report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.ops-page,.doctor-reports-page{padding:16px}.ops-hero,.doctor-reports-hero{align-items:flex-start;flex-direction:column}.ops-summary-grid,.doctor-report-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.specialty-report-grid{grid-template-columns:1fr}}
+
+
+/* CHARITYHEALTH_REAL_DASHBOARD_FIX_V1 */
+.ops-page,.doctor-reports-page{padding:34px;direction:rtl;color:var(--text-primary,#101828);background:linear-gradient(180deg,#f8fbff 0,#f5f7fb 100%);min-height:100vh;font-family:inherit}
+.ops-hero,.doctor-reports-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:28px 30px;border-radius:28px;background:linear-gradient(135deg,#fff 0,#f3fbf7 100%);border:1px solid #e7edf3;box-shadow:0 18px 50px rgba(16,24,40,.07);margin-bottom:22px}
+.ops-kicker,.doctor-reports-hero>div>span{display:inline-flex;color:#0f8b62;font-size:13px;font-weight:900;margin-bottom:8px}.ops-hero h1,.doctor-reports-hero h1{margin:0;color:#101828;font-size:38px;line-height:1.15;font-weight:950}.ops-hero p,.doctor-reports-hero p{margin:10px 0 0;color:#667085;font-weight:700}.ops-actions,.doctor-report-actions{display:flex;gap:10px;flex-wrap:wrap}.ops-btn,.doctor-report-actions button{border:0;border-radius:14px;padding:13px 18px;font-weight:900;cursor:pointer}.ops-btn.primary,.doctor-report-actions .primary{background:#0ea76b;color:#fff;box-shadow:0 8px 20px rgba(14,167,107,.22)}.ops-btn.secondary,.doctor-report-actions button:not(.primary){background:#fff;color:#344054;border:1px solid #d9e2ec}
+.ops-summary-grid,.doctor-report-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-bottom:20px}.ops-summary-grid article,.doctor-report-kpis article{background:#fff;border:1px solid #e7edf3;border-radius:22px;padding:20px;min-height:112px;box-shadow:0 10px 30px rgba(16,24,40,.05);position:relative;overflow:hidden}.ops-summary-grid article:before,.doctor-report-kpis article:before{content:"";position:absolute;right:0;top:0;width:5px;height:100%;background:#0ea76b}.ops-summary-grid span,.doctor-report-kpis span{display:block;color:#667085;font-size:12px;font-weight:850}.ops-summary-grid strong,.doctor-report-kpis strong{display:block;color:#101828;font-size:30px;font-weight:950;margin-top:12px}
+.ops-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;background:#fff;border:1px solid #e7edf3;border-radius:22px;padding:12px;margin-bottom:14px;box-shadow:0 8px 24px rgba(16,24,40,.04)}.ops-tabs,.ops-view-switch,.ops-specialty-filter,.ops-day-picker{display:flex;gap:8px;flex-wrap:wrap}.ops-tabs button,.ops-view-switch button,.ops-specialty-filter button,.ops-day-picker button{border:1px solid #e1e8ef;background:#fff;color:#475467;border-radius:13px;padding:10px 14px;font-weight:900;cursor:pointer;transition:.2s}.ops-tabs button:hover,.ops-view-switch button:hover,.ops-specialty-filter button:hover,.ops-day-picker button:hover{transform:translateY(-1px);border-color:#9bd9c1}.ops-tabs button.active,.ops-view-switch button.active,.ops-specialty-filter button.active,.ops-day-picker button.active{background:#eafaf3;color:#087a52;border-color:#91d8bc}.ops-specialty-filter,.ops-day-picker{background:#fff;border:1px solid #e7edf3;border-radius:20px;padding:13px;margin-bottom:14px}.ops-day-picker button{display:grid;min-width:105px}.ops-day-picker span{font-size:11px;color:#98a2b3}
+.ops-table-card,.doctor-report-card{background:#fff;border:1px solid #e7edf3;border-radius:26px;box-shadow:0 16px 42px rgba(16,24,40,.06);overflow:hidden;margin-top:16px}.ops-table-head,.doctor-report-card-head{display:flex;justify-content:space-between;align-items:center;padding:22px 24px;border-bottom:1px solid #edf1f5;background:#fbfcfe}.ops-table-head h2,.doctor-report-card-head h2{margin:0;color:#101828;font-size:23px;font-weight:950}.ops-table-head p,.doctor-report-card-head span{margin:6px 0 0;color:#667085;font-size:12px;font-weight:800}.ops-count{background:#eff8ff;color:#175cd3;border-radius:999px;padding:7px 12px;font-weight:900}.ops-table-wrap{overflow:auto}.ops-table{width:100%;border-collapse:separate;border-spacing:0;min-width:1050px}.ops-table th{position:sticky;top:0;background:#f6f8fb;color:#475467;padding:15px 13px;text-align:right;font-size:12px;font-weight:950;border-bottom:1px solid #e4e9ef;white-space:nowrap}.ops-table th small{display:block;color:#98a2b3;margin-top:4px}.ops-table td{padding:15px 13px;border-bottom:1px solid #eef2f6;color:#344054;font-size:13px;font-weight:750;vertical-align:middle}.ops-table tbody tr:hover td{background:#fbfefd}.ops-table td strong{display:block;color:#101828;font-weight:950}.ops-table td small{display:block;color:#98a2b3;margin-top:4px;max-width:220px}.ops-state{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:8px 11px;font-size:11px;font-weight:950;white-space:nowrap}.ops-state.available{background:#dcfae6;color:#067647}.ops-state.near{background:#fef0c7;color:#b54708}.ops-state.full{background:#fee4e2;color:#b42318}.ops-state.off{background:#eaecf0;color:#667085}.ops-loading{background:#fff;border:1px solid #e7edf3;border-radius:22px;padding:30px;text-align:center;color:#667085;font-weight:900}
+.specialty-report-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;padding:20px}.specialty-report-grid article{border:1px solid #e7edf3;border-radius:20px;padding:18px;background:linear-gradient(180deg,#fff,#fbfcfe)}.specialty-report-grid h3{margin:0 0 12px;color:#101828;font-size:18px;font-weight:950}.specialty-report-grid article>div{display:flex;justify-content:space-between;padding:8px 0;border-top:1px dashed #e5e7eb;color:#667085}.specialty-report-grid strong{color:#101828}
+.audit-live-grid .admin-stat-card small{display:block;color:#98a2b3;font-size:11px;font-weight:800;margin-top:7px}
+.provider-days-grid{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:10px!important}.provider-day-chip{min-height:50px!important;border:1px solid #dfe6ee!important;border-radius:16px!important;background:#fff!important}.provider-day-chip:has(input:checked){background:#eafaf3!important;border-color:#70c9a4!important;box-shadow:0 0 0 3px rgba(14,167,107,.08)!important}.provider-day-chip b{color:#344054!important}.provider-discount-input-wrap{background:#fff8e7!important;border:1px solid #f5cf72!important}.provider-discount-input-wrap>span,.provider-discount-input-wrap small{color:#9a6700!important}.provider-card{transition:.2s!important}.provider-card:hover:not(.full){transform:translateY(-2px)!important;box-shadow:0 12px 28px rgba(16,24,40,.08)!important}.partner-day-card{transition:.2s!important}.partner-day-card:hover:not(.full){transform:translateY(-2px)!important}.partner-day-card.selected{background:#eafaf3!important;border-color:#70c9a4!important}
+html.dark .ops-page,body.dark .ops-page,[data-theme="dark"] .ops-page,html.dark .doctor-reports-page,body.dark .doctor-reports-page,[data-theme="dark"] .doctor-reports-page{background:#111827;color:#f8fafc}.dark .ops-hero,.dark .doctor-reports-hero,.dark .ops-summary-grid article,.dark .doctor-report-kpis article,.dark .ops-toolbar,.dark .ops-specialty-filter,.dark .ops-day-picker,.dark .ops-table-card,.dark .doctor-report-card,[data-theme="dark"] .ops-hero,[data-theme="dark"] .doctor-reports-hero,[data-theme="dark"] .ops-summary-grid article,[data-theme="dark"] .doctor-report-kpis article,[data-theme="dark"] .ops-toolbar,[data-theme="dark"] .ops-table-card,[data-theme="dark"] .doctor-report-card{background:#1f2937!important;border-color:#344054!important;color:#f8fafc!important}.dark .ops-hero h1,.dark .doctor-reports-hero h1,.dark .ops-summary-grid strong,.dark .doctor-report-kpis strong,.dark .ops-table-head h2,.dark .doctor-report-card-head h2,.dark .ops-table td strong,[data-theme="dark"] .ops-hero h1,[data-theme="dark"] .doctor-reports-hero h1,[data-theme="dark"] .ops-summary-grid strong,[data-theme="dark"] .doctor-report-kpis strong,[data-theme="dark"] .ops-table td strong{color:#f8fafc!important}.dark .ops-table-head,.dark .doctor-report-card-head,.dark .ops-table th,[data-theme="dark"] .ops-table-head,[data-theme="dark"] .doctor-report-card-head,[data-theme="dark"] .ops-table th{background:#182230!important;border-color:#344054!important;color:#d0d5dd!important}.dark .ops-table td,[data-theme="dark"] .ops-table td{color:#d0d5dd!important;border-color:#344054!important}.dark .ops-table tbody tr:hover td,[data-theme="dark"] .ops-table tbody tr:hover td{background:#273449!important}.dark .ops-tabs button,.dark .ops-view-switch button,.dark .ops-specialty-filter button,.dark .ops-day-picker button,[data-theme="dark"] .ops-tabs button,[data-theme="dark"] .ops-view-switch button,[data-theme="dark"] .ops-specialty-filter button,[data-theme="dark"] .ops-day-picker button{background:#273449!important;color:#d0d5dd!important;border-color:#475467!important}.dark .ops-tabs button.active,.dark .ops-view-switch button.active,.dark .ops-specialty-filter button.active,.dark .ops-day-picker button.active,[data-theme="dark"] .ops-tabs button.active,[data-theme="dark"] .ops-view-switch button.active,[data-theme="dark"] .ops-specialty-filter button.active,[data-theme="dark"] .ops-day-picker button.active{background:#0f513f!important;color:#d1fadf!important;border-color:#2e9071!important}
+@media(max-width:1200px){.ops-summary-grid,.doctor-report-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.specialty-report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.ops-page,.doctor-reports-page{padding:16px}.ops-hero,.doctor-reports-hero{align-items:flex-start;flex-direction:column}.ops-hero h1,.doctor-reports-hero h1{font-size:30px}.ops-summary-grid,.doctor-report-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-toolbar{align-items:stretch;flex-direction:column}.provider-days-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.specialty-report-grid{grid-template-columns:1fr}}
+
+/* ===== FINAL DARK MODE FIX ===== */
+
+.theme-dark {
+    --bg-main:#0b1220;
+    --card-bg:#162033;
+    --text-main:#f8fafc;
+    --text-muted:#cbd5e1;
+    --border:#334155;
+}
+
+.theme-dark body,
+.theme-dark {
+    background:#0b1220 !important;
+    color:#f8fafc !important;
+}
+
+.theme-dark .card,
+.theme-dark .stat-card,
+.theme-dark .dashboard-card,
+.theme-dark .table-container {
+    background:#162033 !important;
+    color:#f8fafc !important;
+    border-color:#334155 !important;
+}
+
+.theme-dark h1,
+.theme-dark h2,
+.theme-dark h3,
+.theme-dark h4,
+.theme-dark p,
+.theme-dark span,
+.theme-dark label {
+    color:#f8fafc !important;
+}
+
+.theme-dark table {
+    background:#162033 !important;
+    color:#fff !important;
+}
+
+.theme-dark th {
+    background:#0f172a !important;
+    color:#fff !important;
+}
+
+.theme-dark td {
+    color:#e2e8f0 !important;
+    border-color:#334155 !important;
+}
+
+.theme-dark input,
+.theme-dark textarea,
+.theme-dark select {
+    background:#111827 !important;
+    color:#fff !important;
+    border-color:#475569 !important;
+}
+
+
+
+/* ===== FINAL DARK MODE FIX ===== */
+
+.theme-dark {
+    --bg:#0f172a;
+    --card:#111827;
+    --text:#f8fafc;
+    --muted:#cbd5e1;
+}
+
+
+.theme-dark body,
+.theme-dark .ops-page,
+.theme-dark .portal-page {
+    background:#020617 !important;
+    color:#f8fafc !important;
+}
+
+
+.theme-dark .ops-hero,
+.theme-dark .ops-table-card,
+.theme-dark .status-timeline,
+.theme-dark .success-card,
+.theme-dark .partner-card {
+    background:#111827 !important;
+    border-color:#334155 !important;
+    color:#f8fafc !important;
+}
+
+
+.theme-dark h1,
+.theme-dark h2,
+.theme-dark h3,
+.theme-dark strong,
+.theme-dark label {
+    color:#f8fafc !important;
+}
+
+
+.theme-dark p,
+.theme-dark span,
+.theme-dark small {
+    color:#cbd5e1 !important;
+}
+
+
+.theme-dark table,
+.theme-dark th,
+.theme-dark td {
+    background:#111827 !important;
+    color:#f8fafc !important;
+    border-color:#334155 !important;
+}
+
+
+.theme-dark input,
+.theme-dark textarea,
+.theme-dark select {
+    background:#020617 !important;
+    color:#ffffff !important;
+    border-color:#475569 !important;
+}
+
+
+.theme-dark button {
+    color:#fff;
+}
+
+
+
+
+/* ===== CharityHealth Operations Final Theme ===== */
+
+.ops-page{
+    background:#f5f7fb!important;
+    color:#101828!important;
+}
+
+.ops-table-card,
+.ops-hero,
+.ops-toolbar,
+.ops-specialty-filter,
+.ops-day-picker{
+    background:#ffffff!important;
+    border:1px solid #e4e7ec!important;
+    color:#101828!important;
+}
+
+
+.ops-table th{
+    background:#f2f4f7!important;
+    color:#344054!important;
+}
+
+.ops-table td{
+    color:#344054!important;
+}
+
+
+.ops-table td strong{
+    color:#101828!important;
+}
+
+
+.ops-state.available{
+    background:#dcfae6!important;
+    color:#067647!important;
+}
+
+.ops-state.near{
+    background:#fff1b8!important;
+    color:#b54708!important;
+}
+
+.ops-state.full{
+    background:#fee4e2!important;
+    color:#b42318!important;
+}
+
+.ops-state.off{
+    background:#eaecf0!important;
+    color:#475467!important;
+}
+
+
+/* ===== DARK MODE ===== */
+
+html.dark .ops-page,
+body.dark .ops-page,
+[data-theme="dark"] .ops-page{
+    background:#0f172a!important;
+    color:#f8fafc!important;
+}
+
+
+html.dark .ops-table-card,
+html.dark .ops-hero,
+html.dark .ops-toolbar,
+html.dark .ops-specialty-filter,
+html.dark .ops-day-picker,
+body.dark .ops-table-card,
+body.dark .ops-hero,
+body.dark .ops-toolbar,
+body.dark .ops-specialty-filter,
+body.dark .ops-day-picker,
+[data-theme="dark"] .ops-table-card,
+[data-theme="dark"] .ops-hero,
+[data-theme="dark"] .ops-toolbar,
+[data-theme="dark"] .ops-specialty-filter,
+[data-theme="dark"] .ops-day-picker{
+    background:#1e293b!important;
+    border-color:#334155!important;
+}
+
+
+html.dark .ops-table th,
+body.dark .ops-table th,
+[data-theme="dark"] .ops-table th{
+    background:#111827!important;
+    color:#e2e8f0!important;
+}
+
+
+html.dark .ops-table td,
+body.dark .ops-table td,
+[data-theme="dark"] .ops-table td{
+    color:#e2e8f0!important;
+    border-color:#334155!important;
+}
+
+
+html.dark .ops-table td strong,
+body.dark .ops-table td strong,
+[data-theme="dark"] .ops-table td strong{
+    color:#ffffff!important;
+}
+
+
+
+
+/* ===== FINAL ADMIN DARK/LIGHT FIX ===== */
+
+
+/* cards */
+.admin-card,
+.provider-card,
+.profile-card,
+.ops-table-card,
+.doctor-report-card,
+.audit-card {
+    background:#ffffff;
+    color:#101828;
+    border:1px solid #e4e7ec;
+}
+
+
+/* inputs */
+input,
+textarea,
+select {
+    background:#ffffff!important;
+    color:#101828!important;
+    border-color:#d0d5dd!important;
+}
+
+
+/* labels */
+label,
+.form-label {
+    color:#475467!important;
+}
+
+
+/* ===== DARK ===== */
+
+html.dark input,
+body.dark input,
+[data-theme="dark"] input,
+html.dark textarea,
+body.dark textarea,
+[data-theme="dark"] textarea,
+html.dark select,
+body.dark select,
+[data-theme="dark"] select {
+
+    background:#1e293b!important;
+    color:#ffffff!important;
+    border-color:#475569!important;
+}
+
+
+html.dark .admin-card,
+html.dark .provider-card,
+html.dark .profile-card,
+html.dark .ops-table-card,
+html.dark .doctor-report-card,
+html.dark .audit-card,
+
+body.dark .admin-card,
+body.dark .provider-card,
+body.dark .profile-card,
+body.dark .ops-table-card,
+body.dark .doctor-report-card,
+body.dark .audit-card,
+
+[data-theme="dark"] .admin-card,
+[data-theme="dark"] .provider-card,
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .ops-table-card,
+[data-theme="dark"] .doctor-report-card,
+[data-theme="dark"] .audit-card {
+
+background:#1e293b!important;
+color:#f8fafc!important;
+border-color:#334155!important;
+
+}
+
+
+/* headings */
+html.dark h1,
+html.dark h2,
+html.dark h3,
+body.dark h1,
+body.dark h2,
+body.dark h3,
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3 {
+
+color:#ffffff!important;
+
+}
+
+
+/* muted text */
+html.dark p,
+html.dark span,
+body.dark p,
+body.dark span,
+[data-theme="dark"] p,
+[data-theme="dark"] span {
+
+color:#cbd5e1;
+
+}
+
+
+/* tables */
+
+html.dark table th,
+body.dark table th,
+[data-theme="dark"] table th {
+
+background:#111827!important;
+color:#ffffff!important;
+
+}
+
+
+html.dark table td,
+body.dark table td,
+[data-theme="dark"] table td {
+
+background:#1e293b!important;
+color:#e2e8f0!important;
+border-color:#334155!important;
+
+}
+
+
+

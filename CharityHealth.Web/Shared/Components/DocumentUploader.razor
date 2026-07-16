@@ -21,7 +21,7 @@
 </div>
 
 @code {
-    [Parameter] public EventCallback<List<NewRequest.PendingFile>> OnFilesSelected { get; set; }
+    [Parameter] public EventCallback<List<PendingFile>> OnFilesSelected { get; set; }
 
     // ✅ Pre-computed full string — no mixed text+expression in component attribute
     private string InputId { get; } = $"file-upload-{Guid.NewGuid():N}";
@@ -34,7 +34,7 @@
     private async Task HandleFileChange(InputFileChangeEventArgs e)
     {
         errorMsg = null;
-        var pending = new List<NewRequest.PendingFile>();
+        var pending = new List<PendingFile>();
 
         foreach (var file in e.GetMultipleFiles(10))
         {
@@ -56,7 +56,7 @@
             await file.OpenReadStream(MaxBytes).CopyToAsync(ms);
             ms.Position = 0;
 
-            pending.Add(new NewRequest.PendingFile
+            pending.Add(new PendingFile
             {
                 Name = file.Name,
                 Size = file.Size,

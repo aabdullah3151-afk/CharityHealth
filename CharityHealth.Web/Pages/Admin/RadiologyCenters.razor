@@ -1,0 +1,21 @@
+@page "/admin/radiology-centers"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Components.Partners
+<PageTitle>إدارة مراكز الأشعة</PageTitle>
+<PartnerAdminList PrimaryRoleName="RadiologyCenter"
+                  PrimaryRoleLabel="مركز أشعة"
+                  Title="مراكز الأشعة المتعاونة"
+                  Subtitle="إدارة بيانات مراكز الأشعة وحساباتها وعناوينها وسعتها اليومية."
+                  Kicker="Radiology Centers"
+                  SingularLabel="مركز أشعة"
+                  PluralLabel="مراكز الأشعة"
+                  Icon="🩻"
+                  CreateUrl="/admin/radiology-centers/create"
+                  ServiceType="@ServiceRequestType.RadiologyScan"
+                  AccentColor="#2563eb"
+                  AccentSoft="#eff6ff"
+                  AccentBorder="#bfdbfe"
+                  AccentShadow="rgba(37,99,235,.12)" />

@@ -1,4 +1,5 @@
 @page "/admin/dashboard"
+@using CharityHealth.Web.Components.Admin
 @attribute [Authorize(Roles = "Administrator")]
 
 @using System.Globalization
@@ -11,6 +12,8 @@
 @inject NavigationManager Nav
 
 <PageTitle>لوحة الإدارة</PageTitle>
+
+<AdminAppointmentBoard />
 
 <div class="admin-db-page" dir="rtl">
 

@@ -1,0 +1,670 @@
+@page "/admin/periodic-reports"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<PageTitle>التقارير الدورية</PageTitle>
+
+<div class="periodic-report-page" dir="rtl">
+    <header class="periodic-report-head">
+        <div>
+            <span>Periodic Reports</span>
+            <h1>@ReportTitle</h1>
+            <p>تقرير فعلي من بيانات الطلبات المسجلة في النظام.</p>
+        </div>
+
+        <button type="button" onclick="window.print()">طباعة / حفظ PDF</button>
+    </header>
+
+    <section class="report-date-banner">
+        <div>
+            <span>فترة التقرير</span>
+            <strong>@PeriodText</strong>
+        </div>
+        <div>
+            <span>تاريخ إنشاء التقرير</span>
+            <strong>@GeneratedAtText</strong>
+        </div>
+    </section>
+
+    <section class="period-tabs">
+        <button class="@(period == ReportPeriod.Weekly ? "active" : "")"
+                @onclick="() => ChangePeriod(ReportPeriod.Weekly)">
+            أسبوعي
+        </button>
+        <button class="@(period == ReportPeriod.Monthly ? "active" : "")"
+                @onclick="() => ChangePeriod(ReportPeriod.Monthly)">
+            شهري
+        </button>
+        <button class="@(period == ReportPeriod.Yearly ? "active" : "")"
+                @onclick="() => ChangePeriod(ReportPeriod.Yearly)">
+            سنوي
+        </button>
+    </section>
+
+    <section class="period-navigation">
+        <button @onclick="PreviousPeriod">الفترة السابقة</button>
+        <button class="current" @onclick="CurrentPeriod">الفترة الحالية</button>
+        <button @onclick="NextPeriod">الفترة التالية</button>
+    </section>
+
+    @if (loading)
+    {
+        <div class="report-state">جارٍ إعداد التقرير...</div>
+    }
+    else
+    {
+        <section class="report-stats">
+            <article><strong>@Rows.Count</strong><span>إجمالي الطلبات</span></article>
+            <article><strong>@PendingCount</strong><span>قيد المراجعة</span></article>
+            <article><strong>@ApprovedCount</strong><span>مقبولة</span></article>
+            <article><strong>@CompletedCount</strong><span>مكتملة</span></article>
+            <article><strong>@RejectedCount</strong><span>مرفوضة</span></article>
+        </section>
+
+        <section class="service-breakdown">
+            @foreach (var item in ServiceBreakdown)
+            {
+                <article>
+                    <span>@ServiceIcon(item.ServiceType)</span>
+                    <div>
+                        <strong>@ServiceAr(item.ServiceType)</strong>
+                        <small>@item.Count طلب</small>
+                    </div>
+                </article>
+            }
+        </section>
+
+        <section class="report-table-card">
+            <div class="table-head">
+                <div>
+                    <h2>تفاصيل الطلبات</h2>
+                    <p>@PeriodText</p>
+                </div>
+                <strong>@Rows.Count سجل</strong>
+            </div>
+
+            @if (Rows.Count == 0)
+            {
+                <div class="report-state">لا توجد طلبات داخل فترة التقرير.</div>
+            }
+            else
+            {
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>رقم الطلب</th>
+                                <th>تاريخ الخدمة</th>
+                                <th>المستفيد</th>
+                                <th>نوع الخدمة</th>
+                                <th>الطبيب / الجهة</th>
+                                <th>الحالة</th>
+                                <th>تاريخ التقديم</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Rows)
+                            {
+                                <tr>
+                                    <td>@RequestCode(row.Id)</td>
+                                    <td>@row.EffectiveDate.ToString("dd/MM/yyyy")</td>
+                                    <td>@row.BeneficiaryName</td>
+                                    <td>@ServiceAr(row.ServiceType)</td>
+                                    <td>@row.ProviderName</td>
+                                    <td><span class="status">@StatusAr(row.Status)</span></td>
+                                    <td>@row.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+<style>
+.periodic-report-page {
+    min-height: calc(100vh - 76px);
+    padding: 34px;
+    background: #f8fafc;
+    color: #101828;
+}
+
+.periodic-report-head {
+    border-radius: 30px;
+    padding: 29px 31px;
+    background: linear-gradient(135deg, #0f766e, #05a843);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    box-shadow: 0 20px 44px rgba(15, 118, 110, .22);
+}
+
+.periodic-report-head span {
+    color: rgba(255,255,255,.75);
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.periodic-report-head h1 {
+    margin: 6px 0 0;
+    font-size: 34px;
+    font-weight: 950;
+}
+
+.periodic-report-head p {
+    margin: 8px 0 0;
+    color: rgba(255,255,255,.84);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.periodic-report-head button {
+    min-height: 46px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 999px;
+    background: #fff;
+    color: #047857;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.report-date-banner {
+    margin: 18px 0;
+    border: 1px solid #bbf7d0;
+    border-radius: 22px;
+    background: #ecfdf3;
+    padding: 17px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.report-date-banner span {
+    display: block;
+    color: #047857;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.report-date-banner strong {
+    display: block;
+    margin-top: 5px;
+    color: #064e3b;
+    font-size: 14px;
+    font-weight: 950;
+}
+
+.period-tabs,
+.period-navigation {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.period-tabs button,
+.period-navigation button {
+    min-height: 42px;
+    padding: 0 17px;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    background: #fff;
+    color: #667085;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.period-tabs button.active {
+    border-color: #0f766e;
+    background: #0f766e;
+    color: #fff;
+}
+
+.period-navigation button.current {
+    background: #f0fdfa;
+    color: #0f766e;
+}
+
+.report-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+}
+
+.report-stats article {
+    border: 1px solid #e5e7eb;
+    border-radius: 21px;
+    background: #fff;
+    padding: 18px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .05);
+}
+
+.report-stats strong {
+    display: block;
+    color: #0f766e;
+    font-size: 28px;
+    font-weight: 950;
+}
+
+.report-stats span {
+    display: block;
+    margin-top: 6px;
+    color: #667085;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.service-breakdown {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.service-breakdown article {
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    background: #fff;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.service-breakdown article > span {
+    width: 46px;
+    height: 46px;
+    border-radius: 15px;
+    background: #f0fdfa;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+}
+
+.service-breakdown strong,
+.service-breakdown small {
+    display: block;
+}
+
+.service-breakdown strong {
+    font-size: 13px;
+    font-weight: 950;
+}
+
+.service-breakdown small {
+    margin-top: 4px;
+    color: #98a2b3;
+    font-size: 11px;
+    font-weight: 850;
+}
+
+.report-table-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 26px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 13px 32px rgba(15, 23, 42, .05);
+}
+
+.table-head {
+    padding: 20px 22px;
+    border-bottom: 1px solid #eef2f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.table-head h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 950;
+}
+
+.table-head p {
+    margin: 6px 0 0;
+    color: #98a2b3;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.table-head > strong {
+    border-radius: 999px;
+    background: #f0fdfa;
+    color: #0f766e;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.table-scroll {
+    overflow: auto;
+}
+
+.report-table-card table {
+    width: 100%;
+    min-width: 1000px;
+    border-collapse: collapse;
+}
+
+.report-table-card th {
+    padding: 14px;
+    background: #f8fafc;
+    color: #667085;
+    font-size: 11px;
+    font-weight: 950;
+    text-align: right;
+}
+
+.report-table-card td {
+    padding: 14px;
+    border-top: 1px solid #eef2f6;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 850;
+}
+
+.report-table-card .status {
+    border-radius: 999px;
+    background: #f1f5f9;
+    padding: 6px 9px;
+    font-weight: 950;
+}
+
+.report-state {
+    border: 1px solid #e5e7eb;
+    border-radius: 21px;
+    background: #fff;
+    padding: 28px;
+    text-align: center;
+    color: #667085;
+    font-weight: 900;
+}
+
+@@media (max-width: 950px) {
+    .periodic-report-page {
+        padding: 20px 12px;
+    }
+
+    .report-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .service-breakdown {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@@media (max-width: 600px) {
+    .periodic-report-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .report-date-banner {
+        grid-template-columns: 1fr;
+    }
+}
+
+@@media print {
+    .period-tabs,
+    .period-navigation,
+    .periodic-report-head button,
+    .top-header,
+    .side-menu,
+    .mobile-menu-btn {
+        display: none !important;
+    }
+
+    .periodic-report-page {
+        padding: 0 !important;
+        background: #fff !important;
+    }
+
+    .periodic-report-head {
+        box-shadow: none !important;
+        color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+</style>
+
+@code {
+    private bool loading = true;
+    private ReportPeriod period = ReportPeriod.Weekly;
+    private DateOnly anchorDate = CairoToday();
+    private List<ReportRow> allRows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        loading = true;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        var raw = await db.MedicalRequests
+            .AsNoTracking()
+            .Select(request => new
+            {
+                request.Id,
+                request.AppointmentDate,
+                request.SubmittedAt,
+                BeneficiaryName = request.Beneficiary.User.FullNameAr,
+                request.ServiceType,
+                request.Status,
+                ProviderName =
+                    request.ServiceType == ServiceRequestType.MedicalConsultation
+                        ? (request.Doctor == null
+                            ? "غير معين"
+                            : request.Doctor.User.FullNameAr)
+                        : (request.AssignedProvider == null
+                            ? "غير معين"
+                            : request.AssignedProvider.FullNameAr)
+            })
+            .ToListAsync();
+
+        allRows = raw
+            .Select(item => new ReportRow(
+                item.Id,
+                item.AppointmentDate
+                    ?? DateOnly.FromDateTime(item.SubmittedAt.ToLocalTime()),
+                item.SubmittedAt,
+                item.BeneficiaryName,
+                item.ServiceType,
+                item.Status,
+                item.ProviderName))
+            .ToList();
+
+        loading = false;
+    }
+
+    private DateOnly StartDate => GetRange().Start;
+    private DateOnly EndDate => GetRange().End;
+
+    private List<ReportRow> Rows =>
+        allRows
+            .Where(row =>
+                row.EffectiveDate >= StartDate
+                && row.EffectiveDate <= EndDate)
+            .OrderBy(row => row.EffectiveDate)
+            .ThenBy(row => row.BeneficiaryName)
+            .ToList();
+
+    private string ReportTitle => period switch
+    {
+        ReportPeriod.Weekly => "التقرير الأسبوعي",
+        ReportPeriod.Monthly => "التقرير الشهري",
+        ReportPeriod.Yearly => "التقرير السنوي",
+        _ => "التقرير الدوري"
+    };
+
+    private string PeriodText =>
+        $"من {StartDate:dd/MM/yyyy} إلى {EndDate:dd/MM/yyyy}";
+
+    private string GeneratedAtText =>
+        CairoNow().ToString("dd/MM/yyyy HH:mm");
+
+    private int PendingCount => Rows.Count(row =>
+        row.Status is RequestStatus.Submitted or RequestStatus.UnderReview);
+
+    private int ApprovedCount =>
+        Rows.Count(row => row.Status == RequestStatus.Approved);
+
+    private int CompletedCount =>
+        Rows.Count(row => row.Status == RequestStatus.Completed);
+
+    private int RejectedCount =>
+        Rows.Count(row => row.Status == RequestStatus.Rejected);
+
+    private IReadOnlyList<ServiceCount> ServiceBreakdown =>
+        Enum.GetValues<ServiceRequestType>()
+            .Select(type => new ServiceCount(
+                type,
+                Rows.Count(row => row.ServiceType == type)))
+            .ToList();
+
+    private void ChangePeriod(ReportPeriod value)
+    {
+        period = value;
+        anchorDate = CairoToday();
+    }
+
+    private void CurrentPeriod()
+    {
+        anchorDate = CairoToday();
+    }
+
+    private void PreviousPeriod()
+    {
+        anchorDate = period switch
+        {
+            ReportPeriod.Weekly => anchorDate.AddDays(-7),
+            ReportPeriod.Monthly => anchorDate.AddMonths(-1),
+            ReportPeriod.Yearly => anchorDate.AddYears(-1),
+            _ => anchorDate
+        };
+    }
+
+    private void NextPeriod()
+    {
+        anchorDate = period switch
+        {
+            ReportPeriod.Weekly => anchorDate.AddDays(7),
+            ReportPeriod.Monthly => anchorDate.AddMonths(1),
+            ReportPeriod.Yearly => anchorDate.AddYears(1),
+            _ => anchorDate
+        };
+    }
+
+    private (DateOnly Start, DateOnly End) GetRange()
+    {
+        return period switch
+        {
+            ReportPeriod.Weekly => WeekRange(anchorDate),
+            ReportPeriod.Monthly => (
+                new DateOnly(anchorDate.Year, anchorDate.Month, 1),
+                new DateOnly(
+                    anchorDate.Year,
+                    anchorDate.Month,
+                    DateTime.DaysInMonth(anchorDate.Year, anchorDate.Month))),
+            ReportPeriod.Yearly => (
+                new DateOnly(anchorDate.Year, 1, 1),
+                new DateOnly(anchorDate.Year, 12, 31)),
+            _ => (anchorDate, anchorDate)
+        };
+    }
+
+    private static (DateOnly Start, DateOnly End) WeekRange(DateOnly date)
+    {
+        var daysFromSaturday =
+            ((int)date.DayOfWeek - (int)DayOfWeek.Saturday + 7) % 7;
+
+        var start = date.AddDays(-daysFromSaturday);
+        return (start, start.AddDays(6));
+    }
+
+    private static DateTime CairoNow()
+    {
+        try
+        {
+            var cairo = TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, cairo);
+        }
+        catch
+        {
+            return DateTime.Now;
+        }
+    }
+
+    private static DateOnly CairoToday() =>
+        DateOnly.FromDateTime(CairoNow());
+
+    private static string RequestCode(Guid id) =>
+        $"REQ-{id.ToString("N")[..7].ToUpperInvariant()}";
+
+    private static string ServiceIcon(ServiceRequestType type) => type switch
+    {
+        ServiceRequestType.MedicalConsultation => "🩺",
+        ServiceRequestType.PharmacyMedication => "💊",
+        ServiceRequestType.LaboratoryTest => "🧪",
+        ServiceRequestType.RadiologyScan => "🩻",
+        _ => "🏥"
+    };
+
+    private static string ServiceAr(ServiceRequestType type) => type switch
+    {
+        ServiceRequestType.MedicalConsultation => "كشف طبي",
+        ServiceRequestType.PharmacyMedication => "صرف دواء",
+        ServiceRequestType.LaboratoryTest => "تحاليل",
+        ServiceRequestType.RadiologyScan => "أشعة",
+        _ => type.ToString()
+    };
+
+    private static string StatusAr(RequestStatus status) => status switch
+    {
+        RequestStatus.Draft => "مسودة",
+        RequestStatus.Submitted => "مرسل",
+        RequestStatus.UnderReview => "قيد المراجعة",
+        RequestStatus.Approved => "مقبول",
+        RequestStatus.Rejected => "مرفوض",
+        RequestStatus.Completed => "مكتمل",
+        _ => status.ToString()
+    };
+
+    private enum ReportPeriod
+    {
+        Weekly,
+        Monthly,
+        Yearly
+    }
+
+    private sealed record ReportRow(
+        Guid Id,
+        DateOnly EffectiveDate,
+        DateTime SubmittedAt,
+        string BeneficiaryName,
+        ServiceRequestType ServiceType,
+        RequestStatus Status,
+        string ProviderName);
+
+    private sealed record ServiceCount(
+        ServiceRequestType ServiceType,
+        int Count);
+}

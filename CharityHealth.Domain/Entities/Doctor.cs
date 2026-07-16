@@ -6,7 +6,7 @@ public class Doctor : BaseEntity
 {
     public string UserId { get; set; } = string.Empty;
     public Guid SpecialtyId { get; set; }
-    public string LicenseNumber { get; set; } = string.Empty;
+    public string? LicenseNumber { get; set; }
     public string? ClinicAddress { get; set; }
     public string? ClinicPhone { get; set; }
     public string? WorkingDays { get; set; }

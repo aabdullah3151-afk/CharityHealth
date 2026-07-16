@@ -1,0 +1,17 @@
+@page "/laboratory/dashboard"
+@layout MainLayout
+@attribute [Authorize(Roles = "Laboratory")]
+
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Components.Partners
+
+<PageTitle>لوحة معمل التحاليل</PageTitle>
+
+<ProviderCasesDashboard ArabicTitle="معمل التحاليل"
+                        EnglishTitle="Laboratory"
+                        Icon="🧪"
+                        ServiceType="@ServiceRequestType.LaboratoryTest"
+                        ScanUrl="/laboratory/scan"
+                        AccentColor="#0f766e"
+                        AccentDark="#115e59" />

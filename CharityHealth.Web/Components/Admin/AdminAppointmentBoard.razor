@@ -1,0 +1,654 @@
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+@using CharityHealth.Infrastructure.Persistence
+@using Microsoft.EntityFrameworkCore
+
+@inject HealthcareUiService Ui
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<section class="appointment-board" dir="rtl">
+    <header class="appointment-board-head">
+        <div>
+            <span>Daily Request Queue</span>
+            <h2>طلبات المواعيد المطلوب مراجعتها</h2>
+            <p>
+                الطلبات مقسمة حسب موعد الخدمة. يمكنك القبول أو الرفض مباشرة،
+                أو فتح صفحة الطلبات للتعيين والتعديل.
+            </p>
+        </div>
+
+        <button type="button" @onclick='() => Nav.NavigateTo("/admin/requests")'>
+            فتح إدارة الطلبات
+        </button>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="appointment-message @(messageOk ? "ok" : "bad")">@message</div>
+    }
+
+    @if (loading)
+    {
+        <div class="appointment-loading">جارٍ تحميل طلبات المواعيد...</div>
+    }
+    else
+    {
+        <section class="appointment-summary">
+            <article class="today">
+                <strong>@TodayItems.Count</strong>
+                <span>طلبات اليوم</span>
+            </article>
+            <article class="tomorrow">
+                <strong>@TomorrowItems.Count</strong>
+                <span>طلبات غدًا</span>
+            </article>
+            <article class="week">
+                <strong>@WeekItems.Count</strong>
+                <span>باقي الأسبوع</span>
+            </article>
+            <article class="later">
+                <strong>@RemainingItems.Count</strong>
+                <span>باقي الطلبات</span>
+            </article>
+        </section>
+
+        <section class="appointment-groups">
+            @foreach (var group in Groups)
+            {
+                <article class="appointment-group @group.CssClass">
+                    <div class="group-title">
+                        <div>
+                            <span>@group.Icon</span>
+                            <div>
+                                <h3>@group.Title</h3>
+                                <p>@group.Subtitle</p>
+                            </div>
+                        </div>
+                        <strong>@group.Items.Count</strong>
+                    </div>
+
+                    @if (group.Items.Count == 0)
+                    {
+                        <div class="group-empty">لا توجد طلبات في هذا القسم.</div>
+                    }
+                    else
+                    {
+                        <div class="group-list">
+                            @foreach (var item in group.Items)
+                            {
+                                <div class="request-row">
+                                    <div class="request-main">
+                                        <div class="request-title">
+                                            <strong>@item.BeneficiaryName</strong>
+                                            <span>@RequestCode(item.Id)</span>
+                                        </div>
+
+                                        <div class="request-meta">
+                                            <span>📅 @AppointmentText(item)</span>
+                                            <span>🏥 @item.ServiceTypeAr</span>
+                                            <span>👤 @ProviderText(item)</span>
+                                            <span>📞 @item.BeneficiaryPhone</span>
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(item.DescriptionAr))
+                                        {
+                                            <p>@ShortText(item.DescriptionAr)</p>
+                                        }
+                                    </div>
+
+                                    <div class="request-actions">
+                                        <button class="manage"
+                                                disabled="@IsBusy(item.Id)"
+                                                @onclick='() => Nav.NavigateTo("/admin/requests")'>
+                                            تعيين / تعديل
+                                        </button>
+
+                                        <button class="approve"
+                                                disabled="@IsBusy(item.Id)"
+                                                @onclick="() => Approve(item)">
+                                            قبول
+                                        </button>
+
+                                        <button class="reject"
+                                                disabled="@IsBusy(item.Id)"
+                                                @onclick="() => Reject(item)">
+                                            رفض
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </article>
+            }
+        </section>
+    }
+</section>
+
+<style>
+.appointment-board {
+    margin: 0 0 28px;
+    padding: 0 32px;
+    color: #101828;
+}
+
+.appointment-board-head {
+    border: 1px solid #dbeafe;
+    border-radius: 28px;
+    padding: 24px 26px;
+    background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.appointment-board-head span {
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.appointment-board-head h2 {
+    margin: 6px 0 0;
+    font-size: 25px;
+    font-weight: 950;
+}
+
+.appointment-board-head p {
+    margin: 8px 0 0;
+    color: #667085;
+    font-size: 13px;
+    line-height: 1.8;
+    font-weight: 800;
+}
+
+.appointment-board-head > button {
+    min-height: 45px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 999px;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 950;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.appointment-summary {
+    margin: 16px 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.appointment-summary article {
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    background: #fff;
+    padding: 17px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .05);
+}
+
+.appointment-summary strong {
+    display: block;
+    font-size: 28px;
+    font-weight: 950;
+}
+
+.appointment-summary span {
+    display: block;
+    margin-top: 6px;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.appointment-summary .today strong { color: #dc2626; }
+.appointment-summary .tomorrow strong { color: #ea580c; }
+.appointment-summary .week strong { color: #2563eb; }
+.appointment-summary .later strong { color: #7e22ce; }
+
+.appointment-groups {
+    display: grid;
+    gap: 16px;
+}
+
+.appointment-group {
+    border: 1px solid #e5e7eb;
+    border-radius: 25px;
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, .05);
+}
+
+.appointment-group.today { border-color: #fecaca; }
+.appointment-group.tomorrow { border-color: #fed7aa; }
+.appointment-group.week { border-color: #bfdbfe; }
+.appointment-group.remaining { border-color: #e9d5ff; }
+
+.group-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.group-title > div {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.group-title > div > span {
+    width: 47px;
+    height: 47px;
+    border-radius: 15px;
+    background: #f8fafc;
+    display: grid;
+    place-items: center;
+    font-size: 23px;
+}
+
+.group-title h3 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 950;
+}
+
+.group-title p {
+    margin: 5px 0 0;
+    color: #98a2b3;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.group-title > strong {
+    min-width: 39px;
+    height: 39px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    font-weight: 950;
+}
+
+.group-list {
+    display: grid;
+    gap: 10px;
+}
+
+.request-row {
+    border: 1px solid #eef2f6;
+    border-radius: 18px;
+    background: #f8fafc;
+    padding: 15px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 15px;
+    align-items: center;
+}
+
+.request-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+}
+
+.request-title strong {
+    color: #101828;
+    font-size: 15px;
+    font-weight: 950;
+}
+
+.request-title span {
+    border-radius: 999px;
+    background: #fff;
+    color: #64748b;
+    padding: 5px 8px;
+    font-size: 10px;
+    font-weight: 900;
+}
+
+.request-meta {
+    margin-top: 9px;
+    display: flex;
+    gap: 8px 15px;
+    flex-wrap: wrap;
+    color: #475467;
+    font-size: 11px;
+    font-weight: 850;
+}
+
+.request-main p {
+    margin: 9px 0 0;
+    color: #667085;
+    font-size: 12px;
+    line-height: 1.7;
+    font-weight: 800;
+}
+
+.request-actions {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.request-actions button {
+    min-height: 38px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.request-actions button:disabled {
+    opacity: .55;
+    cursor: wait;
+}
+
+.request-actions .manage {
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.request-actions .approve {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.request-actions .reject {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.group-empty,
+.appointment-loading {
+    border-radius: 18px;
+    background: #f8fafc;
+    padding: 22px;
+    text-align: center;
+    color: #98a2b3;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.appointment-message {
+    margin: 15px 0;
+    border-radius: 17px;
+    padding: 14px 16px;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.appointment-message.ok {
+    background: #ecfdf3;
+    color: #047857;
+}
+
+.appointment-message.bad {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+@@media (max-width: 900px) {
+    .appointment-board {
+        padding: 0 14px;
+    }
+
+    .appointment-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .request-row {
+        grid-template-columns: 1fr;
+    }
+
+    .request-actions {
+        justify-content: flex-start;
+    }
+}
+
+@@media (max-width: 600px) {
+    .appointment-board-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+</style>
+
+@code {
+    private bool loading = true;
+    private bool messageOk;
+    private string? message;
+    private string reviewerId = string.Empty;
+    private List<RequestWorkItem> pendingRequests = [];
+    private readonly HashSet<Guid> busyIds = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        reviewerId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        loading = true;
+
+        try
+        {
+            // This component gets its own short-lived DbContext.
+            // It must not share the scoped HealthcareUiService DbContext
+            // while the parent dashboard is loading its statistics.
+            await using var isolatedDb =
+                await DbFactory.CreateDbContextAsync();
+
+            var isolatedUi = new HealthcareUiService(isolatedDb);
+
+            await isolatedUi.NormalizeActiveQrExpiryAsync();
+
+            pendingRequests = (await isolatedUi.GetRequestsAsync())
+                .Where(item =>
+                    item.Status is RequestStatus.Submitted or RequestStatus.UnderReview)
+                .OrderBy(item => item.AppointmentDate ?? DateOnly.MaxValue)
+                .ThenBy(item => item.SubmittedAt)
+                .ToList();
+        }
+        catch
+        {
+            messageOk = false;
+            message = "تعذر تحميل طلبات المواعيد حاليًا.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private DateOnly Today => CairoToday();
+    private DateOnly Tomorrow => Today.AddDays(1);
+    private DateOnly WeekEnd => EndOfEgyptWeek(Today);
+
+    private List<RequestWorkItem> TodayItems =>
+        pendingRequests.Where(item => item.AppointmentDate == Today).ToList();
+
+    private List<RequestWorkItem> TomorrowItems =>
+        pendingRequests.Where(item => item.AppointmentDate == Tomorrow).ToList();
+
+    private List<RequestWorkItem> WeekItems =>
+        pendingRequests
+            .Where(item =>
+                item.AppointmentDate is not null
+                && item.AppointmentDate > Tomorrow
+                && item.AppointmentDate <= WeekEnd)
+            .ToList();
+
+    private List<RequestWorkItem> RemainingItems =>
+        pendingRequests
+            .Where(item =>
+                item.AppointmentDate is null
+                || item.AppointmentDate < Today
+                || item.AppointmentDate > WeekEnd)
+            .ToList();
+
+    private IReadOnlyList<ScheduleGroup> Groups =>
+    [
+        new(
+            "طلبات اليوم",
+            $"الموعد: {Today:dd/MM/yyyy}",
+            "🔴",
+            "today",
+            TodayItems),
+        new(
+            "طلبات غدًا",
+            $"الموعد: {Tomorrow:dd/MM/yyyy}",
+            "🟠",
+            "tomorrow",
+            TomorrowItems),
+        new(
+            "باقي الأسبوع",
+            $"حتى {WeekEnd:dd/MM/yyyy}",
+            "🔵",
+            "week",
+            WeekItems),
+        new(
+            "باقي الطلبات",
+            "المواعيد اللاحقة أو المتأخرة أو غير المحددة",
+            "🟣",
+            "remaining",
+            RemainingItems)
+    ];
+
+    private async Task Approve(RequestWorkItem item)
+    {
+        if (string.IsNullOrWhiteSpace(reviewerId))
+        {
+            messageOk = false;
+            message = "تعذر قراءة حساب الأدمن الحالي.";
+            return;
+        }
+
+        busyIds.Add(item.Id);
+        message = null;
+
+        try
+        {
+            var result = await Ui.ApproveRequestAsync(item.Id, reviewerId, null);
+            messageOk = result.Succeeded;
+            message = result.Message;
+
+            if (result.Succeeded)
+            {
+                await Load();
+            }
+        }
+        finally
+        {
+            busyIds.Remove(item.Id);
+        }
+    }
+
+    private async Task Reject(RequestWorkItem item)
+    {
+        if (string.IsNullOrWhiteSpace(reviewerId))
+        {
+            messageOk = false;
+            message = "تعذر قراءة حساب الأدمن الحالي.";
+            return;
+        }
+
+        busyIds.Add(item.Id);
+        message = null;
+
+        try
+        {
+            var result = await Ui.RejectRequestAsync(
+                item.Id,
+                reviewerId,
+                "تم رفض الطلب من قائمة المواعيد بعد مراجعة الإدارة.");
+
+            messageOk = result.Succeeded;
+            message = result.Message;
+
+            if (result.Succeeded)
+            {
+                await Load();
+            }
+        }
+        finally
+        {
+            busyIds.Remove(item.Id);
+        }
+    }
+
+    private bool IsBusy(Guid id) => busyIds.Contains(id);
+
+    private static DateOnly CairoToday()
+    {
+        try
+        {
+            var cairo = TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
+            var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, cairo);
+            return DateOnly.FromDateTime(now);
+        }
+        catch
+        {
+            return DateOnly.FromDateTime(DateTime.Now);
+        }
+    }
+
+    private static DateOnly EndOfEgyptWeek(DateOnly date)
+    {
+        var daysUntilFriday =
+            ((int)DayOfWeek.Friday - (int)date.DayOfWeek + 7) % 7;
+
+        return date.AddDays(daysUntilFriday);
+    }
+
+    private static string AppointmentText(RequestWorkItem item)
+    {
+        if (item.AppointmentDate is null)
+        {
+            return "موعد غير محدد";
+        }
+
+        return item.AppointmentDate.Value.ToString("dd/MM/yyyy");
+    }
+
+    private static string ProviderText(RequestWorkItem item)
+    {
+        var value = item.ServiceType == ServiceRequestType.MedicalConsultation
+            ? item.DoctorName
+            : item.ProviderName;
+
+        return string.IsNullOrWhiteSpace(value) ? "غير معين" : value;
+    }
+
+    private static string RequestCode(Guid id) =>
+        $"REQ-{id.ToString("N")[..7].ToUpperInvariant()}";
+
+    private static string ShortText(string value)
+    {
+        var text = value.Trim();
+        return text.Length <= 160 ? text : text[..160] + "...";
+    }
+
+    private sealed record ScheduleGroup(
+        string Title,
+        string Subtitle,
+        string Icon,
+        string CssClass,
+        List<RequestWorkItem> Items);
+}

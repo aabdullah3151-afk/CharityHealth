@@ -1,0 +1,235 @@
+@page "/doctor/case/{RequestId:guid}"
+@layout MainLayout
+@attribute [Authorize(Roles = "Doctor")]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>تفاصيل الحالة</PageTitle>
+
+<div class="doctor-case-page" dir="rtl">
+    <header class="head">
+        <button type="button" @onclick='() => Nav.NavigateTo("/doctor/dashboard")'>›</button>
+        <div>
+            <span>Doctor Case</span>
+            <h1>تفاصيل الحالة والمعاينة</h1>
+            <p>يمكن استكمال الحالة مباشرة من هنا، ومسح QR يظل طريقة اختيارية.</p>
+        </div>
+    </header>
+
+    @if (loading)
+    {
+        <section class="state">جارٍ تحميل الحالة...</section>
+    }
+    else if (caseData is null)
+    {
+        <section class="error">@message</section>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="message @(success ? "ok" : "bad")">@message</div>
+        }
+
+        <section class="layout">
+            <div class="main">
+                <article class="card">
+                    <div class="title">
+                        <div>
+                            <h2>@caseData.BeneficiaryName</h2>
+                            <p>@caseData.SpecialtyName · @RequestCode(caseData.Id)</p>
+                        </div>
+                        <span class="@StatusClass(caseData.Status)">@caseData.StatusAr</span>
+                    </div>
+
+                    <div class="info">
+                        <div><span>الهاتف</span><strong>@Safe(caseData.BeneficiaryPhone)</strong></div>
+                        <div><span>المدينة</span><strong>@Safe(caseData.City)</strong></div>
+                        <div><span>موعد الحالة</span><strong>@(caseData.AppointmentDate?.ToString("dd/MM/yyyy") ?? "غير محدد")</strong></div>
+                        <div><span>تاريخ الطلب</span><strong>@caseData.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</strong></div>
+                    </div>
+
+                    <div class="description">
+                        <span>وصف الحالة</span>
+                        <p>@Safe(caseData.DescriptionAr, "لا يوجد وصف مرفق.")</p>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(caseData.ReviewNoteAr))
+                    {
+                        <div class="note">
+                            <span>ملاحظات الطلب</span>
+                            <p>@caseData.ReviewNoteAr</p>
+                        </div>
+                    }
+                </article>
+
+                <article class="card">
+                    <div class="title"><div><h2>المستندات المرفقة</h2><p>@caseData.Documents.Count مستند</p></div></div>
+                    @if (caseData.Documents.Count == 0)
+                    {
+                        <div class="empty-docs">لا توجد مستندات مرفقة.</div>
+                    }
+                    else
+                    {
+                        <div class="docs">
+                            @foreach (var document in caseData.Documents)
+                            {
+                                <a href="@DocumentUrl(document.FilePath)" target="_blank" rel="noopener">
+                                    <span>📄</span>
+                                    <div><strong>@document.FileName</strong><small>@FileSizeText(document.FileSizeBytes)</small></div>
+                                    <b>فتح</b>
+                                </a>
+                            }
+                        </div>
+                    }
+                </article>
+            </div>
+
+            <aside class="editor">
+                <h2>@(caseData.Status == RequestStatus.Completed ? "معاينة أو تعديل النتيجة" : "استكمال بيانات المعاينة")</h2>
+                <p>الحفظ المباشر لا يحتاج مسح الباركود.</p>
+
+                <label>التشخيص أو نتيجة المعاينة <em>*</em></label>
+                <textarea @bind="diagnosis" rows="6" disabled="@(!CanEdit)" placeholder="اكتب التشخيص ونتيجة الكشف..."></textarea>
+
+                <label>العلاج والتوصيات</label>
+                <textarea @bind="recommendations" rows="5" disabled="@(!CanEdit)" placeholder="اكتب العلاج والجرعات والتوصيات..."></textarea>
+
+                <label>ملاحظات الطبيب</label>
+                <textarea @bind="notes" rows="4" disabled="@(!CanEdit)" placeholder="أي ملاحظات إضافية..."></textarea>
+
+                @if (!CanEdit)
+                {
+                    <div class="waiting">الحالة ما زالت قيد مراجعة الإدارة، ويمكن استكمالها بعد اعتمادها.</div>
+                }
+                else
+                {
+                    <button type="button" class="save" disabled="@saving" @onclick="Save">
+                        @(saving ? "جارٍ الحفظ..." : caseData.Status == RequestStatus.Completed ? "حفظ التعديلات" : "حفظ المعاينة وإكمال الحالة")
+                    </button>
+                }
+
+                @if (caseData.Status == RequestStatus.Approved && caseData.HasQrCode)
+                {
+                    <button type="button" class="qr" @onclick='() => Nav.NavigateTo("/doctor/scan")'>استخدام QR بدلًا من الحفظ المباشر</button>
+                }
+
+                @if (caseData.ConsultedAt is not null)
+                {
+                    <small>آخر حفظ: @caseData.ConsultedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
+                }
+            </aside>
+        </section>
+    }
+</div>
+
+<style>
+.doctor-case-page{min-height:calc(100vh - 76px);padding:32px;background:#f8fafc;color:#101828}.head{border-radius:30px;background:linear-gradient(135deg,#05a843,#0f9f93);color:#fff;padding:27px 30px;display:flex;gap:17px;align-items:flex-start}.head button{width:46px;height:46px;border:0;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:30px;cursor:pointer}.head span{font-size:12px;font-weight:950;color:rgba(255,255,255,.75)}.head h1{margin:5px 0 0;font-size:32px;font-weight:950}.head p{margin:8px 0 0;color:rgba(255,255,255,.85);font-weight:800}.layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(340px,.7fr);gap:18px;margin-top:20px;align-items:start}.main{display:grid;gap:18px}.card,.editor{border:1px solid #e5e7eb;border-radius:27px;background:#fff;padding:22px;box-shadow:0 14px 32px rgba(15,23,42,.06)}.title{display:flex;align-items:center;justify-content:space-between;gap:12px}.title h2{margin:0;font-size:21px;font-weight:950}.title p{margin:5px 0 0;color:#94a3b8;font-size:12px;font-weight:850}.title>span{border-radius:999px;padding:7px 11px;font-size:11px;font-weight:950}.title .approved{background:#ecfdf3;color:#047857}.title .completed{background:#eff6ff;color:#1d4ed8}.title .pending{background:#fff7ed;color:#c2410c}.info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}.info div{border-radius:15px;background:#f8fafc;padding:13px}.info span,.description span,.note span{display:block;color:#94a3b8;font-size:10px;font-weight:900}.info strong{display:block;margin-top:6px;color:#334155;font-size:13px;font-weight:950}.description,.note{margin-top:12px;border-radius:16px;background:#f8fafc;padding:15px}.description p,.note p{margin:7px 0 0;color:#64748b;font-size:13px;line-height:1.9;white-space:pre-wrap;font-weight:800}.note{background:#fff7ed}.docs{display:grid;gap:9px;margin-top:16px}.docs a{border:1px solid #e5e7eb;border-radius:15px;background:#f8fafc;padding:11px;display:grid;grid-template-columns:38px 1fr auto;gap:9px;align-items:center;text-decoration:none;color:#334155}.docs a>span{font-size:23px}.docs strong{display:block;font-size:12px}.docs small{display:block;margin-top:4px;color:#94a3b8;font-size:10px}.docs b{color:#05a843;font-size:11px}.empty-docs{margin-top:16px;border-radius:15px;background:#f8fafc;padding:20px;text-align:center;color:#94a3b8;font-weight:850}.editor{position:sticky;top:92px}.editor h2{margin:0;font-size:20px;font-weight:950}.editor>p{margin:6px 0 0;color:#94a3b8;font-size:12px;font-weight:850}.editor label{display:block;margin:16px 0 7px;color:#344054;font-size:12px;font-weight:950}.editor em{color:#dc2626;font-style:normal}.editor textarea{width:100%;border:1px solid #e5e7eb;border-radius:15px;background:#f8fafc;padding:12px 14px;font:inherit;font-size:13px;font-weight:800;resize:vertical;outline:none}.editor textarea:disabled{opacity:.7}.save,.qr{width:100%;min-height:47px;margin-top:14px;border:0;border-radius:999px;font-weight:950;cursor:pointer}.save{background:#05a843;color:#fff}.qr{background:#ecfdf3;color:#047857}.waiting{margin-top:15px;border-radius:15px;background:#fff7ed;color:#9a3412;padding:13px;font-size:12px;line-height:1.8;font-weight:850}.editor small{display:block;margin-top:12px;text-align:center;color:#94a3b8}.message,.state,.error{margin-top:18px;border-radius:17px;padding:15px 18px;font-weight:900}.message.ok{background:#ecfdf3;color:#047857}.message.bad,.error{background:#fef2f2;color:#991b1b}.state{background:#fff;color:#64748b}@@media(max-width:950px){.layout{grid-template-columns:1fr}.editor{position:static}}@@media(max-width:650px){.doctor-case-page{padding:18px 12px}.head{padding:22px 18px}.head h1{font-size:25px}.info{grid-template-columns:1fr}}
+</style>
+
+@code {
+    [Parameter] public Guid RequestId { get; set; }
+
+    private bool loading = true;
+    private bool saving;
+    private bool success;
+    private string? message;
+    private string doctorUserId = string.Empty;
+    private string diagnosis = string.Empty;
+    private string recommendations = string.Empty;
+    private string notes = string.Empty;
+    private DoctorCaseDetailsDto? caseData;
+
+    private bool CanEdit => caseData?.Status is RequestStatus.Approved or RequestStatus.Completed;
+
+    protected override async Task OnParametersSetAsync() => await Load();
+
+    private async Task Load()
+    {
+        loading = true;
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            doctorUserId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(doctorUserId))
+            {
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            caseData = await Ui.GetDoctorCaseAsync(RequestId, doctorUserId);
+            if (caseData is null)
+            {
+                message = "الحالة غير موجودة أو غير مخصصة لحساب الطبيب الحالي.";
+                return;
+            }
+
+            diagnosis = caseData.DiagnosisAr ?? string.Empty;
+            recommendations = caseData.RecommendationsAr ?? string.Empty;
+            notes = caseData.NotesAr ?? string.Empty;
+        }
+        catch
+        {
+            message = "حدث خطأ أثناء تحميل بيانات الحالة.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task Save()
+    {
+        saving = true;
+        message = null;
+        success = false;
+
+        try
+        {
+            var result = await Ui.SaveDoctorCaseAsync(
+                RequestId,
+                doctorUserId,
+                new DoctorCaseInput(diagnosis, recommendations, notes));
+
+            success = result.Succeeded;
+            message = result.Message;
+
+            if (result.Succeeded)
+            {
+                await Load();
+                success = true;
+                message = result.Message;
+            }
+        }
+        catch
+        {
+            message = "تعذر حفظ بيانات المعاينة حاليًا.";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private static string RequestCode(Guid id) => $"REQ-{id.ToString("N")[..6].ToUpperInvariant()}";
+    private static string StatusClass(RequestStatus status) => status switch { RequestStatus.Approved => "approved", RequestStatus.Completed => "completed", _ => "pending" };
+    private static string Safe(string? value, string fallback = "غير محدد") => string.IsNullOrWhiteSpace(value) ? fallback : value;
+    private static string FileSizeText(long bytes) => bytes < 1024 * 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes / 1024d / 1024d:0.##} MB";
+
+    private static string DocumentUrl(string path)
+    {
+        var value = (path ?? string.Empty).Trim().Replace("\\", "/");
+        if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || value.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)) return value;
+        if (value.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase)) return "/" + value;
+        return "/uploads/" + value.TrimStart('/');
+    }
+}

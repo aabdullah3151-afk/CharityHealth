@@ -31,15 +31,42 @@ namespace CharityHealth.Infrastructure.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
 
+                    b.Property<string>("AddressAr")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text");
+
+                    b.Property<string>("ContactPersonName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
+
+                    b.Property<int>("DailyRequestCapacity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(20);
+
+                    b.Property<string>("DescriptionAr")
+                        .HasMaxLength(1500)
+                        .HasColumnType("character varying(1500)");
+
+                    b.Property<decimal>("DiscountPercentage")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasDefaultValue(0m);
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
@@ -56,8 +83,16 @@ namespace CharityHealth.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Governorate")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("LicenseNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean");
@@ -101,6 +136,10 @@ namespace CharityHealth.Infrastructure.Migrations
 
                     b.Property<int>("UserType")
                         .HasColumnType("integer");
+
+                    b.Property<string>("WorkingHours")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
 
                     b.HasKey("Id");
 
@@ -415,6 +454,10 @@ namespace CharityHealth.Infrastructure.Migrations
                     b.Property<DateOnly?>("AppointmentDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("AssignedProviderUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
                     b.Property<Guid>("BeneficiaryId")
                         .HasColumnType("uuid");
 
@@ -434,8 +477,15 @@ namespace CharityHealth.Infrastructure.Migrations
                     b.Property<Guid?>("DoctorId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("FulfilledAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("ProviderNoteAr")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<string>("ReviewNoteAr")
                         .HasMaxLength(1000)
@@ -450,7 +500,10 @@ namespace CharityHealth.Infrastructure.Migrations
                     b.Property<string>("ReviewedBy")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("SpecialtyId")
+                    b.Property<int>("ServiceType")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SpecialtyId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Status")
@@ -467,9 +520,13 @@ namespace CharityHealth.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AssignedProviderUserId");
+
                     b.HasIndex("BeneficiaryId");
 
                     b.HasIndex("DoctorId");
+
+                    b.HasIndex("ServiceType");
 
                     b.HasIndex("SpecialtyId");
 
@@ -941,6 +998,11 @@ namespace CharityHealth.Infrastructure.Migrations
 
             modelBuilder.Entity("CharityHealth.Domain.Entities.MedicalRequest", b =>
                 {
+                    b.HasOne("CharityHealth.Domain.Entities.ApplicationUser", "AssignedProvider")
+                        .WithMany()
+                        .HasForeignKey("AssignedProviderUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CharityHealth.Domain.Entities.Beneficiary", "Beneficiary")
                         .WithMany("MedicalRequests")
                         .HasForeignKey("BeneficiaryId")
@@ -954,8 +1016,9 @@ namespace CharityHealth.Infrastructure.Migrations
                     b.HasOne("CharityHealth.Domain.Entities.Specialty", "Specialty")
                         .WithMany("MedicalRequests")
                         .HasForeignKey("SpecialtyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AssignedProvider");
 
                     b.Navigation("Beneficiary");
 

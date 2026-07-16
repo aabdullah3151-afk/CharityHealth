@@ -1,0 +1,320 @@
+@page "/admin/operations"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+
+@inject AppDbContext Db
+@inject NavigationManager Nav
+
+<PageTitle>لوحة التشغيل الأسبوعية</PageTitle>
+
+<div class="existing-report-date"
+     dir="rtl"
+     style="margin:0 0 16px;padding:12px 16px;border:1px solid #bbf7d0;border-radius:16px;background:#ecfdf3;color:#047857;font-size:13px;font-weight:950;">
+    تاريخ التقرير: @DateTime.Now.ToString("dd/MM/yyyy HH:mm")
+</div>
+
+
+<div class="ops-page" dir="rtl">
+    <header class="ops-hero">
+        <div>
+            <span class="ops-kicker">لوحة التشغيل اليومية والأسبوعية</span>
+            <h1>التغطية والسعة المتاحة</h1>
+            <p>متابعة الأطباء والجهات الطبية حسب أيام العمل والطلبات المعتمدة.</p>
+        </div>
+        <div class="ops-actions">
+            <button class="ops-btn secondary" @onclick="OpenPrintPreview">معاينة الطباعة</button>
+            <button class="ops-btn primary" @onclick="OpenPrintPreview">تصدير PDF</button>
+        </div>
+    </header>
+
+    @if (loading)
+    {
+        <div class="ops-loading">جارٍ تحميل بيانات التشغيل...</div>
+    }
+    else
+    {
+        <section class="ops-summary-grid">
+            <article><span>الأطباء المتاحون اليوم</span><strong>@TodayAvailableDoctors</strong></article>
+            <article><span>الأطباء المكتملون اليوم</span><strong>@TodayFullDoctors</strong></article>
+            <article><span>المعامل العاملة اليوم</span><strong>@TodayWorkingLabs</strong></article>
+            <article><span>مراكز الأشعة العاملة اليوم</span><strong>@TodayWorkingRadiology</strong></article>
+            <article><span>الصيدليات العاملة اليوم</span><strong>@TodayWorkingPharmacies</strong></article>
+            <article><span>الطلبات المعتمدة هذا الأسبوع</span><strong>@weekRequests.Count</strong></article>
+        </section>
+
+        <section class="ops-toolbar">
+            <div class="ops-tabs">
+                @foreach (var option in categories)
+                {
+                    <button class="@(selectedCategory == option.Value ? "active" : null)" @onclick="() => SelectCategory(option.Value)">
+                        <span>@option.Icon</span>@option.Label
+                    </button>
+                }
+            </div>
+
+            <div class="ops-view-switch">
+                <button class="@(weekView ? "active" : null)" @onclick="() => weekView = true">الأسبوع كامل</button>
+                <button class="@(!weekView ? "active" : null)" @onclick="() => weekView = false">يوم واحد</button>
+            </div>
+        </section>
+
+        @if (selectedCategory == Category.Doctors)
+        {
+            <section class="ops-specialty-filter">
+                <button class="@(selectedSpecialtyId is null ? "active" : null)" @onclick="() => selectedSpecialtyId = null">كل التخصصات</button>
+                @foreach (var specialty in specialties)
+                {
+                    <button class="@(selectedSpecialtyId == specialty.Id ? "active" : null)" @onclick="() => selectedSpecialtyId = specialty.Id">@specialty.NameAr</button>
+                }
+            </section>
+        }
+
+        @if (!weekView)
+        {
+            <section class="ops-day-picker">
+                @foreach (var day in week)
+                {
+                    <button class="@(selectedDate == day ? "active" : null)" @onclick="() => selectedDate = day">
+                        <strong>@DayAr(day.DayOfWeek)</strong>
+                        <span>@day.ToString("dd/MM")</span>
+                    </button>
+                }
+            </section>
+        }
+
+        <section class="ops-table-card">
+            <div class="ops-table-head">
+                <div>
+                    <h2>@CurrentTitle</h2>
+                    <p>الأسبوع من @week[0].ToString("dd/MM/yyyy") إلى @week.Last().ToString("dd/MM/yyyy")</p>
+                </div>
+                <span class="ops-count">@VisibleRowsCount سجل</span>
+            </div>
+
+            <div class="ops-table-wrap">
+                <table class="ops-table">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            @if (selectedCategory == Category.Doctors)
+                            {
+                                <th>التخصص</th>
+                            }
+                            else
+                            {
+                                <th>الخصم</th>
+                            }
+                            <th>الهاتف</th>
+                            <th>الحد اليومي</th>
+                            @foreach (var day in DisplayDays)
+                            {
+                                <th>@DayAr(day.DayOfWeek)<small>@day.ToString("dd/MM")</small></th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (selectedCategory == Category.Doctors)
+                        {
+                            @foreach (var doctor in VisibleDoctors)
+                            {
+                                <tr>
+                                    <td><strong>@doctor.User.FullNameAr</strong><small>@doctor.ClinicAddress</small></td>
+                                    <td>@doctor.Specialty.NameAr</td>
+                                    <td>@(doctor.ClinicPhone ?? doctor.User.PhoneNumber ?? "—")</td>
+                                    <td>@Math.Max(1, doctor.MaxDailySlots)</td>
+                                    @foreach (var day in DisplayDays)
+                                    {
+                                        var state = DoctorState(doctor, day);
+                                        <td><span class="ops-state @state.Css">@state.Text</span></td>
+                                    }
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            @foreach (var partner in VisiblePartners)
+                            {
+                                <tr>
+                                    <td><strong>@partner.FullNameAr</strong><small>@PartnerAddress(partner)</small></td>
+                                    <td>@(partner.DiscountPercentage > 0 ? $"{partner.DiscountPercentage:0.#}%" : "بدون خصم")</td>
+                                    <td>@(partner.PhoneNumber ?? "—")</td>
+                                    <td>@Math.Max(1, partner.DailyRequestCapacity)</td>
+                                    @foreach (var day in DisplayDays)
+                                    {
+                                        var state = PartnerState(partner, day);
+                                        <td><span class="ops-state @state.Css">@state.Text</span></td>
+                                    }
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private bool weekView = true;
+    private Category selectedCategory = Category.Doctors;
+    private Guid? selectedSpecialtyId;
+    private DateOnly selectedDate;
+    private List<DateOnly> week = [];
+    private List<Doctor> doctors = [];
+    private List<ApplicationUser> partners = [];
+    private List<MedicalRequest> weekRequests = [];
+    private List<Specialty> specialties = [];
+
+    private readonly (Category Value, string Label, string Icon)[] categories =
+    [
+        (Category.Doctors, "الأطباء", "🩺"),
+        (Category.Laboratories, "معامل التحاليل", "🧪"),
+        (Category.Radiology, "مراكز الأشعة", "🩻"),
+        (Category.Pharmacies, "الصيدليات", "💊")
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        week = BuildWeek(DateOnly.FromDateTime(DateTime.Today));
+        selectedDate = DateOnly.FromDateTime(DateTime.Today);
+        if (!week.Contains(selectedDate)) selectedDate = week[0];
+
+        doctors = await Db.Doctors.AsNoTracking()
+            .Include(x => x.User)
+            .Include(x => x.Specialty)
+            .Where(x => x.User.IsActive)
+            .OrderBy(x => x.Specialty.NameAr)
+            .ThenBy(x => x.User.FullNameAr)
+            .ToListAsync();
+
+        partners = await Db.Users.AsNoTracking()
+            .Where(x => x.IsActive &&
+                (x.UserType == UserType.Laboratory || x.UserType == UserType.RadiologyCenter ||
+                 x.UserType == UserType.Pharmacy || x.UserType == UserType.Pharmacist))
+            .OrderBy(x => x.FullNameAr)
+            .ToListAsync();
+
+        specialties = await Db.Specialties.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.NameAr).ToListAsync();
+
+        weekRequests = await Db.MedicalRequests.AsNoTracking()
+            .Where(x => x.AppointmentDate >= week[0] && x.AppointmentDate <= week.Last() &&
+                (x.Status == RequestStatus.Approved || x.Status == RequestStatus.Completed))
+            .ToListAsync();
+
+        loading = false;
+    }
+
+    private IEnumerable<DateOnly> DisplayDays => weekView ? week : [selectedDate];
+    private IEnumerable<Doctor> VisibleDoctors => doctors.Where(x => selectedSpecialtyId is null || x.SpecialtyId == selectedSpecialtyId);
+    private IEnumerable<ApplicationUser> VisiblePartners => partners.Where(PartnerMatchesCategory);
+    private int VisibleRowsCount => selectedCategory == Category.Doctors ? VisibleDoctors.Count() : VisiblePartners.Count();
+
+    private string CurrentTitle => selectedCategory switch
+    {
+        Category.Doctors => selectedSpecialtyId is null ? "كل الأطباء حسب التخصص" : $"أطباء {specialties.FirstOrDefault(x => x.Id == selectedSpecialtyId)?.NameAr}",
+        Category.Laboratories => "معامل التحاليل",
+        Category.Radiology => "مراكز الأشعة",
+        _ => "الصيدليات"
+    };
+
+    private void SelectCategory(Category category)
+    {
+        selectedCategory = category;
+        if (category != Category.Doctors) selectedSpecialtyId = null;
+    }
+
+    private bool PartnerMatchesCategory(ApplicationUser user) => selectedCategory switch
+    {
+        Category.Laboratories => user.UserType == UserType.Laboratory,
+        Category.Radiology => user.UserType == UserType.RadiologyCenter,
+        Category.Pharmacies => user.UserType is UserType.Pharmacy or UserType.Pharmacist,
+        _ => false
+    };
+
+    private StatusCell DoctorState(Doctor doctor, DateOnly day)
+    {
+        var working = IsWorking(doctor.WorkingDays, day.DayOfWeek) && doctor.IsAvailable;
+        if (!working) return new("غير موجود", "off");
+
+        var capacity = Math.Max(1, doctor.MaxDailySlots);
+        var used = weekRequests.Count(x => x.ServiceType == ServiceRequestType.MedicalConsultation && x.DoctorId == doctor.Id && x.AppointmentDate == day);
+        var remaining = Math.Max(0, capacity - used);
+        return remaining == 0 ? new($"مكتمل {used}/{capacity}", "full") : new($"✓ متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
+    }
+
+    private StatusCell PartnerState(ApplicationUser partner, DateOnly day)
+    {
+        if (!IsWorking(partner.WorkingDays, day.DayOfWeek)) return new("غير موجود", "off");
+
+        var capacity = Math.Max(1, partner.DailyRequestCapacity);
+        var service = partner.UserType switch
+        {
+            UserType.Laboratory => ServiceRequestType.LaboratoryTest,
+            UserType.RadiologyCenter => ServiceRequestType.RadiologyScan,
+            _ => ServiceRequestType.PharmacyMedication
+        };
+        var used = weekRequests.Count(x => x.ServiceType == service && x.AssignedProviderUserId == partner.Id && x.AppointmentDate == day);
+        var remaining = Math.Max(0, capacity - used);
+        return remaining == 0 ? new($"مكتمل {used}/{capacity}", "full") : new($"✓ متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
+    }
+
+    private int TodayAvailableDoctors => doctors.Count(x => DoctorState(x, DateOnly.FromDateTime(DateTime.Today)).Css is "available" or "near");
+    private int TodayFullDoctors => doctors.Count(x => DoctorState(x, DateOnly.FromDateTime(DateTime.Today)).Css == "full");
+    private int TodayWorkingLabs => partners.Count(x => x.UserType == UserType.Laboratory && IsWorking(x.WorkingDays, DateTime.Today.DayOfWeek));
+    private int TodayWorkingRadiology => partners.Count(x => x.UserType == UserType.RadiologyCenter && IsWorking(x.WorkingDays, DateTime.Today.DayOfWeek));
+    private int TodayWorkingPharmacies => partners.Count(x => x.UserType is UserType.Pharmacy or UserType.Pharmacist && IsWorking(x.WorkingDays, DateTime.Today.DayOfWeek));
+
+    private void OpenPrintPreview() => Nav.NavigateTo("/admin/operations/print", true);
+
+    private static List<DateOnly> BuildWeek(DateOnly today)
+    {
+        var diff = ((int)today.DayOfWeek - (int)DayOfWeek.Saturday + 7) % 7;
+        var start = today.AddDays(-diff);
+        return Enumerable.Range(0, 7).Select(start.AddDays).ToList();
+    }
+
+    private static bool IsWorking(string? raw, DayOfWeek day)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return true;
+        var token = day switch
+        {
+            DayOfWeek.Saturday => "Sat",
+            DayOfWeek.Sunday => "Sun",
+            DayOfWeek.Monday => "Mon",
+            DayOfWeek.Tuesday => "Tue",
+            DayOfWeek.Wednesday => "Wed",
+            DayOfWeek.Thursday => "Thu",
+            _ => "Fri"
+        };
+        return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(token, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string DayAr(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Saturday => "السبت",
+        DayOfWeek.Sunday => "الأحد",
+        DayOfWeek.Monday => "الاثنين",
+        DayOfWeek.Tuesday => "الثلاثاء",
+        DayOfWeek.Wednesday => "الأربعاء",
+        DayOfWeek.Thursday => "الخميس",
+        _ => "الجمعة"
+    };
+
+    private static string PartnerAddress(ApplicationUser user) => string.Join(" - ", new[] { user.Governorate, user.City, user.AddressAr }.Where(x => !string.IsNullOrWhiteSpace(x)));
+    private sealed record StatusCell(string Text, string Css);
+    private enum Category { Doctors, Laboratories, Radiology, Pharmacies }
+}
+
+<style>
+.ops-page{padding:32px;max-width:1500px;margin:auto;color:#10213a}.ops-hero{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:32px;border-radius:28px;background:linear-gradient(135deg,#0f766e,#16a34a);color:#fff;box-shadow:0 20px 50px rgba(15,118,110,.2)}.ops-kicker{font-size:14px;opacity:.85}.ops-hero h1{font-size:38px;margin:8px 0}.ops-hero p{margin:0;opacity:.9}.ops-actions{display:flex;gap:10px}.ops-btn{border:0;border-radius:14px;padding:13px 18px;font-weight:800;cursor:pointer}.ops-btn.primary{background:#fff;color:#0f766e}.ops-btn.secondary{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3)}.ops-summary-grid{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:16px;margin:22px 0}.ops-summary-grid article{background:#fff;border:1px solid #e5eaf1;border-radius:22px;padding:20px;box-shadow:0 12px 30px rgba(15,23,42,.06)}.ops-summary-grid span{display:block;color:#64748b;font-size:13px}.ops-summary-grid strong{display:block;font-size:30px;margin-top:8px;color:#0f766e}.ops-toolbar{display:flex;justify-content:space-between;gap:18px;align-items:center;background:#fff;border:1px solid #e5eaf1;border-radius:20px;padding:14px;margin-bottom:14px}.ops-tabs,.ops-view-switch,.ops-specialty-filter,.ops-day-picker{display:flex;gap:8px;flex-wrap:wrap}.ops-tabs button,.ops-view-switch button,.ops-specialty-filter button,.ops-day-picker button{border:1px solid #dbe4ee;background:#fff;color:#334155;border-radius:13px;padding:10px 14px;font-weight:700;cursor:pointer}.ops-tabs button.active,.ops-view-switch button.active,.ops-specialty-filter button.active,.ops-day-picker button.active{background:#0f766e;color:#fff;border-color:#0f766e}.ops-specialty-filter,.ops-day-picker{background:#fff;border:1px solid #e5eaf1;border-radius:18px;padding:12px;margin-bottom:14px}.ops-day-picker button{min-width:105px}.ops-day-picker span,.ops-table small{display:block;color:#94a3b8;font-size:11px;margin-top:4px}.ops-table-card{background:#fff;border:1px solid #e5eaf1;border-radius:24px;box-shadow:0 14px 40px rgba(15,23,42,.06);overflow:hidden}.ops-table-head{display:flex;justify-content:space-between;align-items:center;padding:22px 24px;border-bottom:1px solid #edf1f5}.ops-table-head h2{margin:0;font-size:24px}.ops-table-head p{margin:5px 0 0;color:#64748b}.ops-count{background:#ecfdf5;color:#047857;border-radius:999px;padding:8px 13px;font-weight:800}.ops-table-wrap{overflow:auto}.ops-table{width:100%;border-collapse:separate;border-spacing:0;min-width:1100px}.ops-table th{background:#f8fafc;color:#475569;font-size:12px;padding:15px;text-align:right;border-bottom:1px solid #e5e7eb;white-space:nowrap}.ops-table td{padding:15px;border-bottom:1px solid #eef2f7;vertical-align:middle}.ops-table tbody tr:hover{background:#fafdfc}.ops-table td strong{display:block}.ops-state{display:inline-flex;justify-content:center;min-width:102px;padding:8px 10px;border-radius:999px;font-size:12px;font-weight:800}.ops-state.available{background:#dcfce7;color:#166534}.ops-state.near{background:#fef3c7;color:#92400e}.ops-state.full{background:#fee2e2;color:#991b1b}.ops-state.off{background:#e2e8f0;color:#64748b}.ops-loading{padding:50px;text-align:center;font-weight:800;color:#64748b}
+html[data-theme='dark'] .ops-page,body.dark .ops-page{color:#e5edf6}.dark .ops-summary-grid article,.dark .ops-toolbar,.dark .ops-specialty-filter,.dark .ops-day-picker,.dark .ops-table-card{background:#172235;border-color:#2b3a50;color:#e5edf6}.dark .ops-table th{background:#111c2e;color:#cbd5e1}.dark .ops-table td{border-color:#2a394d}.dark .ops-tabs button,.dark .ops-view-switch button,.dark .ops-specialty-filter button,.dark .ops-day-picker button{background:#172235;color:#dbe7f4;border-color:#35465d}.dark .ops-table tbody tr:hover{background:#1d2b40}
+@@media(max-width:1100px){.ops-summary-grid{grid-template-columns:repeat(3,1fr)}.ops-hero,.ops-toolbar{align-items:flex-start;flex-direction:column}.ops-page{padding:18px}}@@media(max-width:650px){.ops-summary-grid{grid-template-columns:repeat(2,1fr)}.ops-hero h1{font-size:28px}}
+</style>

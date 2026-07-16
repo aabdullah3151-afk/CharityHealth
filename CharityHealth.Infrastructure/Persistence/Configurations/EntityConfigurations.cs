@@ -57,6 +57,10 @@ public class MedicalRequestConfiguration : IEntityTypeConfiguration<MedicalReque
         b.HasIndex(x => x.BeneficiaryId);
         b.Property(x => x.ReviewNoteAr).HasMaxLength(1000);
         b.Property(x => x.DescriptionAr).HasMaxLength(2000);
+        b.Property(x => x.ProviderNoteAr).HasMaxLength(2000);
+        b.Property(x => x.AssignedProviderUserId).HasMaxLength(450);
+        b.HasIndex(x => x.ServiceType);
+        b.HasIndex(x => x.AssignedProviderUserId);
 
         b.HasOne(x => x.Beneficiary)
             .WithMany(b => b.MedicalRequests)
@@ -66,6 +70,13 @@ public class MedicalRequestConfiguration : IEntityTypeConfiguration<MedicalReque
         b.HasOne(x => x.Specialty)
             .WithMany(s => s.MedicalRequests)
             .HasForeignKey(x => x.SpecialtyId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        b.HasOne(x => x.AssignedProvider)
+            .WithMany()
+            .HasForeignKey(x => x.AssignedProviderUserId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         b.HasQueryFilter(x => !x.IsDeleted);

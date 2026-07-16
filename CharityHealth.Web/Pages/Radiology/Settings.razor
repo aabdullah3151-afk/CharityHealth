@@ -1,0 +1,7 @@
+@page "/radiology/settings"
+@layout MainLayout
+@attribute [Authorize(Roles = "RadiologyCenter")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Web.Components.Settings
+<PageTitle>إعدادات مركز الأشعة</PageTitle>
+<PartnerSelfSettings AccountLabel="مركز الأشعة" Icon="🩻" AccentColor="#2563eb" AccentSoft="#eff6ff" />

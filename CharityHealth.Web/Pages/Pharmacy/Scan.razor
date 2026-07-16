@@ -1,0 +1,14 @@
+@page "/pharmacy/scan"
+@layout MainLayout
+@attribute [Authorize(Roles = "Pharmacy,Pharmacist")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Components.Partners
+<PageTitle>مسح QR الصيدلية</PageTitle>
+<PartnerQrScanner ServiceType="@ServiceRequestType.PharmacyMedication"
+                  ArabicTitle="الصيدلية"
+                  Icon="💊"
+                  DashboardUrl="/pharmacy/dashboard"
+                  RequestsUrl="/pharmacy/requests"
+                  AccentColor="#f59e0b"
+                  AccentDark="#d97706" />

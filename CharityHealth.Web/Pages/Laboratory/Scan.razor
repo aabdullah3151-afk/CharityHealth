@@ -1,0 +1,14 @@
+@page "/laboratory/scan"
+@layout MainLayout
+@attribute [Authorize(Roles = "Laboratory")]
+@using Microsoft.AspNetCore.Authorization
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Components.Partners
+<PageTitle>مسح QR معمل التحاليل</PageTitle>
+<PartnerQrScanner ServiceType="@ServiceRequestType.LaboratoryTest"
+                  ArabicTitle="معمل التحاليل"
+                  Icon="🧪"
+                  DashboardUrl="/laboratory/dashboard"
+                  RequestsUrl="/laboratory/requests"
+                  AccentColor="#0f766e"
+                  AccentDark="#115e59" />

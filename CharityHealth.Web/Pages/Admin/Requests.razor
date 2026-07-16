@@ -403,6 +403,16 @@
             width: 100% !important;
         }
     }
+
+    .request-service-filter{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0 0 18px}
+    .request-service-filter button{border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:16px;min-height:54px;padding:8px 12px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+    .request-service-filter button b{min-width:25px;height:25px;border-radius:999px;background:#f1f5f9;display:grid;place-items:center;font-size:12px}
+    .request-service-filter button.active{background:#ecfdf3;border-color:#86efac;color:#15803d;box-shadow:0 8px 18px rgba(22,163,74,.10)}
+    .theme-dark .request-service-filter button{background:#1e293b;border-color:#334155;color:#cbd5e1}
+    .theme-dark .request-service-filter button b{background:#0f172a;color:#e2e8f0}
+    .theme-dark .request-service-filter button.active{background:#123c31;border-color:#0f766e;color:#6ee7b7}
+    @@media(max-width:1100px){.request-service-filter{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @@media(max-width:650px){.request-service-filter{grid-template-columns:1fr}}
 </style>
 
 <div class="requests-page" dir="rtl">
@@ -421,6 +431,24 @@
                    @bind:event="oninput" />
         </div>
     </header>
+
+    <section class="request-service-filter" aria-label="أقسام الطلبات">
+        <button type="button" class="@ServiceFilterClass(null)" @onclick="() => SetServiceFilter(null)">
+            كل الأقسام <b>@requests.Count</b>
+        </button>
+        <button type="button" class="@ServiceFilterClass(ServiceRequestType.MedicalConsultation)" @onclick="() => SetServiceFilter(ServiceRequestType.MedicalConsultation)">
+            🩺 طلبات الأطباء <b>@ServiceCount(ServiceRequestType.MedicalConsultation)</b>
+        </button>
+        <button type="button" class="@ServiceFilterClass(ServiceRequestType.LaboratoryTest)" @onclick="() => SetServiceFilter(ServiceRequestType.LaboratoryTest)">
+            🧪 طلبات معامل التحاليل <b>@ServiceCount(ServiceRequestType.LaboratoryTest)</b>
+        </button>
+        <button type="button" class="@ServiceFilterClass(ServiceRequestType.RadiologyScan)" @onclick="() => SetServiceFilter(ServiceRequestType.RadiologyScan)">
+            🩻 طلبات مراكز الأشعة <b>@ServiceCount(ServiceRequestType.RadiologyScan)</b>
+        </button>
+        <button type="button" class="@ServiceFilterClass(ServiceRequestType.PharmacyMedication)" @onclick="() => SetServiceFilter(ServiceRequestType.PharmacyMedication)">
+            💊 طلبات الصيدليات <b>@ServiceCount(ServiceRequestType.PharmacyMedication)</b>
+        </button>
+    </section>
 
     <div class="requests-tabs">
         <button class="@FilterClass("all")" @onclick='() => SetFilter("all")'>
@@ -465,7 +493,7 @@
                     <thead>
                         <tr>
                             <th>المستفيد</th>
-                            <th>التخصص</th>
+                            <th>الخدمة / التخصص</th>
                             <th>رقم الهاتف</th>
                             <th>المدينة</th>
                             <th>المستندات</th>
@@ -625,17 +653,17 @@
                             </div>
 
                             <div class="rq-preview-field">
-                                <span>التخصص المطلوب</span>
+                                <span>نوع الخدمة / التخصص</span>
                                 <strong>@preview.SpecialtyName</strong>
                             </div>
 
                             <div class="rq-preview-field">
-                                <span>الطبيب المختار</span>
+                                <span>الطبيب أو الجهة المختارة</span>
                                 <strong>@preview.DoctorName</strong>
                             </div>
 
                             <div class="rq-preview-field">
-                                <span>يوم الكشف المختار</span>
+                                <span>موعد تنفيذ الخدمة</span>
                                 <strong>@preview.AppointmentDateText</strong>
                             </div>
 
@@ -798,6 +826,7 @@
     private string? message;
     private string reviewerId = "system";
     private string activeFilter = "all";
+    private ServiceRequestType? activeServiceType;
     private string search = string.Empty;
     private Guid? busyId;
 
@@ -823,10 +852,27 @@
 
     private List<RequestWorkItem> VisibleRequests =>
         requests
+            .Where(MatchesServiceType)
             .Where(MatchesFilter)
             .Where(MatchesSearch)
             .OrderByDescending(x => x.SubmittedAt)
             .ToList();
+
+
+    private void SetServiceFilter(ServiceRequestType? type)
+    {
+        activeServiceType = type;
+        preview = null;
+    }
+
+    private string ServiceFilterClass(ServiceRequestType? type) =>
+        activeServiceType == type ? "active" : string.Empty;
+
+    private int ServiceCount(ServiceRequestType type) =>
+        requests.Count(x => x.ServiceType == type);
+
+    private bool MatchesServiceType(RequestWorkItem item) =>
+        activeServiceType is null || item.ServiceType == activeServiceType.Value;
 
     private void SetFilter(string filter)
     {
@@ -901,6 +947,7 @@
             .Include(r => r.Specialty)
             .Include(r => r.Doctor)
                 .ThenInclude(d => d!.User)
+            .Include(r => r.AssignedProvider)
             .Include(r => r.Documents)
             .Include(r => r.QRCodeToken)
             .Include(r => r.Beneficiary)
@@ -921,8 +968,10 @@
             request.Beneficiary.User.PhoneNumber ?? "—",
             request.Beneficiary.User.Email ?? "—",
             request.Beneficiary.City ?? "—",
-            request.Specialty.NameAr,
-            request.Doctor is null ? "لم يتم اختيار طبيب" : request.Doctor.User.FullNameAr,
+            request.Specialty?.NameAr ?? HealthcareUiService.ServiceTypeAr(request.ServiceType),
+            request.ServiceType == ServiceRequestType.MedicalConsultation
+                ? request.Doctor is null ? "لم يتم اختيار طبيب" : request.Doctor.User.FullNameAr
+                : request.AssignedProvider?.FullNameAr ?? "لم يتم اختيار جهة",
             request.AppointmentDate is null ? "لم يتم اختيار يوم" : FormatDateOnlyAr(request.AppointmentDate.Value),
             request.Status,
             HealthcareUiService.StatusAr(request.Status),

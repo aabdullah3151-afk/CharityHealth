@@ -1,0 +1,386 @@
+@page "/admin/user-profile/{UserId}"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+
+<PageTitle>تقرير المستخدم</PageTitle>
+
+<div class="user-report-page" dir="rtl">
+    <button class="back-btn" @onclick='() => Nav.NavigateTo("/admin/users")'>← العودة لقائمة المستخدمين</button>
+
+    @if (loading)
+    {
+        <section class="report-state">جارٍ تحميل التقرير...</section>
+    }
+    else if (user is null)
+    {
+        <section class="report-state">المستخدم غير موجود.</section>
+    }
+    else
+    {
+        <header class="report-hero">
+            <div class="report-avatar">@Initial(user.FullNameAr)</div>
+            <div class="report-title">
+                <span>User Report</span>
+                <h1>@Show(user.FullNameAr, user.FullNameEn)</h1>
+                <p>@RoleAr · @Show(user.Email)</p>
+            </div>
+            <span class="account-state @(user.IsActive ? "active" : "inactive")">
+                @(user.IsActive ? "حساب نشط" : "حساب موقوف")
+            </span>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="report-message @(messageOk ? "ok" : "bad")">@message</div>
+        }
+
+        <section class="summary-grid">
+            <article><strong>@requests.Count</strong><span>إجمالي الطلبات</span></article>
+            <article><strong>@requests.Count(x => x.Status == RequestStatus.Approved)</strong><span>طلبات مقبولة</span></article>
+            <article><strong>@requests.Count(x => x.Status == RequestStatus.Completed)</strong><span>طلبات مكتملة</span></article>
+            <article><strong>@requests.Count(x => x.Status != RequestStatus.Completed)</strong><span>غير مكتملة</span></article>
+        </section>
+
+        <section class="report-grid">
+            <article class="report-card">
+                <h2>البيانات الأساسية</h2>
+                <div class="info-grid">
+                    <div><span>الاسم بالعربية</span><strong>@Show(user.FullNameAr)</strong></div>
+                    <div><span>الاسم بالإنجليزية</span><strong>@Show(user.FullNameEn)</strong></div>
+                    <div><span>البريد الإلكتروني</span><strong>@Show(user.Email)</strong></div>
+                    <div><span>رقم الهاتف</span><strong>@Show(user.PhoneNumber)</strong></div>
+                    <div><span>نوع الحساب</span><strong>@RoleAr</strong></div>
+                    <div><span>تاريخ إنشاء الحساب</span><strong>@user.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</strong></div>
+                    <div><span>المحافظة</span><strong>@Show(user.Governorate)</strong></div>
+                    <div><span>المدينة</span><strong>@Show(user.City)</strong></div>
+                    <div class="wide"><span>العنوان</span><strong>@Show(user.AddressAr)</strong></div>
+                </div>
+            </article>
+
+            <article class="report-card">
+                <h2>بيانات الجهة أو العمل</h2>
+                <div class="info-grid">
+                    <div><span>اسم المسؤول</span><strong>@Show(user.ContactPersonName)</strong></div>
+                    <div><span>رقم الترخيص</span><strong>@Show(user.LicenseNumber)</strong></div>
+                    <div><span>أيام العمل</span><strong>@Show(user.WorkingDays)</strong></div>
+                    <div><span>ساعات العمل</span><strong>@Show(user.WorkingHours)</strong></div>
+                    <div><span>السعة اليومية</span><strong>@user.DailyRequestCapacity</strong></div>
+                    <div><span>نسبة الخصم</span><strong>@user.DiscountPercentage.ToString("0.##")%</strong></div>
+                    @if (user.Doctor is not null)
+                    {
+                        <div><span>التخصص</span><strong>@Show(user.Doctor.Specialty?.NameAr)</strong></div>
+                        <div><span>ترخيص الطبيب</span><strong>@Show(user.Doctor.LicenseNumber)</strong></div>
+                        <div class="wide"><span>عنوان العيادة</span><strong>@Show(user.Doctor.ClinicAddress)</strong></div>
+                    }
+                    <div class="wide"><span>الوصف أو الملاحظات</span><strong>@Show(user.DescriptionAr)</strong></div>
+                </div>
+            </article>
+        </section>
+
+        <section class="security-card">
+            <div>
+                <h2>إدارة الحساب وكلمة المرور</h2>
+                <p>يمكن لمدير النظام إيقاف الحساب أو تعيين كلمة مرور جديدة مباشرة.</p>
+            </div>
+
+            <div class="security-actions">
+                <button class="toggle-btn @(user.IsActive ? "danger" : "success")"
+                        disabled="@busy"
+                        @onclick="ToggleActive">
+                    @(user.IsActive ? "إيقاف الحساب" : "تفعيل الحساب")
+                </button>
+            </div>
+
+            <div class="password-grid">
+                <label>
+                    <span>كلمة المرور الجديدة</span>
+                    <input type="password" @bind="newPassword" autocomplete="new-password" />
+                </label>
+                <label>
+                    <span>تأكيد كلمة المرور</span>
+                    <input type="password" @bind="confirmPassword" autocomplete="new-password" />
+                </label>
+                <button disabled="@busy" @onclick="ChangePassword">
+                    @(busy ? "جارٍ التنفيذ..." : "حفظ كلمة المرور الجديدة")
+                </button>
+            </div>
+        </section>
+
+        <section class="requests-card">
+            <div class="requests-head">
+                <div><h2>السجل الكامل للطلبات</h2><p>الطلبات التي تخص المستخدم كمستفيد أو طبيب أو جهة منفذة أو مراجع.</p></div>
+                <span>@requests.Count طلب</span>
+            </div>
+
+            @if (requests.Count == 0)
+            {
+                <div class="empty-requests">لا توجد طلبات مرتبطة بهذا الحساب.</div>
+            }
+            else
+            {
+                <div class="requests-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>رقم الطلب</th>
+                                <th>المستفيد</th>
+                                <th>الخدمة</th>
+                                <th>الموعد</th>
+                                <th>الحالة</th>
+                                <th>آخر تحديث</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var request in requests)
+                            {
+                                <tr @onclick='() => Nav.NavigateTo($"/admin/requests/{request.Id}")'>
+                                    <td>REQ-@request.Id.ToString("N")[..7].ToUpperInvariant()</td>
+                                    <td>@Show(request.Beneficiary?.User?.FullNameAr)</td>
+                                    <td>@ServiceAr(request.ServiceType)</td>
+                                    <td>@(request.AppointmentDate?.ToString("yyyy/MM/dd") ?? "غير محدد")</td>
+                                    <td><span class="request-status">@StatusAr(request.Status)</span></td>
+                                    <td>@(request.FulfilledAt ?? request.ReviewedAt ?? request.SubmittedAt).ToLocalTime().ToString("yyyy/MM/dd HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+<style>
+.user-report-page{min-height:calc(100vh - 76px);padding:34px;background:#f8fafc;color:#101828}
+.back-btn{border:0;border-radius:999px;background:#fff;color:#475467;min-height:43px;padding:0 17px;font-weight:950;cursor:pointer;box-shadow:0 8px 20px rgba(15,23,42,.06);margin-bottom:18px}
+.report-hero{border-radius:30px;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;padding:28px;display:grid;grid-template-columns:78px 1fr auto;gap:17px;align-items:center;box-shadow:0 20px 45px rgba(109,40,217,.22)}
+.report-avatar{width:78px;height:78px;border-radius:24px;background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:34px;font-weight:950}
+.report-title span{font-size:12px;font-weight:950;color:rgba(255,255,255,.72)}.report-title h1{margin:5px 0;font-size:31px}.report-title p{margin:0;color:rgba(255,255,255,.84);font-weight:850}
+.account-state{border-radius:999px;padding:9px 14px;font-size:12px;font-weight:950;background:#fff}.account-state.active{color:#047857}.account-state.inactive{color:#b91c1c}
+.report-message{margin:17px 0;border-radius:17px;padding:14px 16px;font-weight:900}.report-message.ok{background:#ecfdf3;color:#047857}.report-message.bad{background:#fef2f2;color:#b91c1c}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin:20px 0}.summary-grid article{border:1px solid #e5e7eb;border-radius:22px;background:#fff;padding:20px}.summary-grid strong{display:block;font-size:30px;color:#7e22ce}.summary-grid span{display:block;margin-top:6px;color:#667085;font-size:12px;font-weight:900}
+.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.report-card,.security-card,.requests-card{border:1px solid #e5e7eb;border-radius:27px;background:#fff;padding:22px;box-shadow:0 13px 32px rgba(15,23,42,.05)}
+.report-card h2,.security-card h2,.requests-card h2{margin:0 0 17px;font-size:20px;font-weight:950}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.info-grid>div{border-radius:16px;background:#f8fafc;padding:13px}.info-grid>div.wide{grid-column:1/-1}
+.info-grid span{display:block;color:#98a2b3;font-size:11px;font-weight:850}.info-grid strong{display:block;margin-top:6px;color:#344054;font-size:13px;font-weight:950;word-break:break-word}
+.security-card{margin-top:17px}.security-card>div:first-child p{margin:-8px 0 15px;color:#667085;font-size:13px;font-weight:800}
+.toggle-btn{border:0;border-radius:999px;min-height:42px;padding:0 17px;color:#fff;font-weight:950;cursor:pointer}.toggle-btn.danger{background:#dc2626}.toggle-btn.success{background:#05a843}
+.password-grid{margin-top:18px;display:grid;grid-template-columns:1fr 1fr auto;gap:11px;align-items:end}.password-grid label span{display:block;margin-bottom:7px;color:#475467;font-size:12px;font-weight:950}
+.password-grid input{width:100%;height:48px;border:1px solid #e5e7eb;border-radius:15px;background:#f8fafc;padding:0 13px;font:inherit}
+.password-grid button{height:48px;border:0;border-radius:15px;background:#7e22ce;color:#fff;padding:0 18px;font-weight:950;cursor:pointer}
+.requests-card{margin-top:17px}.requests-head{display:flex;justify-content:space-between;gap:15px;align-items:center}.requests-head h2{margin:0}.requests-head p{margin:6px 0 0;color:#667085;font-size:12px;font-weight:800}.requests-head>span{border-radius:999px;background:#f3e8ff;color:#7e22ce;padding:8px 12px;font-weight:950}
+.requests-scroll{overflow:auto;margin-top:16px}.requests-card table{width:100%;border-collapse:collapse;min-width:860px}.requests-card th{padding:14px;text-align:right;background:#f8fafc;color:#667085;font-size:12px}.requests-card td{padding:14px;border-top:1px solid #eef2f6;color:#344054;font-size:12px;font-weight:850}.requests-card tbody tr{cursor:pointer}.requests-card tbody tr:hover{background:#faf5ff}
+.request-status{border-radius:999px;background:#f1f5f9;padding:6px 10px;font-weight:950}.empty-requests,.report-state{border:1px solid #e5e7eb;border-radius:22px;background:#fff;padding:28px;text-align:center;color:#667085;font-weight:900}
+@@media(max-width:900px){.user-report-page{padding:20px 12px}.report-grid{grid-template-columns:1fr}.summary-grid{grid-template-columns:1fr 1fr}.password-grid{grid-template-columns:1fr}.report-hero{grid-template-columns:64px 1fr}.report-avatar{width:64px;height:64px}.account-state{grid-column:1/-1;width:max-content}.info-grid{grid-template-columns:1fr}}
+</style>
+
+@code {
+    [Parameter] public string UserId { get; set; } = string.Empty;
+
+    private bool loading = true;
+    private bool busy;
+    private bool messageOk;
+    private string? message;
+    private string newPassword = string.Empty;
+    private string confirmPassword = string.Empty;
+    private ApplicationUser? user;
+    private IList<string> userRoles = [];
+    private List<MedicalRequest> requests = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        loading = true;
+        message = null;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        user = await db.Users
+            .AsNoTracking()
+            .Include(x => x.Beneficiary)
+            .Include(x => x.Doctor)
+                .ThenInclude(x => x.Specialty)
+            .FirstOrDefaultAsync(x => x.Id == UserId);
+
+        if (user is null)
+        {
+            loading = false;
+            return;
+        }
+
+        userRoles = await UserManager.GetRolesAsync(user);
+
+        var beneficiaryId = user.Beneficiary?.Id;
+        var doctorId = user.Doctor?.Id;
+
+        requests = await db.MedicalRequests
+            .AsNoTracking()
+            .Include(x => x.Beneficiary)
+                .ThenInclude(x => x.User)
+            .Include(x => x.Specialty)
+            .Where(x =>
+                x.AssignedProviderUserId == UserId ||
+                x.ReviewedBy == UserId ||
+                (beneficiaryId.HasValue && x.BeneficiaryId == beneficiaryId.Value) ||
+                (doctorId.HasValue && x.DoctorId == doctorId.Value))
+            .OrderByDescending(x => x.FulfilledAt ?? x.ReviewedAt ?? x.SubmittedAt)
+            .ToListAsync();
+
+        loading = false;
+    }
+
+    private async Task ChangePassword()
+    {
+        message = null;
+        messageOk = false;
+
+        if (user is null) return;
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+        {
+            message = "كلمة المرور يجب ألا تقل عن 6 أحرف أو أرقام.";
+            return;
+        }
+
+        if (newPassword != confirmPassword)
+        {
+            message = "تأكيد كلمة المرور غير مطابق.";
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var identityUser = await UserManager.FindByIdAsync(user.Id);
+            if (identityUser is null)
+            {
+                message = "تعذر العثور على حساب المستخدم.";
+                return;
+            }
+
+            var token = await UserManager.GeneratePasswordResetTokenAsync(identityUser);
+            var result = await UserManager.ResetPasswordAsync(identityUser, token, newPassword);
+
+            if (!result.Succeeded)
+            {
+                message = string.Join(" | ", result.Errors.Select(x => x.Description));
+                return;
+            }
+
+            newPassword = string.Empty;
+            confirmPassword = string.Empty;
+            messageOk = true;
+            message = "تم تغيير كلمة المرور بنجاح.";
+        }
+        catch (Exception ex)
+        {
+            message = $"تعذر تغيير كلمة المرور: {ex.Message}";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task ToggleActive()
+    {
+        message = null;
+        messageOk = false;
+        if (user is null) return;
+
+        busy = true;
+        try
+        {
+            var identityUser = await UserManager.FindByIdAsync(user.Id);
+            if (identityUser is null)
+            {
+                message = "تعذر العثور على الحساب.";
+                return;
+            }
+
+            identityUser.IsActive = !identityUser.IsActive;
+            identityUser.LockoutEnabled = !identityUser.IsActive;
+            identityUser.LockoutEnd = identityUser.IsActive ? null : DateTimeOffset.UtcNow.AddYears(100);
+            identityUser.UpdatedAt = DateTime.UtcNow;
+
+            var result = await UserManager.UpdateAsync(identityUser);
+            if (!result.Succeeded)
+            {
+                message = string.Join(" | ", result.Errors.Select(x => x.Description));
+                return;
+            }
+
+            messageOk = true;
+            message = identityUser.IsActive ? "تم تفعيل الحساب." : "تم إيقاف الحساب.";
+            await Load();
+        }
+        catch (Exception ex)
+        {
+            message = $"تعذر تحديث حالة الحساب: {ex.Message}";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private string RoleAr
+    {
+        get
+        {
+            var role = userRoles.FirstOrDefault() ?? user?.UserType.ToString() ?? "User";
+            return role switch
+            {
+                "Administrator" => "مدير نظام",
+                "Staff" => "موظف",
+                "Doctor" => "طبيب",
+                "Beneficiary" => "مستفيد",
+                "Pharmacy" => "صيدلية",
+                "Pharmacist" => "صيدلي",
+                "Laboratory" => "معمل تحاليل",
+                "RadiologyCenter" => "مركز أشعة",
+                _ => role
+            };
+        }
+    }
+
+    private static string Show(string? value, string? fallback = null) =>
+        !string.IsNullOrWhiteSpace(value) ? value : (!string.IsNullOrWhiteSpace(fallback) ? fallback : "غير مسجل");
+
+    private static string Initial(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "م" : value.Trim()[0].ToString();
+
+    private static string StatusAr(RequestStatus status) => status switch
+    {
+        RequestStatus.Draft => "مسودة",
+        RequestStatus.Submitted => "مرسل",
+        RequestStatus.UnderReview => "قيد المراجعة",
+        RequestStatus.Approved => "مقبول",
+        RequestStatus.Rejected => "مرفوض",
+        RequestStatus.Completed => "مكتمل",
+        _ => status.ToString()
+    };
+
+    private static string ServiceAr(ServiceRequestType type) => type switch
+    {
+        ServiceRequestType.MedicalConsultation => "كشف طبي",
+        ServiceRequestType.PharmacyMedication => "صرف دواء",
+        ServiceRequestType.LaboratoryTest => "تحاليل",
+        ServiceRequestType.RadiologyScan => "أشعة",
+        _ => type.ToString()
+    };
+}

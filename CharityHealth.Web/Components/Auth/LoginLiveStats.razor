@@ -1,0 +1,230 @@
+@implements IAsyncDisposable
+
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<section class="login-live-stats" aria-label="إحصائيات المنصة الفعلية">
+    <article>
+        <strong>@beneficiaries</strong>
+        <span>مستفيد مسجل</span>
+    </article>
+
+    <article>
+        <strong>@doctors</strong>
+        <span>طبيب متاح</span>
+    </article>
+
+    <article>
+        <strong>@pharmacies</strong>
+        <span>صيدلية نشطة</span>
+    </article>
+
+    <article>
+        <strong>@laboratories</strong>
+        <span>معمل تحاليل نشط</span>
+    </article>
+
+    <article>
+        <strong>@radiologyCenters</strong>
+        <span>مركز أشعة نشط</span>
+    </article>
+
+    <article>
+        <strong>@completedServices</strong>
+        <span>خدمة مكتملة</span>
+    </article>
+</section>
+
+@if (loadFailed)
+{
+    <p class="login-stats-note">تعذر تحديث الإحصائيات مؤقتًا، وستتم إعادة المحاولة تلقائيًا.</p>
+}
+else
+{
+    <p class="login-stats-note">الأرقام فعلية من قاعدة البيانات وتتحدث تلقائيًا.</p>
+}
+
+<style>
+.login-live-stats {
+    width: min(100%, 470px);
+    margin: 30px auto 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.login-live-stats article {
+    min-height: 112px;
+    padding: 18px 14px;
+    border: 1px solid #e3e8ef;
+    border-radius: 21px;
+    background: rgba(255, 255, 255, .94);
+    box-shadow: 0 10px 22px rgba(15, 23, 42, .08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-live-stats strong {
+    color: #05a843;
+    font-size: 29px;
+    line-height: 1;
+    font-weight: 950;
+}
+
+.login-live-stats span {
+    margin-top: 12px;
+    color: #98a2b3;
+    font-size: 12px;
+    font-weight: 900;
+    text-align: center;
+}
+
+.login-stats-note {
+    margin: 14px auto 0;
+    color: #98a2b3;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+}
+
+@@media (max-width: 720px) {
+    .login-live-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 11px;
+        margin-top: 24px;
+    }
+
+    .login-live-stats article {
+        min-height: 94px;
+        border-radius: 17px;
+    }
+
+    .login-live-stats strong {
+        font-size: 25px;
+    }
+}
+</style>
+
+@code {
+    private readonly CancellationTokenSource refreshCts = new();
+    private PeriodicTimer? refreshTimer;
+    private Task? refreshTask;
+
+    private int beneficiaries;
+    private int doctors;
+    private int pharmacies;
+    private int laboratories;
+    private int radiologyCenters;
+    private int completedServices;
+    private bool loadFailed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatsAsync();
+
+        refreshTimer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        refreshTask = RefreshLoopAsync();
+    }
+
+    private async Task LoadStatsAsync()
+    {
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync(refreshCts.Token);
+
+            beneficiaries = await db.Beneficiaries
+                .AsNoTracking()
+                .CountAsync(refreshCts.Token);
+
+            doctors = await db.Doctors
+                .AsNoTracking()
+                .CountAsync(
+                    doctor => doctor.IsAvailable && doctor.User.IsActive,
+                    refreshCts.Token);
+
+            pharmacies = await db.Users
+                .AsNoTracking()
+                .CountAsync(
+                    user => user.IsActive &&
+                        (user.UserType == UserType.Pharmacy ||
+                         user.UserType == UserType.Pharmacist),
+                    refreshCts.Token);
+
+            laboratories = await db.Users
+                .AsNoTracking()
+                .CountAsync(
+                    user => user.IsActive &&
+                            user.UserType == UserType.Laboratory,
+                    refreshCts.Token);
+
+            radiologyCenters = await db.Users
+                .AsNoTracking()
+                .CountAsync(
+                    user => user.IsActive &&
+                            user.UserType == UserType.RadiologyCenter,
+                    refreshCts.Token);
+
+            completedServices = await db.MedicalRequests
+                .AsNoTracking()
+                .CountAsync(
+                    request => request.Status == RequestStatus.Completed,
+                    refreshCts.Token);
+
+            loadFailed = false;
+        }
+        catch (OperationCanceledException) when (refreshCts.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+            loadFailed = true;
+        }
+    }
+
+    private async Task RefreshLoopAsync()
+    {
+        if (refreshTimer is null)
+        {
+            return;
+        }
+
+        try
+        {
+            while (await refreshTimer.WaitForNextTickAsync(refreshCts.Token))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadStatsAsync();
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException) when (refreshCts.IsCancellationRequested)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        refreshCts.Cancel();
+        refreshTimer?.Dispose();
+
+        if (refreshTask is not null)
+        {
+            try
+            {
+                await refreshTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        refreshCts.Dispose();
+    }
+}

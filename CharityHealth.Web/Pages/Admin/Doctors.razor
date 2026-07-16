@@ -16,6 +16,7 @@
 @inject NavigationManager Nav
 
 <PageTitle>إدارة الأطباء</PageTitle>
+<link href="/css/admin-medical-profiles.css" rel="stylesheet" />
 
 <div class="doctors-page" dir="rtl">
 
@@ -40,6 +41,12 @@
             </button>
         </div>
     </header>
+
+    <section class="ch-search doctor-live-search">
+        <span>⌕</span>
+        <input type="search" placeholder="ابحث باسم الطبيب أو الهاتف أو التخصص أو الترخيص..." @bind="searchText" @bind:event="oninput" />
+        @if (!string.IsNullOrWhiteSpace(searchText)) { <button type="button" @onclick='() => searchText = string.Empty'>مسح</button> }
+    </section>
 
     @if (!string.IsNullOrWhiteSpace(actionMessage))
     {
@@ -186,6 +193,7 @@
                     </div>
 
                     <div class="doctor-card-actions" style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button type="button" class="doctor-edit-btn" @onclick='() => Nav.NavigateTo($"/admin/doctors/{doctor.Id}")' style="background:#ecfdf3 !important;color:#027a48 !important;">عرض الملف الكامل</button>
                         <button type="button"
                                 class="doctor-edit-btn"
                                 @onclick='() => Nav.NavigateTo($"/admin/doctors/edit/{doctor.Id}")'>
@@ -210,6 +218,7 @@
     private bool loading = true;
     private bool deleting;
     private bool showUnavailable;
+    private string searchText = string.Empty;
     private bool actionSucceeded;
     private string? actionMessage;
 
@@ -237,14 +246,16 @@
     {
         get
         {
-            if (showUnavailable)
-            {
-                return doctors;
-            }
-
-            return doctors.Where(d => d.IsAvailable);
+            IEnumerable<DoctorListItem> result = showUnavailable ? doctors : doctors.Where(d => d.IsAvailable);
+            var term = searchText.Trim();
+            if (!string.IsNullOrWhiteSpace(term))
+                result = result.Where(d => Has(d.FullNameAr, term) || Has(d.SpecialtyName, term) || Has(d.PhoneNumber, term) || Has(d.LicenseNumber, term) || Has(d.ClinicAddress, term));
+            return result;
         }
     }
+
+    private static bool Has(string? value, string term)
+        => !string.IsNullOrWhiteSpace(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
 
     private void AskDelete(DoctorListItem doctor)
     {

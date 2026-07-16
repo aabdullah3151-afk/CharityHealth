@@ -1,0 +1,377 @@
+@implements IAsyncDisposable
+
+@using System.Security.Claims
+@using System.Text.RegularExpressions
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Web.Services
+
+@inject HealthcareUiService Ui
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="partner-qr-page" dir="rtl" style="--qr-accent:@AccentColor;--qr-dark:@AccentDark;">
+    <header class="partner-qr-head">
+        <button type="button" class="back-btn" @onclick="() => Nav.NavigateTo(DashboardUrl)">›</button>
+        <div>
+            <div class="kicker">@Icon QR Verification</div>
+            <h1>مسح QR — @ArabicTitle</h1>
+            <p>امسح رمز المستفيد، راجع الطلب والمستندات، ثم أكمل بيانات تنفيذ الخدمة.</p>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="qr-message @(success ? "success" : "danger")">@message</div>
+    }
+
+    @if (completed)
+    {
+        <section class="completion-card">
+            <div>✓</div>
+            <h2>تم تنفيذ الخدمة بنجاح</h2>
+            <p>تم استخدام QR مرة واحدة، تحديث حالة الطلب إلى مكتمل، وإرسال إشعار للمستفيد.</p>
+            <div class="completion-actions">
+                <button type="button" @onclick="ResetScan">مسح QR جديد</button>
+                <button type="button" class="secondary" @onclick="() => Nav.NavigateTo(RequestsUrl)">فتح سجل الطلبات</button>
+            </div>
+        </section>
+    }
+    else if (scanData is null)
+    {
+        <section class="scanner-shell">
+            <article class="camera-card">
+                <div class="camera-frame">
+                    <span class="corner tr"></span><span class="corner tl"></span>
+                    <span class="corner br"></span><span class="corner bl"></span>
+                    <video id="@VideoElementId" class="scanner-video" playsinline muted></video>
+                </div>
+                <h2>@(scannerRunning ? "الكاميرا تعمل الآن" : "امسح QR المستفيد")</h2>
+                <p>@(scannerRunning ? "ضع الرمز داخل الإطار حتى تتم قراءته تلقائيًا." : "اضغط تشغيل الكاميرا أو أدخل الرابط/الكود يدويًا.")</p>
+                <div class="camera-actions">
+                    <button type="button" disabled="@(loading || scannerRunning)" @onclick="StartCameraScanner">
+                        @(scannerStarting ? "جارٍ تشغيل الكاميرا..." : "تشغيل الكاميرا")
+                    </button>
+                    <button type="button" class="secondary" disabled="@(!scannerRunning)" @onclick="StopCameraScanner">إيقاف الكاميرا</button>
+                </div>
+            </article>
+
+            <article class="manual-card">
+                <div class="manual-title"><span>⌨</span><div><h2>إدخال يدوي</h2><p>يمكن لصق رابط QR كاملًا أو كتابة رمز الـGUID.</p></div></div>
+                <input @bind="manualQrValue" @bind:event="oninput" placeholder="https://.../scan?token=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                <button type="button" disabled="@loading" @onclick="HandleManualQr">@(loading ? "جارٍ التحقق..." : "التحقق من QR")</button>
+            </article>
+
+            <article class="rules-card">
+                <h2>قواعد التنفيذ</h2>
+                <ul>
+                    <li>يجب أن يكون الطلب موافقًا عليه من الإدارة.</li>
+                    <li>يجب أن يكون الطلب مخصصًا لهذا الحساب تحديدًا.</li>
+                    <li>QR صالح لمرة واحدة فقط وقبل تاريخ انتهاء الصلاحية.</li>
+                    <li>لن يتحول الطلب إلى مكتمل إلا بعد حفظ بيانات التنفيذ.</li>
+                </ul>
+            </article>
+        </section>
+    }
+    else
+    {
+        <section class="verified-banner">
+            <span>✓</span>
+            <div><h2>تم التحقق من QR</h2><p>الطلب صحيح ومخصص لحساب @ArabicTitle الحالي.</p></div>
+            <button type="button" @onclick="ResetScan">إلغاء واختيار رمز آخر</button>
+        </section>
+
+        <section class="result-layout">
+            <div class="result-main">
+                <article class="info-card">
+                    <div class="card-head"><span>@Icon</span><div><h2>بيانات الطلب</h2><p>@RequestCode(scanData.RequestId)</p></div></div>
+                    <div class="info-grid">
+                        <div><span>المستفيد</span><strong>@scanData.BeneficiaryName</strong></div>
+                        <div><span>رقم الهاتف</span><strong>@scanData.BeneficiaryPhone</strong></div>
+                        <div><span>المدينة</span><strong>@scanData.City</strong></div>
+                        <div><span>نوع الخدمة</span><strong>@scanData.ServiceTypeAr</strong></div>
+                        <div><span>الجهة</span><strong>@scanData.ProviderName</strong></div>
+                        @if (scanData.AppointmentDate is not null)
+                        {
+                            <div><span>اليوم المحجوز</span><strong>@scanData.AppointmentDate.Value.ToString("yyyy/MM/dd")</strong></div>
+                        }
+                        <div><span>صلاحية QR</span><strong>@FormatDate(scanData.ExpiresAt)</strong></div>
+                    </div>
+                    <div class="description-box"><span>تفاصيل طلب المستفيد</span><p>@Safe(scanData.DescriptionAr, "لا توجد تفاصيل مكتوبة.")</p></div>
+                </article>
+
+                <article class="info-card">
+                    <div class="card-head"><span>📎</span><div><h2>المستندات المرفوعة</h2><p>@scanData.DocumentsCount مستند</p></div></div>
+                    @if (scanData.Documents.Count == 0)
+                    {
+                        <div class="empty-docs">لا توجد مستندات مرفوعة مع هذا الطلب.</div>
+                    }
+                    else
+                    {
+                        <div class="documents-grid">
+                            @foreach (var document in scanData.Documents)
+                            {
+                                <a href="@DocumentUrl(document.FilePath)" target="_blank" rel="noopener">
+                                    <span>📄</span><div><strong>@document.FileName</strong><small>@FileSizeText(document.FileSizeBytes)</small></div><b>فتح</b>
+                                </a>
+                            }
+                        </div>
+                    }
+                </article>
+            </div>
+
+            <aside class="completion-form">
+                <div class="form-head"><span>✍</span><div><h2>استكمال بيانات التنفيذ</h2><p>هذه البيانات ستظهر للمستفيد في تفاصيل الطلب.</p></div></div>
+
+                <label>@PrimaryLabel <em>*</em></label>
+                <textarea @bind="primaryResult" rows="6" placeholder="@PrimaryPlaceholder"></textarea>
+
+                <label>@ReferenceLabel</label>
+                <input @bind="referenceNumber" placeholder="اختياري" maxlength="120" />
+
+                <label>@DeliveryLabel</label>
+                <input type="datetime-local" value="@expectedDeliveryLocal" @onchange="OnExpectedDeliveryChanged" />
+
+                <label>ملاحظات إضافية</label>
+                <textarea @bind="additionalNotes" rows="4" placeholder="تعليمات، تنبيهات، أو تفاصيل أخرى للمستفيد..."></textarea>
+
+                <div class="confirm-box">
+                    <input id="partnerQrConfirm" type="checkbox" @bind="confirmed" />
+                    <label for="partnerQrConfirm">أؤكد مطابقة بيانات المستفيد وتنفيذ الخدمة الموضحة أعلاه.</label>
+                </div>
+
+                <button type="button" class="complete-btn" disabled="@(saving || !confirmed)" @onclick="CompleteRequest">
+                    @(saving ? "جارٍ الحفظ..." : CompleteButtonText)
+                </button>
+                <p class="once-warning">بعد الحفظ سيُستخدم QR نهائيًا ولا يمكن استخدامه مرة أخرى.</p>
+            </aside>
+        </section>
+    }
+</div>
+
+<style>
+.partner-qr-page{min-height:calc(100vh - 76px);padding:32px;background:#f8fafc;color:#101828}.partner-qr-head{border-radius:30px;background:linear-gradient(135deg,var(--qr-accent),var(--qr-dark));color:#fff;padding:28px 30px;display:flex;align-items:flex-start;gap:18px;box-shadow:0 20px 44px color-mix(in srgb,var(--qr-accent) 25%,transparent)}.partner-qr-head .back-btn{width:48px;height:48px;border:0;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:31px;cursor:pointer}.partner-qr-head .kicker{font-size:12px;font-weight:950;color:rgba(255,255,255,.75)}.partner-qr-head h1{margin:6px 0 0;font-size:34px;font-weight:950}.partner-qr-head p{margin:8px 0 0;color:rgba(255,255,255,.85);font-size:14px;font-weight:800}.qr-message{margin:18px 0;border-radius:18px;padding:15px 18px;font-weight:900}.qr-message.success{background:#ecfdf3;color:#047857}.qr-message.danger{background:#fef2f2;color:#991b1b}.scanner-shell{display:grid;grid-template-columns:minmax(330px,.85fr) minmax(0,1.15fr);gap:18px;margin-top:22px}.camera-card,.manual-card,.rules-card,.info-card,.completion-form,.completion-card{border:1px solid #e5e7eb;border-radius:28px;background:#fff;padding:24px;box-shadow:0 14px 34px rgba(15,23,42,.06)}.camera-card{grid-row:span 2;text-align:center}.camera-frame{width:310px;height:310px;max-width:100%;margin:0 auto 18px;position:relative;border-radius:30px;background:#020617;padding:12px}.scanner-video{width:100%;height:100%;object-fit:cover;border-radius:22px;background:#020617}.corner{position:absolute;width:42px;height:42px;border-color:var(--qr-accent);border-style:solid;z-index:2}.corner.tr{right:3px;top:3px;border-width:5px 5px 0 0;border-radius:0 17px 0 0}.corner.tl{left:3px;top:3px;border-width:5px 0 0 5px;border-radius:17px 0 0 0}.corner.br{right:3px;bottom:3px;border-width:0 5px 5px 0;border-radius:0 0 17px 0}.corner.bl{left:3px;bottom:3px;border-width:0 0 5px 5px;border-radius:0 0 0 17px}.camera-card h2,.manual-card h2,.rules-card h2{margin:0;font-size:20px;font-weight:950}.camera-card p,.manual-title p{color:#98a2b3;font-size:13px;font-weight:800}.camera-actions,.completion-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}.camera-actions button,.manual-card>button,.completion-actions button{min-height:46px;border:0;border-radius:999px;background:var(--qr-accent);color:#fff;font-weight:950;cursor:pointer}.camera-actions .secondary,.completion-actions .secondary{background:#f1f5f9;color:#475467}.camera-actions button:disabled{opacity:.55}.manual-title,.form-head,.card-head{display:flex;align-items:center;gap:12px}.manual-title>span,.form-head>span,.card-head>span{width:50px;height:50px;border-radius:17px;background:#f0fdfa;display:grid;place-items:center;font-size:24px}.manual-title h2,.form-head h2,.card-head h2{margin:0;font-size:19px;font-weight:950}.manual-title p,.form-head p,.card-head p{margin:5px 0 0;color:#98a2b3;font-size:12px;font-weight:800}.manual-card input,.completion-form input,.completion-form textarea{width:100%;border:1px solid #e5e7eb;border-radius:16px;background:#f8fafc;padding:13px 15px;font:inherit;font-size:13px;font-weight:800;outline:none}.manual-card input{direction:ltr;text-align:left;height:52px;margin:18px 0 11px}.rules-card ul{margin:16px 0 0;padding-right:20px;color:#667085;font-size:13px;line-height:2;font-weight:800}.verified-banner{margin-top:20px;border:1px solid #bbf7d0;border-radius:24px;background:#ecfdf3;padding:18px;display:grid;grid-template-columns:48px 1fr auto;gap:13px;align-items:center;color:#047857}.verified-banner>span{width:48px;height:48px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:24px;font-weight:950}.verified-banner h2{margin:0;font-size:18px;font-weight:950}.verified-banner p{margin:5px 0 0;font-size:12px;font-weight:800}.verified-banner button{border:1px solid #86efac;border-radius:999px;background:#fff;color:#047857;min-height:42px;padding:0 16px;font-weight:950;cursor:pointer}.result-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(330px,.7fr);gap:18px;margin-top:18px;align-items:start}.result-main{display:grid;gap:18px}.info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin-top:18px}.info-grid>div{border:1px solid #eef2f6;border-radius:16px;background:#f8fafc;padding:13px}.info-grid span,.description-box>span{display:block;color:#98a2b3;font-size:11px;font-weight:850}.info-grid strong{display:block;margin-top:6px;color:#344054;font-size:13px;font-weight:950}.description-box{margin-top:12px;border-radius:17px;background:#f8fafc;padding:15px}.description-box p{margin:7px 0 0;color:#475467;font-size:13px;line-height:1.9;font-weight:800;white-space:pre-wrap}.documents-grid{display:grid;gap:9px;margin-top:17px}.documents-grid a{border:1px solid #e5e7eb;border-radius:16px;background:#f8fafc;padding:12px;display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;text-decoration:none;color:#344054}.documents-grid a>span{font-size:24px}.documents-grid strong{display:block;font-size:12px;font-weight:950}.documents-grid small{display:block;margin-top:4px;color:#98a2b3;font-size:10px;font-weight:800}.documents-grid b{color:var(--qr-accent);font-size:12px}.empty-docs{margin-top:17px;border-radius:16px;background:#f8fafc;padding:20px;text-align:center;color:#98a2b3;font-weight:850}.completion-form{position:sticky;top:94px}.completion-form>label{display:block;margin:17px 0 7px;color:#344054;font-size:12px;font-weight:950}.completion-form label em{color:#dc2626;font-style:normal}.completion-form textarea{resize:vertical}.confirm-box{margin-top:16px;border-radius:16px;background:#fff7ed;padding:13px;display:flex;align-items:flex-start;gap:9px}.confirm-box input{width:18px;height:18px;margin-top:2px}.confirm-box label{color:#9a3412;font-size:12px;line-height:1.7;font-weight:850;cursor:pointer}.complete-btn{width:100%;min-height:48px;margin-top:14px;border:0;border-radius:999px;background:var(--qr-accent);color:#fff;font-size:14px;font-weight:950;cursor:pointer}.complete-btn:disabled{opacity:.55}.once-warning{text-align:center;color:#98a2b3;font-size:10px;font-weight:800}.completion-card{margin:28px auto;max-width:660px;text-align:center;padding:46px}.completion-card>div:first-child{width:80px;height:80px;border-radius:50%;background:#ecfdf3;color:#05a843;display:grid;place-items:center;margin:auto;font-size:42px;font-weight:950}.completion-card h2{font-size:27px;font-weight:950}.completion-card p{color:#667085;font-size:14px;line-height:1.8;font-weight:800}@@media(max-width:950px){.scanner-shell,.result-layout{grid-template-columns:1fr}.camera-card{grid-row:auto}.completion-form{position:static}}@@media(max-width:650px){.partner-qr-page{padding:18px 12px}.partner-qr-head{padding:22px 18px}.partner-qr-head h1{font-size:26px}.camera-frame{width:260px;height:260px}.info-grid{grid-template-columns:1fr}.verified-banner{grid-template-columns:44px 1fr}.verified-banner button{grid-column:1/-1}.camera-actions,.completion-actions{grid-template-columns:1fr}}
+</style>
+
+@code {
+    [Parameter, EditorRequired] public ServiceRequestType ServiceType { get; set; }
+    [Parameter, EditorRequired] public string ArabicTitle { get; set; } = string.Empty;
+    [Parameter] public string Icon { get; set; } = "🏥";
+    [Parameter, EditorRequired] public string DashboardUrl { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string RequestsUrl { get; set; } = string.Empty;
+    [Parameter] public string AccentColor { get; set; } = "#05a843";
+    [Parameter] public string AccentDark { get; set; } = "#047857";
+
+    private bool loading;
+    private bool saving;
+    private bool success;
+    private bool completed;
+    private bool scannerStarting;
+    private bool scannerRunning;
+    private bool confirmed;
+    private string providerUserId = string.Empty;
+    private string manualQrValue = string.Empty;
+    private string primaryResult = string.Empty;
+    private string? referenceNumber;
+    private string? expectedDeliveryLocal;
+    private string? additionalNotes;
+    private string? message;
+    private PartnerQrScanDto? scanData;
+    private DotNetObjectReference<PartnerQrScanner>? dotNetRef;
+
+    private string VideoElementId => $"partnerQrVideo-{(int)ServiceType}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        providerUserId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(providerUserId))
+        {
+            message = "تعذر قراءة حساب الجهة الحالية. سجّل الدخول مرة أخرى.";
+            return;
+        }
+
+        var token = ExtractTokenFromRaw(Nav.Uri);
+        if (token is not null)
+        {
+            await LoadFromQrToken(token.Value);
+        }
+    }
+
+    private async Task StartCameraScanner()
+    {
+        message = null; success = false; scannerStarting = true;
+        try
+        {
+            dotNetRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("charityQrScanner.start", VideoElementId, dotNetRef);
+            scannerRunning = true;
+        }
+        catch
+        {
+            message = "تعذر تشغيل قارئ QR في هذا المتصفح. استخدم الإدخال اليدوي أو افتح الصفحة من هاتف يدعم الكاميرا.";
+        }
+        finally { scannerStarting = false; }
+    }
+
+    private async Task StopCameraScanner()
+    {
+        try { await JS.InvokeVoidAsync("charityQrScanner.stop"); } catch { }
+        scannerRunning = false;
+    }
+
+    [JSInvokable]
+    public async Task OnQrScanned(string rawValue)
+    {
+        await InvokeAsync(async () =>
+        {
+            await StopCameraScanner();
+            await HandleRawQr(rawValue);
+            StateHasChanged();
+        });
+    }
+
+    private Task HandleManualQr() => HandleRawQr(manualQrValue);
+
+    private void OnExpectedDeliveryChanged(ChangeEventArgs args)
+    {
+        expectedDeliveryLocal = args.Value?.ToString();
+    }
+
+    private async Task HandleRawQr(string? rawValue)
+    {
+        var token = ExtractTokenFromRaw(rawValue);
+        if (token is null)
+        {
+            message = "QR غير صالح. امسح الرمز الصحيح أو الصق الرابط كاملًا.";
+            success = false;
+            return;
+        }
+        await LoadFromQrToken(token.Value);
+    }
+
+    private async Task LoadFromQrToken(Guid token)
+    {
+        loading = true; message = null; success = false; scanData = null;
+        try
+        {
+            var result = await Ui.GetPartnerRequestByQrAsync(token, providerUserId, ServiceType);
+            message = result.Message;
+            success = result.Succeeded;
+            scanData = result.Data;
+            if (result.Succeeded) manualQrValue = token.ToString();
+        }
+        catch { message = "حدث خطأ أثناء التحقق من QR."; }
+        finally { loading = false; }
+    }
+
+    private async Task CompleteRequest()
+    {
+        if (scanData is null) return;
+        if (!confirmed)
+        {
+            message = "يجب تأكيد مطابقة البيانات قبل الحفظ.";
+            success = false;
+            return;
+        }
+
+        DateTime? expectedDelivery = null;
+        if (!string.IsNullOrWhiteSpace(expectedDeliveryLocal)
+            && DateTime.TryParse(expectedDeliveryLocal, out var parsed))
+        {
+            expectedDelivery = parsed;
+        }
+
+        saving = true; message = null; success = false;
+        try
+        {
+            var input = new PartnerQrCompletionInput(primaryResult, referenceNumber, expectedDelivery, additionalNotes);
+            var result = await Ui.CompletePartnerRequestByQrAsync(scanData.QrTokenId, providerUserId, ServiceType, input);
+            message = result.Message;
+            success = result.Succeeded;
+            completed = result.Succeeded;
+        }
+        catch { message = "حدث خطأ أثناء حفظ تنفيذ الخدمة."; }
+        finally { saving = false; }
+    }
+
+    private async Task ResetScan()
+    {
+        await StopCameraScanner();
+        scanData = null; completed = false; success = false; message = null;
+        manualQrValue = string.Empty; primaryResult = string.Empty; referenceNumber = null;
+        expectedDeliveryLocal = null; additionalNotes = null; confirmed = false;
+    }
+
+    private static Guid? ExtractTokenFromRaw(string? rawValue)
+    {
+        if (string.IsNullOrWhiteSpace(rawValue)) return null;
+        var text = Uri.UnescapeDataString(rawValue.Trim());
+        if (Guid.TryParse(text, out var direct)) return direct;
+        var tokenMatch = Regex.Match(text, @"(?:token=)([0-9a-fA-F-]{36})");
+        if (tokenMatch.Success && Guid.TryParse(tokenMatch.Groups[1].Value, out var query)) return query;
+        var anyGuid = Regex.Match(text, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+        return anyGuid.Success && Guid.TryParse(anyGuid.Value, out var embedded) ? embedded : null;
+    }
+
+    private string PrimaryLabel => ServiceType switch
+    {
+        ServiceRequestType.PharmacyMedication => "الأدوية التي تم صرفها",
+        ServiceRequestType.LaboratoryTest => "التحاليل التي تم تنفيذها",
+        ServiceRequestType.RadiologyScan => "الأشعة التي تم تنفيذها",
+        _ => "نتيجة التنفيذ"
+    };
+
+    private string PrimaryPlaceholder => ServiceType switch
+    {
+        ServiceRequestType.PharmacyMedication => "اكتب اسم كل دواء والكمية والجرعة أو تعليمات الاستخدام...",
+        ServiceRequestType.LaboratoryTest => "اكتب أسماء التحاليل التي تم سحب العينة وتنفيذها...",
+        ServiceRequestType.RadiologyScan => "اكتب نوع الأشعة والمنطقة التي تم تصويرها...",
+        _ => "اكتب تفاصيل تنفيذ الخدمة..."
+    };
+
+    private string ReferenceLabel => ServiceType switch
+    {
+        ServiceRequestType.PharmacyMedication => "رقم الصرف / الوصفة",
+        ServiceRequestType.LaboratoryTest => "رقم العينة / المرجع",
+        ServiceRequestType.RadiologyScan => "رقم الفحص / المرجع",
+        _ => "الرقم المرجعي"
+    };
+
+    private string DeliveryLabel => ServiceType switch
+    {
+        ServiceRequestType.PharmacyMedication => "موعد استلام العلاج — إن لم يتم التسليم فورًا",
+        ServiceRequestType.LaboratoryTest => "موعد تسليم نتيجة التحاليل",
+        ServiceRequestType.RadiologyScan => "موعد تسليم تقرير الأشعة",
+        _ => "موعد التسليم"
+    };
+
+    private string CompleteButtonText => ServiceType switch
+    {
+        ServiceRequestType.PharmacyMedication => "تأكيد صرف العلاج واستخدام QR",
+        ServiceRequestType.LaboratoryTest => "تأكيد تنفيذ التحاليل واستخدام QR",
+        ServiceRequestType.RadiologyScan => "تأكيد تنفيذ الأشعة واستخدام QR",
+        _ => "تأكيد التنفيذ واستخدام QR"
+    };
+
+    private static string RequestCode(Guid id) => $"REQ-{id.ToString("N")[..6].ToUpperInvariant()}";
+    private static string FormatDate(DateTime date) => date.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+    private static string Safe(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;
+    private static string FileSizeText(long bytes) => bytes < 1024 * 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes / 1024d / 1024d:0.##} MB";
+    private static string DocumentUrl(string path)
+    {
+        var value = (path ?? string.Empty).Trim().Replace("\\", "/");
+        if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || value.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)) return value;
+        if (value.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase)) return "/" + value;
+        return "/uploads/" + value.TrimStart('/');
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("charityQrScanner.stop"); } catch { }
+        dotNetRef?.Dispose();
+    }
+}

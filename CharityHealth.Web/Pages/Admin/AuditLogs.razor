@@ -4,8 +4,12 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using CharityHealth.Web.Services
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+@using Microsoft.EntityFrameworkCore
 
 @inject HealthcareUiService Ui
+@inject AppDbContext Db
 
 <PageTitle>سجل العمليات</PageTitle>
 
@@ -32,25 +36,29 @@
     }
     else
     {
-        <section class="admin-stats-grid">
+        <section class="admin-stats-grid audit-live-grid">
             <div class="admin-stat-card">
-                <span>إجمالي المعروض</span>
+                <span>العمليات المسجلة</span>
                 <strong>@logs.Count</strong>
+                <small>آخر 500 عملية فعلية</small>
             </div>
 
             <div class="admin-stat-card">
-                <span>عمليات الدخول</span>
-                <strong>@logs.Count(l => l.Action.Contains("Login", StringComparison.OrdinalIgnoreCase))</strong>
+                <span>طلبات اليوم</span>
+                <strong>@todayRequests</strong>
+                <small>من قاعدة البيانات</small>
             </div>
 
             <div class="admin-stat-card">
-                <span>طلبات و QR</span>
-                <strong>@logs.Count(l => l.EntityType is "MedicalRequest" or "QRCodeToken")</strong>
+                <span>طلبات معتمدة اليوم</span>
+                <strong>@todayApproved</strong>
+                <small>مقبولة أو مكتملة</small>
             </div>
 
             <div class="admin-stat-card">
-                <span>الكيانات</span>
-                <strong>@logs.Select(l => l.EntityType).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().Count()</strong>
+                <span>استخدامات QR اليوم</span>
+                <strong>@todayQrUsed</strong>
+                <small>عمليات مسح فعلية</small>
             </div>
         </section>
 
@@ -119,10 +127,26 @@
     private bool loading = true;
     private string search = string.Empty;
     private List<AuditLogListItem> logs = [];
+    private int todayRequests;
+    private int todayApproved;
+    private int todayQrUsed;
 
     protected override async Task OnInitializedAsync()
     {
         logs = await Ui.GetAuditLogsAsync();
+        var today = DateTime.UtcNow.Date;
+        var tomorrow = today.AddDays(1);
+
+        todayRequests = await Db.MedicalRequests.AsNoTracking()
+            .CountAsync(x => x.SubmittedAt >= today && x.SubmittedAt < tomorrow);
+
+        todayApproved = await Db.MedicalRequests.AsNoTracking()
+            .CountAsync(x => x.ReviewedAt >= today && x.ReviewedAt < tomorrow &&
+                (x.Status == RequestStatus.Approved || x.Status == RequestStatus.Completed));
+
+        todayQrUsed = logs.Count(x => x.Action.Equals("QR.Used", StringComparison.OrdinalIgnoreCase) &&
+            x.Timestamp >= today && x.Timestamp < tomorrow);
+
         loading = false;
     }
 
@@ -174,6 +198,8 @@
         "Specialty" => "تخصص",
         "Doctor" => "طبيب",
         "Pharmacy" => "صيدلية",
+        "Laboratory" => "معمل تحاليل",
+        "RadiologyCenter" => "مركز أشعة",
         _ => string.IsNullOrWhiteSpace(entityType) ? "غير محدد" : entityType
     };
 
@@ -208,6 +234,14 @@
         "Pharmacy.Created" => "إضافة صيدلية",
         "Pharmacy.Updated" => "تعديل صيدلية",
         "Pharmacy.Deleted" => "حذف صيدلية",
+
+        "Laboratory.Created" => "إضافة معمل تحاليل",
+        "Laboratory.Updated" => "تعديل معمل تحاليل",
+        "Laboratory.Deleted" => "حذف معمل تحاليل",
+
+        "RadiologyCenter.Created" => "إضافة مركز أشعة",
+        "RadiologyCenter.Updated" => "تعديل مركز أشعة",
+        "RadiologyCenter.Deleted" => "حذف مركز أشعة",
 
         _ => action
     };

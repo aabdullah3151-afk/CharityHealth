@@ -2,212 +2,124 @@
 @layout MainLayout
 @attribute [Authorize(Roles = "Administrator,Staff")]
 
-@using System.Globalization
 @using Microsoft.AspNetCore.Authorization
-@using CharityHealth.Web.Services
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
 
-@inject HealthcareUiService Ui
+@inject AppDbContext Db
+@inject NavigationManager Nav
 
-<PageTitle>التقارير</PageTitle>
+<PageTitle>تقارير الأطباء</PageTitle>
 
-<div class="reports-page" dir="rtl">
+<a href="/admin/periodic-reports"
+   style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin:0 0 18px;padding:0 18px;border-radius:999px;background:#0f766e;color:#fff;text-decoration:none;font-weight:950;">
+    فتح التقارير الأسبوعية والشهرية والسنوية
+</a>
 
-    <header class="reports-head">
+
+<div class="doctor-reports-page" dir="rtl">
+    <header class="doctor-reports-hero">
         <div>
-            <div class="reports-kicker">Analytics 📊</div>
-            <h1>التقارير</h1>
-            <p>مؤشرات تشغيلية مختصرة مبنية على بيانات النظام الحالية.</p>
+            <span>تقارير الأطباء والكشوفات فقط</span>
+            <h1>مؤشرات أداء الأطباء</h1>
+            <p>الطلبات الطبية، السعة اليومية، التخصصات، ونسب الإنجاز.</p>
         </div>
-
-        <button type="button" class="reports-export-btn">
-            <span>⬇</span>
-            تصدير
-        </button>
+        <div class="doctor-report-actions">
+            <button @onclick="OpenOperations">لوحة التشغيل الأسبوعية</button>
+            <button class="primary" @onclick="OpenPrint">معاينة PDF</button>
+        </div>
     </header>
 
     @if (loading)
     {
-        <div class="reports-empty">جارٍ تحميل التقارير...</div>
+        <div class="ops-loading">جارٍ تحميل تقارير الأطباء...</div>
     }
     else
     {
-        <section class="reports-kpis">
-
-            <article class="report-kpi">
-                <i class="dot green"></i>
-                <strong>@Format(stats.TotalBeneficiaries)</strong>
-                <span>المستفيدون</span>
-            </article>
-
-            <article class="report-kpi">
-                <i class="dot teal"></i>
-                <strong>@AcceptanceRate%</strong>
-                <span>معدل القبول</span>
-            </article>
-
-            <article class="report-kpi">
-                <i class="dot amber"></i>
-                <strong>@Format(stats.CompletedRequests)</strong>
-                <span>استشارات مكتملة</span>
-            </article>
-
-            <article class="report-kpi">
-                <i class="dot blue"></i>
-                <strong>@AverageReviewDays يوم</strong>
-                <span>متوسط وقت المراجعة</span>
-            </article>
-
+        <section class="doctor-report-kpis">
+            <article><span>إجمالي الأطباء</span><strong>@doctors.Count</strong></article>
+            <article><span>طلبات الكشف الطبي</span><strong>@medicalRequests.Count</strong></article>
+            <article><span>طلبات مقبولة</span><strong>@medicalRequests.Count(x => x.Status == RequestStatus.Approved)</strong></article>
+            <article><span>كشوفات مكتملة</span><strong>@medicalRequests.Count(x => x.Status == RequestStatus.Completed)</strong></article>
+            <article><span>قيد المراجعة</span><strong>@medicalRequests.Count(x => x.Status is RequestStatus.Submitted or RequestStatus.UnderReview)</strong></article>
+            <article><span>التخصصات النشطة</span><strong>@specialties.Count</strong></article>
         </section>
 
-        <section class="reports-chart-card">
-            <div class="reports-card-head">
-                <h2>الاستشارات المكتملة شهرياً</h2>
-            </div>
-
-            <div class="reports-bar-chart">
-                @foreach (var point in monthly)
+        <section class="doctor-report-card">
+            <div class="doctor-report-card-head"><h2>الأداء حسب التخصص</h2><span>جميع طلبات الأطباء</span></div>
+            <div class="specialty-report-grid">
+                @foreach (var specialty in specialties)
                 {
-                    <div class="bar-item">
-                        <div class="bar-track">
-                            <div class="bar-fill" style="height:@BarHeight(point.Completed)%"></div>
-                        </div>
-                        <span>@point.Month</span>
-                    </div>
+                    var doctorsCount = doctors.Count(x => x.SpecialtyId == specialty.Id);
+                    var requestCount = medicalRequests.Count(x => x.SpecialtyId == specialty.Id);
+                    var completed = medicalRequests.Count(x => x.SpecialtyId == specialty.Id && x.Status == RequestStatus.Completed);
+                    <article>
+                        <h3>@specialty.NameAr</h3>
+                        <div><span>الأطباء</span><strong>@doctorsCount</strong></div>
+                        <div><span>الطلبات</span><strong>@requestCount</strong></div>
+                        <div><span>المكتمل</span><strong>@completed</strong></div>
+                        <div><span>نسبة الإنجاز</span><strong>@Percent(completed, requestCount)%</strong></div>
+                    </article>
                 }
             </div>
         </section>
 
-        <section class="reports-bottom-grid">
-
-            <article class="reports-card">
-                <h2>الطلبات حسب التخصص</h2>
-
-                <div class="reports-specialties">
-                    @if (specialties.Count == 0)
+        <section class="doctor-report-card">
+            <div class="doctor-report-card-head"><h2>تفاصيل الأطباء</h2><span>السعة والطلبات</span></div>
+            <div class="ops-table-wrap">
+                <table class="ops-table">
+                    <thead><tr><th>الطبيب</th><th>التخصص</th><th>أيام العمل</th><th>الحد اليومي</th><th>إجمالي الطلبات</th><th>المقبول</th><th>المكتمل</th><th>المرفوض</th></tr></thead>
+                    <tbody>
+                    @foreach (var doctor in doctors)
                     {
-                        <div class="reports-mini-empty">لا توجد بيانات تخصصات</div>
+                        var list = medicalRequests.Where(x => x.DoctorId == doctor.Id).ToList();
+                        <tr>
+                            <td><strong>@doctor.User.FullNameAr</strong><small>@(doctor.ClinicPhone ?? doctor.User.PhoneNumber)</small></td>
+                            <td>@doctor.Specialty.NameAr</td>
+                            <td>@WorkingDaysAr(doctor.WorkingDays)</td>
+                            <td>@Math.Max(1, doctor.MaxDailySlots)</td>
+                            <td>@list.Count</td>
+                            <td>@list.Count(x => x.Status == RequestStatus.Approved)</td>
+                            <td>@list.Count(x => x.Status == RequestStatus.Completed)</td>
+                            <td>@list.Count(x => x.Status == RequestStatus.Rejected)</td>
+                        </tr>
                     }
-                    else
-                    {
-                        @foreach (var item in specialties)
-                        {
-                            <div class="specialty-row">
-                                <div class="specialty-row-head">
-                                    <span>@item.Percent%</span>
-                                    <strong>@item.Name</strong>
-                                </div>
-
-                                <div class="specialty-progress">
-                                    <i style="width:@item.Percent%; background:@item.ColorHex"></i>
-                                </div>
-                            </div>
-                        }
-                    }
-                </div>
-            </article>
-
-            <article class="reports-card">
-                <h2>تقرير سريع</h2>
-
-                <div class="quick-report">
-                    <div>
-                        <span class="qr-icon blue">📋</span>
-                        <strong>@Format(stats.TotalRequests)</strong>
-                        <p>كل الطلبات</p>
-                    </div>
-
-                    <div>
-                        <span class="qr-icon amber">⏳</span>
-                        <strong>@Format(stats.PendingRequests)</strong>
-                        <p>قيد المراجعة</p>
-                    </div>
-
-                    <div>
-                        <span class="qr-icon green">✅</span>
-                        <strong>@Format(stats.ApprovedRequests)</strong>
-                        <p>طلبات مقبولة</p>
-                    </div>
-
-                    <div>
-                        <span class="qr-icon red">✖</span>
-                        <strong>@Format(stats.RejectedRequests)</strong>
-                        <p>طلبات مرفوضة</p>
-                    </div>
-
-                    <div>
-                        <span class="qr-icon teal">🩺</span>
-                        <strong>@Format(stats.TotalDoctors)</strong>
-                        <p>الأطباء</p>
-                    </div>
-
-                    <div>
-                        <span class="qr-icon purple">◼</span>
-                        <strong>@Format(stats.SpecialtiesCount)</strong>
-                        <p>التخصصات</p>
-                    </div>
-                </div>
-            </article>
-
+                    </tbody>
+                </table>
+            </div>
         </section>
     }
 </div>
 
 @code {
     private bool loading = true;
-
-    private DashboardStatsDto stats = new(0, 0, 0, 0, 0, 0, 0, 0);
-    private List<RequestWorkItem> requests = [];
-    private List<MonthlyDashboardPoint> monthly = [];
-    private List<SpecialtyDashboardPoint> specialties = [];
+    private List<Doctor> doctors = [];
+    private List<MedicalRequest> medicalRequests = [];
+    private List<Specialty> specialties = [];
 
     protected override async Task OnInitializedAsync()
     {
-        stats = await Ui.GetStatsAsync();
-        requests = await Ui.GetRequestsAsync();
-        monthly = await Ui.GetMonthlyDashboardAsync(6);
-        specialties = await Ui.GetSpecialtyDashboardAsync();
-
+        doctors = await Db.Doctors.AsNoTracking().Include(x => x.User).Include(x => x.Specialty).Where(x => x.User.IsActive).OrderBy(x => x.Specialty.NameAr).ThenBy(x => x.User.FullNameAr).ToListAsync();
+        medicalRequests = await Db.MedicalRequests.AsNoTracking().Where(x => x.ServiceType == ServiceRequestType.MedicalConsultation).ToListAsync();
+        specialties = await Db.Specialties.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.NameAr).ToListAsync();
         loading = false;
     }
 
-    private int AcceptanceRate
+    private void OpenOperations() => Nav.NavigateTo("/admin/operations");
+    private void OpenPrint() => Nav.NavigateTo("/admin/operations/print", true);
+
+    private static int Percent(int value, int total) => total == 0 ? 0 : (int)Math.Round(value * 100d / total);
+    private static string WorkingDaysAr(string? raw)
     {
-        get
-        {
-            if (stats.TotalRequests == 0)
-            {
-                return 0;
-            }
-
-            return (int)Math.Round((double)stats.ApprovedRequests / stats.TotalRequests * 100);
-        }
+        if (string.IsNullOrWhiteSpace(raw)) return "كل الأيام";
+        var map = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase){{"Sat","السبت"},{"Sun","الأحد"},{"Mon","الاثنين"},{"Tue","الثلاثاء"},{"Wed","الأربعاء"},{"Thu","الخميس"},{"Fri","الجمعة"}};
+        return string.Join("، ", raw.Split(',',StringSplitOptions.RemoveEmptyEntries|StringSplitOptions.TrimEntries).Select(x => map.TryGetValue(x,out var value) ? value : x));
     }
-
-    private double AverageReviewDays
-    {
-        get
-        {
-            var reviewed = requests
-                .Where(r => r.ReviewedAt.HasValue)
-                .Select(r => (r.ReviewedAt!.Value - r.SubmittedAt).TotalDays)
-                .Where(days => days >= 0)
-                .ToList();
-
-            if (reviewed.Count == 0)
-            {
-                return 0;
-            }
-
-            return Math.Round(reviewed.Average(), 1);
-        }
-    }
-
-    private double BarHeight(int value)
-    {
-        var max = monthly.Count == 0 ? 1 : Math.Max(1, monthly.Max(x => x.Completed));
-        return Math.Max(8, (double)value / max * 100);
-    }
-
-    private static string Format(int value) =>
-        value.ToString("N0", CultureInfo.InvariantCulture);
 }
+
+<style>
+.doctor-reports-page{padding:32px;max-width:1500px;margin:auto;color:#10213a}.doctor-reports-hero{display:flex;justify-content:space-between;align-items:center;gap:20px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:32px;border-radius:28px;box-shadow:0 20px 50px rgba(79,70,229,.22)}.doctor-reports-hero h1{font-size:38px;margin:7px 0}.doctor-reports-hero p{margin:0;opacity:.9}.doctor-report-actions{display:flex;gap:10px}.doctor-report-actions button{border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:14px;padding:13px 18px;font-weight:800;cursor:pointer}.doctor-report-actions .primary{background:#fff;color:#5b21b6}.doctor-report-kpis{display:grid;grid-template-columns:repeat(6,minmax(145px,1fr));gap:16px;margin:22px 0}.doctor-report-kpis article{background:#fff;border:1px solid #e5eaf1;border-radius:22px;padding:20px;box-shadow:0 12px 30px rgba(15,23,42,.06)}.doctor-report-kpis span{display:block;color:#64748b;font-size:13px}.doctor-report-kpis strong{display:block;font-size:30px;margin-top:8px;color:#5b21b6}.doctor-report-card{background:#fff;border:1px solid #e5eaf1;border-radius:24px;padding:22px;margin-bottom:20px;box-shadow:0 14px 40px rgba(15,23,42,.06)}.doctor-report-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.doctor-report-card-head h2{margin:0;font-size:25px}.doctor-report-card-head span{color:#64748b}.specialty-report-grid{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:14px}.specialty-report-grid article{border:1px solid #e7eaf0;border-radius:18px;padding:18px;background:linear-gradient(180deg,#fff,#fafaff)}.specialty-report-grid h3{margin:0 0 14px;color:#4f46e5}.specialty-report-grid div{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed #e5e7eb}.specialty-report-grid div:last-child{border:0}.ops-table-wrap{overflow:auto}.ops-table{width:100%;border-collapse:separate;border-spacing:0;min-width:950px}.ops-table th{background:#f8fafc;color:#475569;padding:14px;text-align:right;border-bottom:1px solid #e5e7eb}.ops-table td{padding:14px;border-bottom:1px solid #eef2f7}.ops-table td strong,.ops-table td small{display:block}.ops-table td small{color:#94a3b8;margin-top:3px}.dark .doctor-reports-page{color:#e5edf6}.dark .doctor-report-kpis article,.dark .doctor-report-card{background:#172235;border-color:#2b3a50;color:#e5edf6}.dark .specialty-report-grid article{background:#111c2e;border-color:#2b3a50}.dark .ops-table th{background:#111c2e;color:#cbd5e1}.dark .ops-table td{border-color:#2a394d}
+@@media(max-width:1100px){.doctor-report-kpis{grid-template-columns:repeat(3,1fr)}.specialty-report-grid{grid-template-columns:repeat(2,1fr)}.doctor-reports-hero{flex-direction:column;align-items:flex-start}.doctor-reports-page{padding:18px}}@@media(max-width:650px){.doctor-report-kpis{grid-template-columns:repeat(2,1fr)}.specialty-report-grid{grid-template-columns:1fr}.doctor-reports-hero h1{font-size:28px}}
+</style>

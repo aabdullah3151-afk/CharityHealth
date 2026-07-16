@@ -84,6 +84,7 @@ public class SubmitRequestHandler(
 
         var hasActiveRequest = await uow.MedicalRequests.ExistsAsync(
             r => r.BeneficiaryId == beneficiary.Id
+              && r.ServiceType == ServiceRequestType.MedicalConsultation
               && r.SpecialtyId == cmd.SpecialtyId
               && (r.Status == RequestStatus.Submitted
                   || r.Status == RequestStatus.UnderReview
@@ -96,6 +97,7 @@ public class SubmitRequestHandler(
         var request = new MedicalRequest
         {
             BeneficiaryId = beneficiary.Id,
+            ServiceType = ServiceRequestType.MedicalConsultation,
             SpecialtyId = cmd.SpecialtyId,
             DoctorId = cmd.DoctorId,
             AppointmentDate = cmd.AppointmentDate,

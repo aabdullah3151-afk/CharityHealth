@@ -1,211 +1,183 @@
-﻿@page "/portal/request/{RequestId:guid}"
+@page "/portal/request/{RequestId:guid}"
 @attribute [Authorize(Roles = "Beneficiary")]
-@using CharityHealth.Application.Features.Requests.Queries
-@using CharityHealth.Domain.Enums
-@using MediatR
+
 @using System.Security.Claims
-@inject IMediator Mediator
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+@using CharityHealth.Web.Services
+
+@inject AppDbContext Db
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
 
 <PageTitle>تفاصيل الطلب</PageTitle>
 
-<div class="portal-wrap">
-
-    <div class="page-header">
-        <button class="btn-back" @onclick='() => Nav.NavigateTo("/portal/dashboard")'>
-            → رجوع
-        </button>
-        <h1 class="page-title">تفاصيل الطلب</h1>
-    </div>
-
-    @if (isLoading)
-    {
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <p>جارٍ تحميل تفاصيل الطلب...</p>
+<div class="request-detail-page" dir="rtl">
+    <header class="request-detail-head">
+        <button type="button" @onclick='() => Nav.NavigateTo("/portal/requests")'>›</button>
+        <div>
+            <div class="request-detail-kicker">@RequestIcon @RequestTypeText</div>
+            <h1>تفاصيل الطلب</h1>
+            <p>@(request is null ? "" : RequestCode(request.Id))</p>
         </div>
+    </header>
+
+    @if (loading)
+    {
+        <section class="request-detail-state">جارٍ تحميل تفاصيل الطلب...</section>
     }
     else if (request is null)
     {
-        <div class="error-state">
-            <p>⚠️ لم يتم العثور على الطلب أو غير مصرح لك بعرضه.</p>
-            <a href="/portal/dashboard" class="btn-secondary">العودة للرئيسية</a>
-        </div>
+        <section class="request-detail-state bad">الطلب غير موجود أو لا تملك صلاحية عرضه.</section>
     }
     else
     {
-        <!-- ── Status Timeline ────────────────────────── -->
-        <div class="status-timeline card">
-            <StatusTimeline CurrentStatus="@request.Status" />
-        </div>
-
-        <!-- ── Info Card ──────────────────────────────── -->
-        <div class="info-card card">
-            <div class="info-row">
-                <span class="info-lbl">رقم الطلب</span>
-                <span class="info-val mono">@request.Id</span>
-            </div>
-            <div class="info-row">
-                <span class="info-lbl">التخصص المطلوب</span>
-                <span class="info-val">@request.SpecialtyNameAr</span>
-            </div>
-            <div class="info-row">
-                <span class="info-lbl">تاريخ التقديم</span>
-                <span class="info-val">@request.SubmittedAt.ToString("dd/MM/yyyy  HH:mm")</span>
-            </div>
-            <div class="info-row">
-                <span class="info-lbl">الحالة</span>
-                <span class="badge badge-@request.StatusColor">@request.StatusAr</span>
-            </div>
-            @if (!string.IsNullOrEmpty(request.ReviewNoteAr))
-            {
-                <div class="review-note @(request.Status == RequestStatus.Rejected ? "note-red" : "note-blue")">
-                    <strong>ملاحظة المراجع:</strong> @request.ReviewNoteAr
-                </div>
-            }
-            @if (!string.IsNullOrEmpty(request.DescriptionAr))
-            {
-                <div class="info-row">
-                    <span class="info-lbl">وصف الحالة</span>
-                    <span class="info-val">@request.DescriptionAr</span>
-                </div>
-            }
-        </div>
-
-        <!-- ── QR Code (only when Approved) ──────────── -->
-        @if (request.Status == RequestStatus.Approved && request.QrCode is not null)
-        {
-            <div class="qr-section card">
-                <h2 class="section-title">🎟️ باركود الكشف الطبي</h2>
-
-                @if (request.QrCode.IsUsed)
-                {
-                    <div class="qr-used">
-                        <span>✅ تم استخدام هذا الباركود مسبقاً</span>
-                    </div>
-                }
-                else if (request.QrCode.IsExpired)
-                {
-                    <div class="qr-expired">
-                        <span>⏰ انتهت صلاحية هذا الباركود</span>
-                        <p>يُرجى التواصل مع الجمعية للحصول على باركود جديد</p>
-                    </div>
-                }
-                else
-                {
-                    <div class="qr-valid">
-                        <div class="qr-image-wrap">
-                            <img src="/api/qr/@request.Id" alt="QR Code" class="qr-image" />
+        <section class="request-detail-grid">
+            <main>
+                <article class="request-detail-card">
+                    <div class="request-detail-title">
+                        <div>
+                            <h2>@RequestTypeText</h2>
+                            <p>@RequestTargetText</p>
                         </div>
-                        <div class="qr-info">
-                            <p class="qr-instruction">
-                                اعرض هذا الباركود للدكتور عند الزيارة. سيقوم بمسحه للتحقق من أهليتك.
-                            </p>
-                            <div class="qr-expiry">
-                                ⏳ صالح حتى:
-                                <strong>@request.QrCode.ExpiresAt.ToString("dd/MM/yyyy  HH:mm")</strong>
-                            </div>
-                            <div class="qr-note">
-                                ⚠️ الباركود للاستخدام <strong>مرة واحدة فقط</strong>
-                            </div>
-                        </div>
+                        <span class="status @HealthcareUiService.StatusCss(request.Status)">@HealthcareUiService.StatusAr(request.Status)</span>
                     </div>
-                }
-            </div>
-        }
 
-        <!-- ── Documents ──────────────────────────────── -->
-        @if (request.Documents.Any())
-        {
-            <div class="docs-section card">
-                <h2 class="section-title">📎 المستندات المرفقة</h2>
-                <div class="docs-list">
-                    @foreach (var doc in request.Documents)
+                    <dl class="request-detail-info">
+                        <dt>تاريخ التقديم</dt><dd>@request.SubmittedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</dd>
+                        @if (request.ServiceType == ServiceRequestType.MedicalConsultation)
+                        {
+                            <dt>التخصص</dt><dd>@(request.Specialty?.NameAr ?? "غير محدد")</dd>
+                            <dt>الطبيب</dt><dd>@(request.Doctor?.User?.FullNameAr ?? "غير محدد")</dd>
+                            <dt>موعد الكشف</dt><dd>@(request.AppointmentDate?.ToString("yyyy/MM/dd") ?? "غير محدد")</dd>
+                        }
+                        else
+                        {
+                            <dt>الجهة المختارة</dt><dd>@(request.AssignedProvider?.FullNameAr ?? "غير محددة")</dd>
+                            <dt>هاتف الجهة</dt><dd>@(request.AssignedProvider?.PhoneNumber ?? "—")</dd>
+                            @if (request.ServiceType == ServiceRequestType.LaboratoryTest)
+                            {
+                                <dt>يوم إجراء التحاليل</dt><dd>@(request.AppointmentDate?.ToString("yyyy/MM/dd") ?? "غير محدد")</dd>
+                            }
+                        }
+                        <dt>عدد المستندات</dt><dd>@request.Documents.Count</dd>
+                    </dl>
+
+                    <div class="request-detail-description">
+                        <strong>تفاصيل الطلب</strong>
+                        <p>@(string.IsNullOrWhiteSpace(request.DescriptionAr) ? "لا توجد تفاصيل مكتوبة." : request.DescriptionAr)</p>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(request.ReviewNoteAr))
                     {
-                        <div class="doc-item">
-                            <span class="doc-icon">📄</span>
-                            <div class="doc-info">
-                                <span class="doc-name">@doc.FileName</span>
-                                <span class="doc-meta">@doc.DocumentTypeAr · @FormatSize(doc.FileSizeBytes)</span>
-                            </div>
-                        </div>
+                        <div class="request-detail-note review"><strong>ملاحظة الإدارة</strong><p>@request.ReviewNoteAr</p></div>
                     }
-                </div>
 
-                @if (request.Status == RequestStatus.Submitted)
+                    @if (!string.IsNullOrWhiteSpace(request.ProviderNoteAr))
+                    {
+                        <div class="request-detail-note provider"><strong>@ProviderResultTitle</strong><p>@request.ProviderNoteAr</p></div>
+                    }
+                </article>
+
+                @if (request.Documents.Any())
                 {
-                    <div class="add-doc-section">
-                        <p class="add-doc-hint">يمكنك إضافة مستندات إضافية قبل المراجعة</p>
-                        <DocumentUploader OnFilesSelected="HandleAddDocuments" />
-                    </div>
+                    <article class="request-detail-card">
+                        <div class="request-section-head"><h2>المستندات المرفقة</h2><span>📎</span></div>
+                        <div class="request-doc-list">
+                            @foreach (var doc in request.Documents.OrderBy(d => d.CreatedAt))
+                            {
+                                <div><span>📄</span><div><strong>@doc.FileName</strong><small>@DocumentTypeText(doc.DocumentType) · @FormatSize(doc.FileSizeBytes)</small></div></div>
+                            }
+                        </div>
+                    </article>
                 }
-            </div>
-        }
 
-        <!-- ── Consultation Result ────────────────────── -->
-        @if (request.Consultation is not null)
-        {
-            <div class="consultation-section card">
-                <h2 class="section-title">🩺 نتيجة الكشف الطبي</h2>
-                <div class="consultation-info">
-                    <div class="info-row">
-                        <span class="info-lbl">الطبيب</span>
-                        <span class="info-val">د. @request.Consultation.DoctorName</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-lbl">تاريخ الكشف</span>
-                        <span class="info-val">@request.Consultation.ConsultedAt.ToString("dd/MM/yyyy  HH:mm")</span>
-                    </div>
-                    <div class="consultation-diagnosis">
-                        <h4>التشخيص</h4>
-                        <p>@request.Consultation.DiagnosisAr</p>
-                    </div>
-                    @if (!string.IsNullOrEmpty(request.Consultation.NotesAr))
+                @if (request.Consultation is not null)
+                {
+                    <article class="request-detail-card">
+                        <div class="request-section-head"><h2>نتيجة الكشف الطبي</h2><span>🩺</span></div>
+                        <div class="request-detail-description"><strong>التشخيص</strong><p>@request.Consultation.DiagnosisAr</p></div>
+                        @if (!string.IsNullOrWhiteSpace(request.Consultation.NotesAr))
+                        {
+                            <div class="request-detail-description"><strong>ملاحظات الطبيب</strong><p>@request.Consultation.NotesAr</p></div>
+                        }
+                    </article>
+                }
+            </main>
+
+            <aside>
+                <article class="request-qr-card">
+                    <span class="request-qr-icon">@RequestIcon</span>
+                    <h2>@QrCardTitle</h2>
+
+                    @if (request.Status == RequestStatus.Approved && request.QRCodeToken is not null)
                     {
-                        <div class="consultation-notes">
-                            <h4>ملاحظات الطبيب</h4>
-                            <p>@request.Consultation.NotesAr</p>
-                        </div>
+                        <p>@QrInstruction</p>
+                        <button type="button" @onclick='() => Nav.NavigateTo($"/portal/request-qr/{request.Id}")'>عرض QR</button>
+                        <small>صالح حتى @request.QRCodeToken.ExpiresAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</small>
                     }
-                    @if (!string.IsNullOrEmpty(request.Consultation.RecommendationsAr))
+                    else if (request.Status == RequestStatus.Completed)
                     {
-                        <div class="consultation-recs">
-                            <h4>التوصيات</h4>
-                            <p>@request.Consultation.RecommendationsAr</p>
-                        </div>
+                        <p>تم تنفيذ الطلب بنجاح ولا يحتاج QR مرة أخرى.</p>
                     }
-                </div>
-            </div>
-        }
+                    else
+                    {
+                        <p>سيظهر QR هنا بعد موافقة الإدارة على الطلب.</p>
+                    }
+                </article>
+
+                <article class="request-help-card">
+                    <span>🛡️</span>
+                    <div><strong>بياناتك محمية</strong><p>لا تشارك QR إلا مع الجهة المحددة داخل الطلب.</p></div>
+                </article>
+            </aside>
+        </section>
     }
 </div>
+
+<style>
+.request-detail-page{min-height:calc(100vh - 76px);padding:36px;background:#f8fafc;color:#101828}.request-detail-head{display:flex;align-items:center;gap:16px;margin-bottom:24px}.request-detail-head>button{width:56px;height:56px;border:1px solid #e5e7eb;border-radius:50%;background:#fff;font-size:32px;color:#475467;cursor:pointer}.request-detail-kicker{color:#05a843;font-size:13px;font-weight:950}.request-detail-head h1{margin:4px 0 0;font-size:36px;font-weight:950}.request-detail-head p{margin:5px 0 0;color:#98a2b3;font-size:12px;font-weight:900}.request-detail-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}.request-detail-grid main,.request-detail-grid aside{display:grid;gap:18px}.request-detail-card,.request-qr-card,.request-help-card{border:1px solid #e5e7eb;border-radius:28px;background:#fff;padding:24px;box-shadow:0 14px 34px rgba(15,23,42,.06)}.request-detail-title{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.request-detail-title h2{margin:0;font-size:25px;font-weight:950}.request-detail-title p{margin:7px 0 0;color:#667085;font-size:13px;font-weight:850}.status{border-radius:999px;padding:8px 13px;font-size:12px;font-weight:950}.status.success{background:#ecfdf3;color:#047857}.status.warning{background:#fffbeb;color:#b45309}.status.danger{background:#fef2f2;color:#b91c1c}.status.info{background:#eff6ff;color:#2563eb}.status.teal{background:#ecfeff;color:#0f766e}.request-detail-info{margin:22px 0;display:grid;grid-template-columns:150px 1fr;gap:11px;border-radius:20px;background:#f8fafc;padding:18px}.request-detail-info dt{color:#98a2b3;font-size:12px;font-weight:900}.request-detail-info dd{margin:0;color:#344054;font-size:13px;font-weight:950}.request-detail-description,.request-detail-note{border-radius:20px;background:#f8fafc;padding:18px;margin-top:14px}.request-detail-description strong,.request-detail-note strong{font-size:13px;font-weight:950}.request-detail-description p,.request-detail-note p{margin:8px 0 0;color:#667085;font-size:13px;line-height:1.9;font-weight:800;white-space:pre-wrap}.request-detail-note.review{background:#eff6ff;color:#1d4ed8}.request-detail-note.provider{background:#ecfdf3;color:#047857}.request-section-head{display:flex;justify-content:space-between;align-items:center}.request-section-head h2{margin:0;font-size:21px;font-weight:950}.request-section-head span{font-size:25px}.request-doc-list{display:grid;gap:10px;margin-top:18px}.request-doc-list>div{border:1px solid #e5e7eb;border-radius:17px;background:#f8fafc;padding:13px;display:flex;gap:12px;align-items:center}.request-doc-list strong{display:block;font-size:13px;font-weight:950}.request-doc-list small{display:block;margin-top:4px;color:#98a2b3;font-size:11px;font-weight:800}.request-qr-card{text-align:center}.request-qr-icon{width:72px;height:72px;border-radius:24px;background:#ecfdf3;display:grid;place-items:center;margin:0 auto;font-size:34px}.request-qr-card h2{font-size:21px;font-weight:950}.request-qr-card p{color:#667085;font-size:13px;line-height:1.8;font-weight:800}.request-qr-card button{width:100%;border:0;border-radius:999px;background:#05a843;color:#fff;min-height:46px;font-weight:950;cursor:pointer}.request-qr-card small{display:block;margin-top:12px;color:#98a2b3;font-size:11px;font-weight:850}.request-help-card{display:flex;gap:12px;align-items:center}.request-help-card>span{font-size:28px}.request-help-card strong{font-size:14px;font-weight:950}.request-help-card p{margin:4px 0 0;color:#667085;font-size:12px;font-weight:800}.request-detail-state{border:1px solid #e5e7eb;border-radius:24px;background:#fff;padding:42px;text-align:center;color:#667085;font-weight:950}.request-detail-state.bad{background:#fef2f2;color:#991b1b}
+@@media(max-width:900px){.request-detail-page{padding:22px 14px}.request-detail-grid{grid-template-columns:1fr}.request-detail-grid aside{grid-row:1}.request-detail-head h1{font-size:30px}}@@media(max-width:560px){.request-detail-info{grid-template-columns:1fr}.request-detail-title{display:grid}}
+</style>
 
 @code {
     [Parameter] public Guid RequestId { get; set; }
 
-    private RequestDetailDto? request;
-    private bool isLoading = true;
-    private string userId = string.Empty;
+    private bool loading = true;
+    private MedicalRequest? request;
+
+    private string RequestTypeText => request is null ? "طلب خدمة صحية" : HealthcareUiService.ServiceTypeAr(request.ServiceType);
+    private string RequestIcon => request is null ? "🏥" : HealthcareUiService.ServiceTypeIcon(request.ServiceType);
+    private string RequestTargetText => request is null ? "" : request.ServiceType == ServiceRequestType.MedicalConsultation ? $"{request.Specialty?.NameAr ?? "استشارة طبية"} — {request.Doctor?.User?.FullNameAr ?? "طبيب غير محدد"}" : request.AssignedProvider?.FullNameAr ?? "جهة غير محددة";
+    private string ProviderResultTitle => request?.ServiceType switch { ServiceRequestType.PharmacyMedication => "ملاحظة الصيدلية", ServiceRequestType.LaboratoryTest => "ملاحظة المعمل", ServiceRequestType.RadiologyScan => "ملاحظة مركز الأشعة", _ => "نتيجة الخدمة" };
+    private string QrCardTitle => request?.ServiceType switch { ServiceRequestType.MedicalConsultation => "QR الكشف", ServiceRequestType.PharmacyMedication => "QR صرف العلاج", ServiceRequestType.LaboratoryTest => "QR التحاليل", ServiceRequestType.RadiologyScan => "QR الأشعة", _ => "QR الخدمة" };
+    private string QrInstruction => request?.ServiceType switch { ServiceRequestType.MedicalConsultation => "اعرض الرمز للطبيب عند الكشف.", ServiceRequestType.PharmacyMedication => "اعرض الرمز للصيدلية عند استلام العلاج.", ServiceRequestType.LaboratoryTest => "اعرض الرمز للمعمل قبل إجراء التحاليل.", ServiceRequestType.RadiologyScan => "اعرض الرمز لمركز الأشعة قبل إجراء الأشعة.", _ => "اعرض الرمز للجهة المختارة." };
 
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthState.GetAuthenticationStateAsync();
-        userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+        var userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId)) { loading = false; return; }
 
-        var result = await Mediator.Send(new GetRequestDetailQuery(RequestId, userId));
-        request = result.Succeeded ? result.Data : null;
-        isLoading = false;
+        var beneficiary = await Db.Beneficiaries.AsNoTracking().FirstOrDefaultAsync(b => b.UserId == userId);
+        if (beneficiary is null) { loading = false; return; }
+
+        request = await Db.MedicalRequests
+            .Include(r => r.Specialty)
+            .Include(r => r.Doctor).ThenInclude(d => d!.User)
+            .Include(r => r.AssignedProvider)
+            .Include(r => r.Documents)
+            .Include(r => r.QRCodeToken)
+            .Include(r => r.Consultation)
+            .FirstOrDefaultAsync(r => r.Id == RequestId && r.BeneficiaryId == beneficiary.Id && !r.IsDeleted);
+        loading = false;
     }
 
-    private Task HandleAddDocuments(List<NewRequest.PendingFile> files)
-    {
-        // TODO: Upload additional documents via UploadDocumentCommand
-        return Task.CompletedTask;
-    }
-
-    private static string FormatSize(long bytes) =>
-        bytes < 1024 * 1024
-            ? $"{bytes / 1024} KB"
-            : $"{bytes / (1024 * 1024):F1} MB";
+    private static string RequestCode(Guid id) => $"REQ-{id.ToString("N")[..6].ToUpperInvariant()}";
+    private static string FormatSize(long bytes) => bytes < 1024 * 1024 ? $"{bytes / 1024} KB" : $"{bytes / (1024 * 1024):F1} MB";
+    private static string DocumentTypeText(DocumentType type) => type switch { DocumentType.NationalId => "بطاقة هوية", DocumentType.MedicalReport => "روشتة / تقرير طبي", DocumentType.IncomeProof => "إثبات دخل", _ => "مستند آخر" };
 }

@@ -3,6 +3,8 @@
 @page "/staff/notifications"
 @page "/doctor/notifications"
 @page "/pharmacy/notifications"
+@page "/laboratory/notifications"
+@page "/radiology/notifications"
 
 @attribute [Authorize]
 
@@ -356,6 +358,8 @@
             "Beneficiary" => "/beneficiary/dashboard",
             "Pharmacy" => "/pharmacy/dashboard",
             "Pharmacist" => "/pharmacy/dashboard",
+            "Laboratory" => "/laboratory/dashboard",
+            "RadiologyCenter" => "/radiology/dashboard",
             _ => "/portal/dashboard"
         };
 
@@ -389,6 +393,8 @@
         if (user.IsInRole("Beneficiary")) return "Beneficiary";
         if (user.IsInRole("Pharmacy")) return "Pharmacy";
         if (user.IsInRole("Pharmacist")) return "Pharmacist";
+        if (user.IsInRole("Laboratory")) return "Laboratory";
+        if (user.IsInRole("RadiologyCenter")) return "RadiologyCenter";
 
         return "User";
     }
@@ -403,6 +409,8 @@
             "Beneficiary" => "مستفيد",
             "Pharmacy" => "صيدلية",
             "Pharmacist" => "صيدلي",
+            "Laboratory" => "معمل تحاليل",
+            "RadiologyCenter" => "مركز أشعة",
             _ => "مستخدم"
         };
     }

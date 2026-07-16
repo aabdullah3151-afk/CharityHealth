@@ -1,0 +1,233 @@
+@page "/admin/users"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Infrastructure.Persistence
+
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+
+<PageTitle>إدارة المستخدمين</PageTitle>
+
+<div class="users-admin-page" dir="rtl">
+    <header class="users-hero">
+        <div>
+            <span>Users Management</span>
+            <h1>كل مستخدمي النظام</h1>
+            <p>بحث وفلترة وفتح التقرير الكامل لأي مستخدم من مكان واحد.</p>
+        </div>
+        <div class="users-total">
+            <strong>@users.Count</strong>
+            <small>إجمالي الحسابات</small>
+        </div>
+    </header>
+
+    <section class="users-toolbar">
+        <label class="users-search">
+            <span>🔎</span>
+            <input @bind="search" @bind:event="oninput"
+                   placeholder="ابحث بالاسم أو البريد أو الهاتف أو المدينة..." />
+        </label>
+
+        <select @bind="roleFilter">
+            <option value="">كل الأنواع</option>
+            @foreach (var role in AvailableRoles)
+            {
+                <option value="@role">@RoleAr(role)</option>
+            }
+        </select>
+
+        <select @bind="statusFilter">
+            <option value="">كل الحالات</option>
+            <option value="active">نشط</option>
+            <option value="inactive">موقوف</option>
+        </select>
+    </section>
+
+    @if (loading)
+    {
+        <section class="users-state">جارٍ تحميل المستخدمين...</section>
+    }
+    else if (!FilteredUsers.Any())
+    {
+        <section class="users-state">لا توجد حسابات مطابقة للبحث.</section>
+    }
+    else
+    {
+        <section class="users-table-card">
+            <div class="users-table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>المستخدم</th>
+                            <th>نوع الحساب</th>
+                            <th>الهاتف</th>
+                            <th>الموقع</th>
+                            <th>تاريخ الإنشاء</th>
+                            <th>الحالة</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in FilteredUsers)
+                        {
+                            var role = RoleOf(user);
+                            <tr>
+                                <td>
+                                    <div class="user-main">
+                                        <span class="user-avatar">@Initial(user.FullNameAr)</span>
+                                        <div>
+                                            <strong>@Show(user.FullNameAr, user.FullNameEn)</strong>
+                                            <small>@Show(user.Email)</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="role-pill">@RoleAr(role)</span></td>
+                                <td>@Show(user.PhoneNumber)</td>
+                                <td>@Location(user)</td>
+                                <td>@user.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd")</td>
+                                <td>
+                                    <span class="status-pill @(user.IsActive ? "active" : "inactive")">
+                                        @(user.IsActive ? "نشط" : "موقوف")
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="open-profile"
+                                            @onclick='() => Nav.NavigateTo($"/admin/user-profile/{user.Id}")'>
+                                        التقرير الكامل
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+<style>
+.users-admin-page{min-height:calc(100vh - 76px);padding:34px;background:#f8fafc;color:#101828}
+.users-hero{border-radius:30px;padding:30px 32px;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:0 20px 45px rgba(109,40,217,.22)}
+.users-hero>div>span{font-size:13px;font-weight:950;color:rgba(255,255,255,.75)}
+.users-hero h1{margin:6px 0 0;font-size:34px;font-weight:950}
+.users-hero p{margin:9px 0 0;color:rgba(255,255,255,.85);font-size:14px;font-weight:800}
+.users-total{min-width:125px;border-radius:22px;background:rgba(255,255,255,.16);padding:17px;text-align:center}
+.users-total strong{display:block;font-size:34px}.users-total small{font-weight:900}
+.users-toolbar{margin:22px 0;display:grid;grid-template-columns:minmax(260px,1fr) 220px 180px;gap:12px}
+.users-search{height:52px;border:1px solid #e5e7eb;border-radius:17px;background:#fff;display:flex;align-items:center;gap:10px;padding:0 15px}
+.users-search input{width:100%;border:0;outline:0;background:transparent;font:inherit;font-weight:850}
+.users-toolbar select{height:52px;border:1px solid #e5e7eb;border-radius:17px;background:#fff;padding:0 14px;font:inherit;font-weight:850;color:#344054}
+.users-table-card{border:1px solid #e5e7eb;border-radius:27px;background:#fff;overflow:hidden;box-shadow:0 14px 35px rgba(15,23,42,.06)}
+.users-table-scroll{overflow:auto}.users-table-card table{width:100%;border-collapse:collapse;min-width:1050px}
+.users-table-card th{padding:16px;text-align:right;background:#f8fafc;color:#667085;font-size:12px;font-weight:950}
+.users-table-card td{padding:15px;border-top:1px solid #eef2f6;color:#344054;font-size:13px;font-weight:850}
+.user-main{display:flex;align-items:center;gap:11px}.user-main>div strong,.user-main>div small{display:block}
+.user-main>div small{margin-top:4px;color:#98a2b3;font-size:11px}
+.user-avatar{width:43px;height:43px;border-radius:15px;background:#f3e8ff;color:#7e22ce;display:grid;place-items:center;font-size:18px;font-weight:950}
+.role-pill,.status-pill{display:inline-flex;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:950}
+.role-pill{background:#f3e8ff;color:#7e22ce}.status-pill.active{background:#ecfdf3;color:#047857}.status-pill.inactive{background:#fef2f2;color:#b91c1c}
+.open-profile{border:0;border-radius:999px;background:#7e22ce;color:#fff;min-height:39px;padding:0 15px;font-weight:950;cursor:pointer}
+.users-state{border:1px solid #e5e7eb;border-radius:24px;background:#fff;padding:30px;text-align:center;color:#667085;font-weight:900}
+@@media(max-width:850px){.users-admin-page{padding:20px 12px}.users-hero{align-items:flex-start}.users-toolbar{grid-template-columns:1fr}.users-total{min-width:90px}.users-hero h1{font-size:27px}}
+</style>
+
+@code {
+    private bool loading = true;
+    private string search = string.Empty;
+    private string roleFilter = string.Empty;
+    private string statusFilter = string.Empty;
+    private List<ApplicationUser> users = [];
+    private readonly Dictionary<string, string> roles = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        users = await db.Users.AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        foreach (var user in users)
+        {
+            var userRoles = await UserManager.GetRolesAsync(user);
+            roles[user.Id] = userRoles.FirstOrDefault() ?? user.UserType.ToString();
+        }
+
+        loading = false;
+    }
+
+    private IEnumerable<ApplicationUser> FilteredUsers
+    {
+        get
+        {
+            IEnumerable<ApplicationUser> query = users;
+
+            if (!string.IsNullOrWhiteSpace(roleFilter))
+                query = query.Where(x => RoleOf(x).Equals(roleFilter, StringComparison.OrdinalIgnoreCase));
+
+            if (statusFilter == "active")
+                query = query.Where(x => x.IsActive);
+            else if (statusFilter == "inactive")
+                query = query.Where(x => !x.IsActive);
+
+            var term = search.Trim();
+            if (!string.IsNullOrWhiteSpace(term))
+            {
+                query = query.Where(x =>
+                    Has(x.FullNameAr, term) ||
+                    Has(x.FullNameEn, term) ||
+                    Has(x.Email, term) ||
+                    Has(x.PhoneNumber, term) ||
+                    Has(x.Governorate, term) ||
+                    Has(x.City, term) ||
+                    Has(RoleAr(RoleOf(x)), term));
+            }
+
+            return query;
+        }
+    }
+
+    private IEnumerable<string> AvailableRoles =>
+        users.Select(RoleOf).Where(x => !string.IsNullOrWhiteSpace(x))
+             .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(RoleAr);
+
+    private string RoleOf(ApplicationUser user) =>
+        roles.TryGetValue(user.Id, out var role) && !string.IsNullOrWhiteSpace(role)
+            ? role
+            : user.UserType.ToString();
+
+    private static bool Has(string? value, string term) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        value.Contains(term, StringComparison.OrdinalIgnoreCase);
+
+    private static string Show(string? value, string? fallback = null) =>
+        !string.IsNullOrWhiteSpace(value) ? value : (!string.IsNullOrWhiteSpace(fallback) ? fallback : "غير مسجل");
+
+    private static string Initial(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "م" : value.Trim()[0].ToString();
+
+    private static string Location(ApplicationUser user)
+    {
+        var values = new[] { user.Governorate, user.City }.Where(x => !string.IsNullOrWhiteSpace(x));
+        var result = string.Join(" - ", values);
+        return string.IsNullOrWhiteSpace(result) ? "غير مسجل" : result;
+    }
+
+    private static string RoleAr(string role) => role switch
+    {
+        "Administrator" => "مدير نظام",
+        "Staff" => "موظف",
+        "Doctor" => "طبيب",
+        "Beneficiary" => "مستفيد",
+        "Pharmacy" => "صيدلية",
+        "Pharmacist" => "صيدلي",
+        "Laboratory" => "معمل تحاليل",
+        "RadiologyCenter" => "مركز أشعة",
+        _ => role
+    };
+}
