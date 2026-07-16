@@ -45,7 +45,7 @@
             <article><span>المعامل العاملة اليوم</span><strong>@TodayWorkingLabs</strong></article>
             <article><span>مراكز الأشعة العاملة اليوم</span><strong>@TodayWorkingRadiology</strong></article>
             <article><span>الصيدليات العاملة اليوم</span><strong>@TodayWorkingPharmacies</strong></article>
-            <article><span>الطلبات المعتمدة هذا الأسبوع</span><strong>@weekRequests.Count</strong></article>
+            <article><span>إجمالي العمليات هذا الأسبوع</span><strong>@WeekOperationsCount</strong></article>
         </section>
 
         <section class="ops-toolbar">
@@ -170,6 +170,7 @@
     private List<Doctor> doctors = [];
     private List<ApplicationUser> partners = [];
     private List<MedicalRequest> weekRequests = [];
+    private List<ManualServiceRecord> manualServiceRecords = [];
     private List<Specialty> specialties = [];
 
     private readonly (Category Value, string Label, string Icon)[] categories =
@@ -208,9 +209,18 @@
                 (x.Status == RequestStatus.Approved || x.Status == RequestStatus.Completed))
             .ToListAsync();
 
+        // MANUAL_SERVICES_REPORT_QUERY
+        manualServiceRecords = await Db.ManualServiceRecords
+            .AsNoTracking()
+            .Where(x =>
+                x.ServiceDate >= week[0]
+                && x.ServiceDate <= week.Last())
+            .ToListAsync();
+
         loading = false;
     }
 
+    private int WeekOperationsCount => weekRequests.Count + manualServiceRecords.Sum(x => x.Quantity);
     private IEnumerable<DateOnly> DisplayDays => weekView ? week : [selectedDate];
     private IEnumerable<Doctor> VisibleDoctors => doctors.Where(x => selectedSpecialtyId is null || x.SpecialtyId == selectedSpecialtyId);
     private IEnumerable<ApplicationUser> VisiblePartners => partners.Where(PartnerMatchesCategory);
@@ -244,9 +254,17 @@
         if (!working) return new("غير موجود", "off");
 
         var capacity = Math.Max(1, doctor.MaxDailySlots);
-        var used = weekRequests.Count(x => x.ServiceType == ServiceRequestType.MedicalConsultation && x.DoctorId == doctor.Id && x.AppointmentDate == day);
+        // MANUAL_SERVICES_DOCTOR_USAGE
+        var electronicUsed = weekRequests.Count(x => x.ServiceType == ServiceRequestType.MedicalConsultation && x.DoctorId == doctor.Id && x.AppointmentDate == day);
+        var manualUsed = manualServiceRecords
+            .Where(x =>
+                x.ServiceType == ServiceRequestType.MedicalConsultation
+                && x.DoctorId == doctor.Id
+                && x.ServiceDate == day)
+            .Sum(x => x.Quantity);
+        var used = electronicUsed + manualUsed;
         var remaining = Math.Max(0, capacity - used);
-        return remaining == 0 ? new($"مكتمل {used}/{capacity}", "full") : new($"✓ متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
+        return remaining == 0 ? new("✓", "full") : new($"متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
     }
 
     private StatusCell PartnerState(ApplicationUser partner, DateOnly day)
@@ -260,9 +278,17 @@
             UserType.RadiologyCenter => ServiceRequestType.RadiologyScan,
             _ => ServiceRequestType.PharmacyMedication
         };
-        var used = weekRequests.Count(x => x.ServiceType == service && x.AssignedProviderUserId == partner.Id && x.AppointmentDate == day);
+        // MANUAL_SERVICES_PARTNER_USAGE
+        var electronicUsed = weekRequests.Count(x => x.ServiceType == service && x.AssignedProviderUserId == partner.Id && x.AppointmentDate == day);
+        var manualUsed = manualServiceRecords
+            .Where(x =>
+                x.ServiceType == service
+                && x.ProviderUserId == partner.Id
+                && x.ServiceDate == day)
+            .Sum(x => x.Quantity);
+        var used = electronicUsed + manualUsed;
         var remaining = Math.Max(0, capacity - used);
-        return remaining == 0 ? new($"مكتمل {used}/{capacity}", "full") : new($"✓ متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
+        return remaining == 0 ? new("✓", "full") : new($"متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
     }
 
     private int TodayAvailableDoctors => doctors.Count(x => DoctorState(x, DateOnly.FromDateTime(DateTime.Today)).Css is "available" or "near");

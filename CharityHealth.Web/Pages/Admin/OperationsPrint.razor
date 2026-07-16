@@ -7,7 +7,6 @@
 @using CharityHealth.Domain.Entities
 @using CharityHealth.Domain.Enums
 @using CharityHealth.Infrastructure.Persistence
-@using CharityHealth.Web.Components.Admin
 @using CharityHealth.Web.Shared.Layouts
 
 @inject AppDbContext Db
@@ -19,7 +18,6 @@
      style="margin:0 0 16px;padding:12px 16px;border:1px solid #bbf7d0;border-radius:16px;background:#ecfdf3;color:#047857;font-size:13px;font-weight:950;">
     تاريخ التقرير: @DateTime.Now.ToString("dd/MM/yyyy HH:mm")
 </div>
-
 
 <div class="print-report" dir="rtl">
     <div class="print-actions no-print">
@@ -37,16 +35,17 @@
             <h1>مستشفى بلا مستشفى</h1>
             <h2>تقرير التغطية والتشغيل الأسبوعي</h2>
             <p>الفترة من @week[0].ToString("dd/MM/yyyy") إلى @week.Last().ToString("dd/MM/yyyy")</p>
+            <p>إجمالي العمليات: @WeekOperationsCount</p>
             <p>تاريخ الاستخراج: @DateTime.Now.ToString("dd/MM/yyyy hh:mm tt")</p>
         </section>
 
         @foreach (var specialty in specialties)
         {
-            var list = doctors.Where(x => x.SpecialtyId == specialty.Id).ToList();
-            if (list.Count > 0)
+            var doctorList = doctors.Where(x => x.SpecialtyId == specialty.Id).ToList();
+            if (doctorList.Count > 0)
             {
                 <section class="print-section page-break">
-                    <header><h2>تخصص: @specialty.NameAr</h2><span>@list.Count طبيب</span></header>
+                    <header><h2>تخصص: @specialty.NameAr</h2><span>@doctorList.Count طبيب</span></header>
                     <table>
                         <thead>
                             <tr>
@@ -60,7 +59,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var doctor in list)
+                            @foreach (var doctor in doctorList)
                             {
                                 <tr>
                                     <td>@doctor.User.FullNameAr</td>
@@ -79,9 +78,44 @@
             }
         }
 
-        <PartnerPrintSection Title="معامل التحاليل" Type="UserType.Laboratory" Service="ServiceRequestType.LaboratoryTest" Partners="partners" Week="week" Requests="requests" />
-        <PartnerPrintSection Title="مراكز الأشعة" Type="UserType.RadiologyCenter" Service="ServiceRequestType.RadiologyScan" Partners="partners" Week="week" Requests="requests" />
-        <PartnerPrintSection Title="الصيدليات" Type="UserType.Pharmacy" Service="ServiceRequestType.PharmacyMedication" Partners="partners" Week="week" Requests="requests" IncludePharmacist="true" />
+        @foreach (var partnerSection in partnerSections)
+        {
+            var partnerList = PartnersFor(partnerSection).ToList();
+            if (partnerList.Count > 0)
+            {
+                <section class="print-section page-break">
+                    <header><h2>@partnerSection.Title</h2><span>@partnerList.Count جهة</span></header>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>الجهة</th>
+                                <th>الهاتف</th>
+                                <th>الحد اليومي</th>
+                                @foreach (var day in week)
+                                {
+                                    <th>@DayAr(day.DayOfWeek)<small>@day.ToString("dd/MM")</small></th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var partner in partnerList)
+                            {
+                                <tr>
+                                    <td>@partner.FullNameAr</td>
+                                    <td>@(partner.PhoneNumber ?? "—")</td>
+                                    <td>@Math.Max(1, partner.DailyRequestCapacity)</td>
+                                    @foreach (var day in week)
+                                    {
+                                        var state = PartnerState(partner, day, partnerSection.Service);
+                                        <td class="@state.Css">@state.Text</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </section>
+            }
+        }
     }
 </div>
 
@@ -91,7 +125,7 @@
     .print-actions{display:flex;gap:10px;margin-bottom:18px}.print-actions button{border:0;border-radius:10px;padding:11px 18px;font-weight:800;cursor:pointer;background:#0f766e;color:#fff}.print-actions button:last-child{background:#e5e7eb;color:#111827}
     .print-cover{text-align:center;border:2px solid #0f766e;border-radius:18px;padding:42px 24px;margin-bottom:28px}.print-cover h1{font-size:30px;margin:0 0 12px}.print-cover h2{font-size:22px;margin:0 0 18px;color:#0f766e}.print-cover p{margin:7px 0;color:#475569}
     .print-section{margin:0 0 28px}.print-section header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0f766e;padding:0 0 10px;margin-bottom:12px}.print-section h2{margin:0;font-size:22px}.print-section header span{font-weight:800;color:#0f766e}
-    table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}th,td{border:1px solid #cbd5e1;padding:8px 5px;text-align:center;vertical-align:middle;word-wrap:break-word}th{background:#0f766e;color:#fff;font-weight:800}th small{display:block;margin-top:3px}.available{background:#dcfce7;color:#166534;font-weight:800}.near{background:#fef3c7;color:#92400e;font-weight:800}.full{background:#fee2e2;color:#991b1b;font-weight:800}.off{background:#e2e8f0;color:#64748b;font-weight:700}
+    table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}th,td{border:1px solid #cbd5e1;padding:8px 5px;text-align:center;vertical-align:middle;word-wrap:break-word}th{background:#0f766e;color:#fff;font-weight:800}th small{display:block;margin-top:3px}.available{background:#dcfce7;color:#166534;font-weight:800}.near{background:#fef3c7;color:#92400e;font-weight:800}.full{background:#dcfce7;color:#166534;font-size:19px;font-weight:950}.off{background:#e2e8f0;color:#64748b;font-weight:700}
     .page-break{break-before:page;page-break-before:always}
     @@media print{.no-print{display:none!important}.print-report{padding:0}.print-cover{break-after:page;page-break-after:always}.print-section{break-inside:avoid-page}@@page{size:A4 landscape;margin:10mm}}
 </style>
@@ -102,29 +136,148 @@
     private List<Doctor> doctors = [];
     private List<ApplicationUser> partners = [];
     private List<MedicalRequest> requests = [];
+    private List<ManualServiceRecord> manualServices = [];
     private List<Specialty> specialties = [];
+
+    private readonly PartnerSectionDefinition[] partnerSections =
+    [
+        new("معامل التحاليل", UserType.Laboratory, ServiceRequestType.LaboratoryTest),
+        new("مراكز الأشعة", UserType.RadiologyCenter, ServiceRequestType.RadiologyScan),
+        new("الصيدليات", UserType.Pharmacy, ServiceRequestType.PharmacyMedication, true)
+    ];
+
+    private int WeekOperationsCount => requests.Count + manualServices.Sum(x => x.Quantity);
 
     protected override async Task OnInitializedAsync()
     {
         week = BuildWeek(DateOnly.FromDateTime(DateTime.Today));
-        doctors = await Db.Doctors.AsNoTracking().Include(x => x.User).Include(x => x.Specialty).Where(x => x.User.IsActive).OrderBy(x => x.User.FullNameAr).ToListAsync();
-        partners = await Db.Users.AsNoTracking().Where(x => x.IsActive && (x.UserType == UserType.Laboratory || x.UserType == UserType.RadiologyCenter || x.UserType == UserType.Pharmacy || x.UserType == UserType.Pharmacist)).OrderBy(x => x.FullNameAr).ToListAsync();
-        specialties = await Db.Specialties.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.NameAr).ToListAsync();
-        requests = await Db.MedicalRequests.AsNoTracking().Where(x => x.AppointmentDate >= week[0] && x.AppointmentDate <= week.Last() && (x.Status == RequestStatus.Approved || x.Status == RequestStatus.Completed)).ToListAsync();
+
+        doctors = await Db.Doctors.AsNoTracking()
+            .Include(x => x.User)
+            .Include(x => x.Specialty)
+            .Where(x => x.User.IsActive)
+            .OrderBy(x => x.User.FullNameAr)
+            .ToListAsync();
+
+        partners = await Db.Users.AsNoTracking()
+            .Where(x => x.IsActive &&
+                (x.UserType == UserType.Laboratory ||
+                 x.UserType == UserType.RadiologyCenter ||
+                 x.UserType == UserType.Pharmacy ||
+                 x.UserType == UserType.Pharmacist))
+            .OrderBy(x => x.FullNameAr)
+            .ToListAsync();
+
+        specialties = await Db.Specialties.AsNoTracking()
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.NameAr)
+            .ToListAsync();
+
+        requests = await Db.MedicalRequests.AsNoTracking()
+            .Where(x => x.AppointmentDate >= week[0] &&
+                        x.AppointmentDate <= week.Last() &&
+                        (x.Status == RequestStatus.Approved || x.Status == RequestStatus.Completed))
+            .ToListAsync();
+
+        manualServices = await Db.ManualServiceRecords.AsNoTracking()
+            .Where(x => x.ServiceDate >= week[0] && x.ServiceDate <= week.Last())
+            .ToListAsync();
+
         loading = false;
     }
 
+    private IEnumerable<ApplicationUser> PartnersFor(PartnerSectionDefinition definition) =>
+        partners.Where(x =>
+            x.UserType == definition.Type ||
+            (definition.IncludePharmacist && x.UserType == UserType.Pharmacist));
+
     private StatusCell DoctorState(Doctor doctor, DateOnly day)
     {
-        if (!IsWorking(doctor.WorkingDays, day.DayOfWeek) || !doctor.IsAvailable) return new("غير موجود", "off");
+        if (!IsWorking(doctor.WorkingDays, day.DayOfWeek) || !doctor.IsAvailable)
+            return new("غير موجود", "off");
+
         var capacity = Math.Max(1, doctor.MaxDailySlots);
-        var used = requests.Count(x => x.ServiceType == ServiceRequestType.MedicalConsultation && x.DoctorId == doctor.Id && x.AppointmentDate == day);
+        var electronicUsed = requests.Count(x =>
+            x.ServiceType == ServiceRequestType.MedicalConsultation &&
+            x.DoctorId == doctor.Id &&
+            x.AppointmentDate == day);
+        var manualUsed = manualServices
+            .Where(x =>
+                x.ServiceType == ServiceRequestType.MedicalConsultation &&
+                x.DoctorId == doctor.Id &&
+                x.ServiceDate == day)
+            .Sum(x => x.Quantity);
+        var used = electronicUsed + manualUsed;
         var remaining = Math.Max(0, capacity - used);
-        return remaining == 0 ? new($"مكتمل {used}/{capacity}", "full") : new($"متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
+
+        return remaining == 0
+            ? new("✓", "full")
+            : new($"متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
     }
 
-    private static List<DateOnly> BuildWeek(DateOnly today){var diff=((int)today.DayOfWeek-(int)DayOfWeek.Saturday+7)%7;var start=today.AddDays(-diff);return Enumerable.Range(0,7).Select(start.AddDays).ToList();}
-    private static bool IsWorking(string? raw,DayOfWeek day){if(string.IsNullOrWhiteSpace(raw))return true;var token=day switch{DayOfWeek.Saturday=>"Sat",DayOfWeek.Sunday=>"Sun",DayOfWeek.Monday=>"Mon",DayOfWeek.Tuesday=>"Tue",DayOfWeek.Wednesday=>"Wed",DayOfWeek.Thursday=>"Thu",_=>"Fri"};return raw.Split(',',StringSplitOptions.RemoveEmptyEntries|StringSplitOptions.TrimEntries).Contains(token,StringComparer.OrdinalIgnoreCase);}
-    private static string DayAr(DayOfWeek d)=>d switch{DayOfWeek.Saturday=>"السبت",DayOfWeek.Sunday=>"الأحد",DayOfWeek.Monday=>"الاثنين",DayOfWeek.Tuesday=>"الثلاثاء",DayOfWeek.Wednesday=>"الأربعاء",DayOfWeek.Thursday=>"الخميس",_=>"الجمعة"};
-    private sealed record StatusCell(string Text,string Css);
+    private StatusCell PartnerState(ApplicationUser partner, DateOnly day, ServiceRequestType service)
+    {
+        if (!IsWorking(partner.WorkingDays, day.DayOfWeek))
+            return new("غير موجود", "off");
+
+        var capacity = Math.Max(1, partner.DailyRequestCapacity);
+        var electronicUsed = requests.Count(x =>
+            x.ServiceType == service &&
+            x.AssignedProviderUserId == partner.Id &&
+            x.AppointmentDate == day);
+        var manualUsed = manualServices
+            .Where(x =>
+                x.ServiceType == service &&
+                x.ProviderUserId == partner.Id &&
+                x.ServiceDate == day)
+            .Sum(x => x.Quantity);
+        var used = electronicUsed + manualUsed;
+        var remaining = Math.Max(0, capacity - used);
+
+        return remaining == 0
+            ? new("✓", "full")
+            : new($"متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
+    }
+
+    private static List<DateOnly> BuildWeek(DateOnly today)
+    {
+        var diff = ((int)today.DayOfWeek - (int)DayOfWeek.Saturday + 7) % 7;
+        var start = today.AddDays(-diff);
+        return Enumerable.Range(0, 7).Select(start.AddDays).ToList();
+    }
+
+    private static bool IsWorking(string? raw, DayOfWeek day)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return true;
+        var token = day switch
+        {
+            DayOfWeek.Saturday => "Sat",
+            DayOfWeek.Sunday => "Sun",
+            DayOfWeek.Monday => "Mon",
+            DayOfWeek.Tuesday => "Tue",
+            DayOfWeek.Wednesday => "Wed",
+            DayOfWeek.Thursday => "Thu",
+            _ => "Fri"
+        };
+        return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(token, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string DayAr(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Saturday => "السبت",
+        DayOfWeek.Sunday => "الأحد",
+        DayOfWeek.Monday => "الاثنين",
+        DayOfWeek.Tuesday => "الثلاثاء",
+        DayOfWeek.Wednesday => "الأربعاء",
+        DayOfWeek.Thursday => "الخميس",
+        _ => "الجمعة"
+    };
+
+    private sealed record StatusCell(string Text, string Css);
+    private sealed record PartnerSectionDefinition(
+        string Title,
+        UserType Type,
+        ServiceRequestType Service,
+        bool IncludePharmacist = false);
 }
