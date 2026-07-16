@@ -12,7 +12,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<Specialty> Specialties => Set<Specialty>();
     public DbSet<MedicalRequest> MedicalRequests => Set<MedicalRequest>();
-    public DbSet<RequestDocument> RequestDocuments => Set<RequestDocument>();
+    
+    public DbSet<ManualServiceRecord> ManualServiceRecords => Set<ManualServiceRecord>();
+public DbSet<RequestDocument> RequestDocuments => Set<RequestDocument>();
     public DbSet<QRCodeToken> QRCodeTokens => Set<QRCodeToken>();
     public DbSet<Consultation> Consultations => Set<Consultation>();
     public DbSet<Notification> Notifications => Set<Notification>();

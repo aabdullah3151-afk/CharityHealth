@@ -1,0 +1,873 @@
+@page "/admin/manual-services"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrator,Staff")]
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+
+@inject AppDbContext Db
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>الخدمات المكتملة يدويًا</PageTitle>
+
+<div class="manual-page" dir="rtl">
+    <header>
+        <div>
+            <small>Manual Completed Services</small>
+            <h1>تسجيل خدمة تمت يدويًا</h1>
+            <p>
+                تسجيل كشف أو صرف علاج أو تحاليل أو أشعة تمت من خلال المؤسسة
+                خارج الطلبات الإلكترونية.
+            </p>
+        </div>
+
+        <button type="button"
+                @onclick='() => Nav.NavigateTo("/admin/operations")'>
+            العودة
+        </button>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="message @(success ? "success" : "error")">
+            @message
+        </div>
+    }
+
+    <main>
+        <section class="form-card">
+            <h2>بيانات الخدمة</h2>
+
+            <label>نوع الخدمة</label>
+
+            <select value="@((int)serviceType)"
+                    @onchange="ChangeType"
+                    disabled="@busy">
+
+                <option value="@((int)ServiceRequestType.MedicalConsultation)">
+                    🩺 كشف طبي
+                </option>
+
+                <option value="@((int)ServiceRequestType.PharmacyMedication)">
+                    💊 صرف علاج
+                </option>
+
+                <option value="@((int)ServiceRequestType.LaboratoryTest)">
+                    🧪 تحاليل طبية
+                </option>
+
+                <option value="@((int)ServiceRequestType.RadiologyScan)">
+                    🩻 أشعة
+                </option>
+            </select>
+
+            <label>مقدم الخدمة</label>
+
+            <select value="@providerUserId"
+                    @onchange="ChangeProvider"
+                    disabled="@busy">
+
+                <option value="">اختر مقدم الخدمة</option>
+
+                @foreach (var provider in providers)
+                {
+                    <option value="@provider.UserId">
+                        @provider.Name — السعة @provider.Capacity
+                    </option>
+                }
+            </select>
+
+            <div class="two-columns">
+                <div>
+                    <label>اليوم</label>
+
+                    <input type="date"
+                           value="@serviceDate.ToString("yyyy-MM-dd")"
+                           @onchange="ChangeDate"
+                           disabled="@busy" />
+                </div>
+
+                <div>
+                    <label>العدد</label>
+
+                    <input type="number"
+                           min="1"
+                           max="1000"
+                           @bind="quantity"
+                           disabled="@busy" />
+                </div>
+            </div>
+
+            <label>ملاحظات</label>
+
+            <textarea rows="4"
+                      maxlength="1500"
+                      @bind="notes"
+                      placeholder="ملاحظات اختيارية"></textarea>
+
+            @if (SelectedProvider is not null)
+            {
+                <div class="capacity">
+                    <div>
+                        <span>السعة</span>
+                        <strong>@SelectedProvider.Capacity</strong>
+                    </div>
+
+                    <div>
+                        <span>إلكتروني</span>
+                        <strong>@electronicCount</strong>
+                    </div>
+
+                    <div>
+                        <span>يدوي</span>
+                        <strong>@manualCount</strong>
+                    </div>
+
+                    <div>
+                        <span>بعد الحفظ</span>
+                        <strong>@ProjectedUsed</strong>
+                    </div>
+
+                    <div>
+                        <span>المتبقي</span>
+                        <strong>@ProjectedRemaining</strong>
+                    </div>
+                </div>
+            }
+
+            <button class="save"
+                    type="button"
+                    disabled="@(busy || SelectedProvider is null)"
+                    @onclick="Save">
+
+                @(busy
+                    ? "جارٍ الحفظ..."
+                    : "✓ حفظ وخصم الخدمة من سعة اليوم")
+            </button>
+        </section>
+
+        <section class="records-card">
+            <div class="records-head">
+                <div>
+                    <h2>سجل الخدمات اليدوية</h2>
+                    <p>يمكن التراجع عن التسجيل الخطأ.</p>
+                </div>
+
+                <button type="button"
+                        @onclick="LoadRecords"
+                        disabled="@busy">
+                    تحديث
+                </button>
+            </div>
+
+            @if (records.Count == 0)
+            {
+                <div class="empty">
+                    لا توجد خدمات يدوية مسجلة.
+                </div>
+            }
+            else
+            {
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>اليوم</th>
+                                <th>النوع</th>
+                                <th>مقدم الخدمة</th>
+                                <th>العدد</th>
+                                <th>الملاحظات</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var row in records)
+                            {
+                                <tr>
+                                    <td>
+                                        @row.Date.ToString("yyyy/MM/dd")
+                                    </td>
+
+                                    <td>
+                                        @ServiceName(row.Type)
+                                    </td>
+
+                                    <td>
+                                        @row.ProviderName
+                                    </td>
+
+                                    <td>
+                                        <strong>@row.Quantity</strong>
+                                    </td>
+
+                                    <td>
+                                        @(string.IsNullOrWhiteSpace(row.Notes)
+                                            ? "—"
+                                            : row.Notes)
+                                    </td>
+
+                                    <td>
+                                        <button class="delete"
+                                                type="button"
+                                                disabled="@busy"
+                                                @onclick="() => Delete(row.Id)">
+                                            تراجع
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </main>
+</div>
+
+<style>
+.manual-page {
+    min-height: calc(100vh - 75px);
+    padding: 28px;
+    background: #f8fafc;
+}
+
+.manual-page header {
+    padding: 28px;
+    border-radius: 28px;
+    background: linear-gradient(135deg, #05a843, #0f766e);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.manual-page header small {
+    font-weight: 950;
+    color: rgba(255,255,255,.75);
+}
+
+.manual-page header h1 {
+    margin: 7px 0;
+    font-size: 31px;
+}
+
+.manual-page header p {
+    margin: 0;
+    font-weight: 800;
+    color: rgba(255,255,255,.86);
+}
+
+.manual-page header button,
+.records-head button {
+    min-height: 43px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 999px;
+    background: white;
+    color: #047857;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.manual-page main {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: minmax(330px, .7fr) minmax(0, 1.3fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.form-card,
+.records-card {
+    padding: 23px;
+    border: 1px solid #e5e7eb;
+    border-radius: 25px;
+    background: white;
+    box-shadow: 0 13px 30px rgba(15,23,42,.06);
+}
+
+.form-card h2,
+.records-card h2 {
+    margin: 0;
+}
+
+.form-card label {
+    display: block;
+    margin: 15px 0 7px;
+    color: #475467;
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.form-card select,
+.form-card input,
+.form-card textarea {
+    width: 100%;
+    padding: 12px 13px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #f8fafc;
+    font: inherit;
+    box-sizing: border-box;
+}
+
+.two-columns {
+    display: grid;
+    grid-template-columns: 1fr 110px;
+    gap: 10px;
+}
+
+.capacity {
+    margin-top: 16px;
+    padding: 10px;
+    border-radius: 17px;
+    background: #f0fdf4;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 7px;
+}
+
+.capacity div {
+    padding: 9px;
+    border-radius: 12px;
+    background: white;
+    text-align: center;
+}
+
+.capacity span {
+    display: block;
+    color: #94a3b8;
+    font-size: 9px;
+    font-weight: 900;
+}
+
+.capacity strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 17px;
+}
+
+.save {
+    width: 100%;
+    min-height: 49px;
+    margin-top: 16px;
+    border: 0;
+    border-radius: 999px;
+    background: #05a843;
+    color: white;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.message {
+    margin-top: 16px;
+    padding: 14px 17px;
+    border-radius: 16px;
+    font-weight: 900;
+}
+
+.message.success {
+    background: #ecfdf3;
+    color: #047857;
+}
+
+.message.error {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.records-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.records-head p {
+    margin: 6px 0 0;
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.records-head button {
+    background: #ecfdf3;
+}
+
+.table-wrapper {
+    margin-top: 15px;
+    overflow: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 720px;
+    border-collapse: collapse;
+}
+
+th {
+    padding: 12px;
+    background: #f8fafc;
+    color: #64748b;
+    text-align: right;
+    font-size: 11px;
+}
+
+td {
+    padding: 12px;
+    border-top: 1px solid #eef2f7;
+    color: #334155;
+    font-size: 12px;
+}
+
+.delete {
+    padding: 8px 13px;
+    border: 0;
+    border-radius: 999px;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.empty {
+    margin-top: 17px;
+    padding: 28px;
+    border-radius: 16px;
+    background: #f8fafc;
+    color: #94a3b8;
+    text-align: center;
+    font-weight: 900;
+}
+</style>
+
+@code {
+    [SupplyParameterFromQuery(Name = "type")]
+    public int? TypeQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "provider")]
+    public string? ProviderQuery { get; set; }
+
+    private bool initialized;
+    private bool busy;
+    private bool success;
+
+    private string? message;
+    private string providerUserId = string.Empty;
+    private string? notes;
+
+    private int quantity = 1;
+    private int electronicCount;
+    private int manualCount;
+
+    private DateOnly serviceDate =
+        DateOnly.FromDateTime(DateTime.Today);
+
+    private ServiceRequestType serviceType =
+        ServiceRequestType.MedicalConsultation;
+
+    private List<ProviderOption> providers = [];
+    private List<RecordRow> records = [];
+
+    private ProviderOption? SelectedProvider =>
+        providers.FirstOrDefault(x => x.UserId == providerUserId);
+
+    private int ProjectedUsed =>
+        electronicCount + manualCount + Math.Max(1, quantity);
+
+    private int ProjectedRemaining =>
+        SelectedProvider is null
+            ? 0
+            : Math.Max(0, SelectedProvider.Capacity - ProjectedUsed);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (initialized)
+            return;
+
+        initialized = true;
+
+        if (
+            TypeQuery is not null
+            && Enum.IsDefined(
+                typeof(ServiceRequestType),
+                TypeQuery.Value
+            )
+        )
+        {
+            serviceType = (ServiceRequestType)TypeQuery.Value;
+        }
+
+        await LoadProviders();
+
+        if (
+            !string.IsNullOrWhiteSpace(ProviderQuery)
+            && providers.Any(x => x.UserId == ProviderQuery)
+        )
+        {
+            providerUserId = ProviderQuery;
+        }
+
+        await RefreshUsage();
+        await LoadRecords();
+    }
+
+    private async Task ChangeType(ChangeEventArgs args)
+    {
+        if (
+            int.TryParse(args.Value?.ToString(), out var value)
+            && Enum.IsDefined(typeof(ServiceRequestType), value)
+        )
+        {
+            serviceType = (ServiceRequestType)value;
+        }
+
+        providerUserId = string.Empty;
+        electronicCount = 0;
+        manualCount = 0;
+
+        await LoadProviders();
+    }
+
+    private async Task ChangeProvider(ChangeEventArgs args)
+    {
+        providerUserId = args.Value?.ToString() ?? string.Empty;
+        await RefreshUsage();
+    }
+
+    private async Task ChangeDate(ChangeEventArgs args)
+    {
+        if (DateOnly.TryParse(args.Value?.ToString(), out var value))
+            serviceDate = value;
+
+        await RefreshUsage();
+    }
+
+    private async Task LoadProviders()
+    {
+        if (serviceType == ServiceRequestType.MedicalConsultation)
+        {
+            providers = await Db.Doctors
+                .Include(x => x.User)
+                .Where(x => x.User.IsActive)
+                .OrderBy(x => x.User.FullNameAr)
+                .Select(x => new ProviderOption(
+                    x.UserId,
+                    x.Id,
+                    x.User.FullNameAr,
+                    Math.Max(1, x.MaxDailySlots)
+                ))
+                .ToListAsync();
+
+            return;
+        }
+
+        var roleNames = serviceType switch
+        {
+            ServiceRequestType.PharmacyMedication =>
+                new[] { "Pharmacy", "Pharmacist" },
+
+            ServiceRequestType.LaboratoryTest =>
+                new[] { "Laboratory" },
+
+            ServiceRequestType.RadiologyScan =>
+                new[] { "RadiologyCenter" },
+
+            _ => Array.Empty<string>()
+        };
+
+        var result = await (
+            from user in Db.Users
+            join userRole in Db.UserRoles
+                on user.Id equals userRole.UserId
+            join role in Db.Roles
+                on userRole.RoleId equals role.Id
+            where user.IsActive
+                  && role.Name != null
+                  && roleNames.Contains(role.Name)
+            select new
+            {
+                user.Id,
+                user.FullNameAr,
+                user.DailyRequestCapacity
+            }
+        )
+        .AsNoTracking()
+        .ToListAsync();
+
+        providers = result
+            .GroupBy(x => x.Id)
+            .Select(group =>
+            {
+                var item = group.First();
+
+                return new ProviderOption(
+                    item.Id,
+                    null,
+                    item.FullNameAr,
+                    Math.Max(1, item.DailyRequestCapacity)
+                );
+            })
+            .OrderBy(x => x.Name)
+            .ToList();
+    }
+
+    private async Task RefreshUsage()
+    {
+        electronicCount = 0;
+        manualCount = 0;
+
+        if (SelectedProvider is null)
+            return;
+
+        if (
+            serviceType == ServiceRequestType.MedicalConsultation
+            && SelectedProvider.DoctorId is not null
+        )
+        {
+            electronicCount = await Db.MedicalRequests.CountAsync(r =>
+                r.DoctorId == SelectedProvider.DoctorId
+                && r.AppointmentDate == serviceDate
+                && (
+                    r.Status == RequestStatus.Approved
+                    || r.Status == RequestStatus.Completed
+                )
+            );
+        }
+        else
+        {
+            electronicCount = await Db.MedicalRequests.CountAsync(r =>
+                r.AssignedProviderUserId == SelectedProvider.UserId
+                && r.ServiceType == serviceType
+                && r.AppointmentDate == serviceDate
+                && (
+                    r.Status == RequestStatus.Approved
+                    || r.Status == RequestStatus.Completed
+                )
+            );
+        }
+
+        manualCount = await Db.ManualServiceRecords
+            .Where(x =>
+                x.ProviderUserId == SelectedProvider.UserId
+                && x.ServiceType == serviceType
+                && x.ServiceDate == serviceDate
+            )
+            .SumAsync(x => (int?)x.Quantity) ?? 0;
+    }
+
+    private async Task Save()
+    {
+        message = null;
+        success = false;
+
+        if (SelectedProvider is null)
+        {
+            message = "اختر مقدم الخدمة.";
+            return;
+        }
+
+        quantity = Math.Max(1, quantity);
+
+        await RefreshUsage();
+
+        if (
+            electronicCount + manualCount + quantity
+            > SelectedProvider.Capacity
+        )
+        {
+            message =
+                $"لا يمكن التسجيل؛ السعة اليومية "
+                + $"{SelectedProvider.Capacity}، "
+                + $"والمستخدم حاليًا "
+                + $"{electronicCount + manualCount}.";
+
+            return;
+        }
+
+        busy = true;
+
+        try
+        {
+            var auth =
+                await AuthState.GetAuthenticationStateAsync();
+
+            var adminId =
+                auth.User.FindFirstValue(
+                    ClaimTypes.NameIdentifier
+                ) ?? "system";
+
+            Db.ManualServiceRecords.Add(
+                new ManualServiceRecord
+                {
+                    ServiceType = serviceType,
+                    ProviderUserId = SelectedProvider.UserId,
+                    DoctorId = SelectedProvider.DoctorId,
+                    ServiceDate = serviceDate,
+                    Quantity = quantity,
+                    Notes = string.IsNullOrWhiteSpace(notes)
+                        ? null
+                        : notes.Trim(),
+                    CreatedByUserId = adminId
+                }
+            );
+
+            await Db.SaveChangesAsync();
+
+            quantity = 1;
+            notes = null;
+
+            message =
+                "تم تسجيل الخدمة وخصمها من السعة اليومية.";
+
+            success = true;
+
+            await RefreshUsage();
+            await LoadRecords();
+        }
+        catch (Exception ex)
+        {
+            message =
+                "تعذر الحفظ: "
+                + ex.GetBaseException().Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task LoadRecords()
+    {
+        var from =
+            DateOnly.FromDateTime(DateTime.Today.AddMonths(-3));
+
+        var data = await Db.ManualServiceRecords
+            .AsNoTracking()
+            .Where(x => x.ServiceDate >= from)
+            .OrderByDescending(x => x.ServiceDate)
+            .ThenByDescending(x => x.CreatedAt)
+            .Take(300)
+            .Select(x => new
+            {
+                x.Id,
+                x.ProviderUserId,
+                x.ServiceType,
+                x.ServiceDate,
+                x.Quantity,
+                x.Notes
+            })
+            .ToListAsync();
+
+        var providerIds = data
+            .Select(x => x.ProviderUserId)
+            .Distinct()
+            .ToList();
+
+        var names = await Db.Users
+            .AsNoTracking()
+            .Where(x => providerIds.Contains(x.Id))
+            .ToDictionaryAsync(
+                x => x.Id,
+                x => x.FullNameAr
+            );
+
+        records = data.Select(x => new RecordRow(
+            x.Id,
+            x.ServiceType,
+            x.ServiceDate,
+            x.Quantity,
+            x.Notes,
+            names.GetValueOrDefault(
+                x.ProviderUserId,
+                "مقدم خدمة غير موجود"
+            )
+        )).ToList();
+    }
+
+    private async Task Delete(Guid id)
+    {
+        busy = true;
+        message = null;
+
+        try
+        {
+            var record =
+                await Db.ManualServiceRecords
+                    .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (record is null)
+            {
+                message =
+                    "التسجيل غير موجود أو تم إلغاؤه.";
+
+                return;
+            }
+
+            record.IsDeleted = true;
+
+            await Db.SaveChangesAsync();
+
+            message =
+                "تم التراجع وإعادة العدد إلى السعة.";
+
+            success = true;
+
+            await RefreshUsage();
+            await LoadRecords();
+        }
+        catch (Exception ex)
+        {
+            message =
+                "تعذر التراجع: "
+                + ex.GetBaseException().Message;
+
+            success = false;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string ServiceName(
+        ServiceRequestType type
+    ) => type switch
+    {
+        ServiceRequestType.MedicalConsultation =>
+            "كشف طبي",
+
+        ServiceRequestType.PharmacyMedication =>
+            "صرف علاج",
+
+        ServiceRequestType.LaboratoryTest =>
+            "تحاليل",
+
+        ServiceRequestType.RadiologyScan =>
+            "أشعة",
+
+        _ => "خدمة صحية"
+    };
+
+    private sealed record ProviderOption(
+        string UserId,
+        Guid? DoctorId,
+        string Name,
+        int Capacity
+    );
+
+    private sealed record RecordRow(
+        Guid Id,
+        ServiceRequestType Type,
+        DateOnly Date,
+        int Quantity,
+        string? Notes,
+        string ProviderName
+    );
+}

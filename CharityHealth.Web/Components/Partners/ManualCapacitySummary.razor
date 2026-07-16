@@ -1,0 +1,384 @@
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.DependencyInjection
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+
+@inject IServiceScopeFactory ScopeFactory
+@inject NavigationManager Nav
+
+<div class="manual-capacity-summary">
+    @if (loading)
+    {
+        <div class="loading">جارٍ حساب السعة...</div>
+    }
+    else
+    {
+        <div>
+            <span>إلكتروني</span>
+            <strong>@electronicCount</strong>
+        </div>
+
+        <div>
+            <span>يدوي</span>
+            <strong>@manualCount</strong>
+        </div>
+
+        <div>
+            <span>المستخدم</span>
+            <strong>@Used</strong>
+        </div>
+
+        <div>
+            <span>المتاح</span>
+            <strong class="@(Remaining > 0 ? "available" : "full")">
+                @Remaining
+            </strong>
+        </div>
+
+        <button type="button" @onclick="OpenManualPage">
+            ✓ تمت الخدمة يدويًا
+        </button>
+    }
+</div>
+
+<style>
+.manual-capacity-summary {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 14px 0;
+    padding: 10px;
+    border: 1px solid #bbf7d0;
+    border-radius: 18px;
+    background: #f0fdf4;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(62px, 1fr));
+    gap: 8px;
+    align-items: stretch;
+    overflow: visible;
+}
+
+.manual-capacity-summary > div {
+    min-width: 0;
+    padding: 10px 6px;
+    border-radius: 13px;
+    background: #fff;
+    text-align: center;
+}
+
+.manual-capacity-summary span {
+    display: block;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+}
+
+.manual-capacity-summary strong {
+    display: block;
+    margin-top: 5px;
+    color: #334155;
+    font-size: 18px;
+    font-weight: 950;
+}
+
+.manual-capacity-summary .available {
+    color: #059669;
+}
+
+.manual-capacity-summary .full {
+    color: #dc2626;
+}
+
+.manual-capacity-summary > button {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 14px;
+    background: #05a843;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: normal;
+    line-height: 1.45;
+    font-weight: 950;
+    cursor: pointer;
+    visibility: visible;
+    opacity: 1;
+}
+
+.manual-capacity-summary .loading {
+    grid-column: 1 / -1;
+    color: #64748b;
+    font-weight: 900;
+}
+
+@@media (max-width: 768px) {
+    .manual-capacity-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        padding: 8px;
+        border-radius: 16px;
+    }
+
+    .manual-capacity-summary > button {
+        grid-column: 1 / -1;
+        min-height: 46px;
+        font-size: 13px;
+    }
+}
+
+    /* MANUAL_CAPACITY_RESPONSIVE_FIX */
+    .manual-capacity-summary {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 14px 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        overflow: hidden !important;
+    }
+
+    .manual-capacity-summary > div {
+        min-width: 0 !important;
+        padding: 9px 5px !important;
+    }
+
+    .manual-capacity-summary > div span {
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .manual-capacity-summary button {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        position: static !important;
+        transform: none !important;
+    }
+
+    @@media (max-width: 560px) {
+        .manual-capacity-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 7px !important;
+        }
+
+        .manual-capacity-summary strong {
+            font-size: 17px !important;
+        }
+
+        .manual-capacity-summary button {
+            min-height: 46px !important;
+            font-size: 13px !important;
+        }
+    }
+
+
+    /* MANUAL_CAPACITY_FINAL_LAYOUT_START */
+    .manual-capacity-summary {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 14px 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        overflow: hidden !important;
+        position: static !important;
+        inset: auto !important;
+        transform: none !important;
+    }
+
+    .manual-capacity-summary > div {
+        min-width: 0 !important;
+        padding: 9px 5px !important;
+        box-sizing: border-box !important;
+    }
+
+    .manual-capacity-summary > div span,
+    .manual-capacity-summary > div strong {
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .manual-capacity-summary > button {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        min-height: 48px !important;
+        margin: 0 !important;
+        padding: 10px 14px !important;
+        box-sizing: border-box !important;
+        position: static !important;
+        inset: auto !important;
+        transform: none !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        font-size: 13px !important;
+        font-weight: 950 !important;
+    }
+
+    @@media (max-width: 650px) {
+        .manual-capacity-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 7px !important;
+        }
+
+        .manual-capacity-summary > button {
+            grid-column: 1 / -1 !important;
+        }
+    }
+    /* MANUAL_CAPACITY_FINAL_LAYOUT_END */
+
+
+    /* MANUAL_BUTTON_VISIBLE_V4_START */
+
+    .manual-capacity-summary {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        margin: 14px 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        overflow: visible !important;
+        position: relative !important;
+    }
+
+    .manual-capacity-summary > div {
+        min-width: 0 !important;
+        padding: 9px 5px !important;
+        box-sizing: border-box !important;
+    }
+
+    .manual-capacity-summary > button {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        min-height: 48px !important;
+        margin: 0 !important;
+        padding: 10px 14px !important;
+        border: 0 !important;
+        border-radius: 14px !important;
+        background: #05a843 !important;
+        color: #fff !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: static !important;
+        transform: none !important;
+        font-size: 14px !important;
+        font-weight: 950 !important;
+        line-height: 1.5 !important;
+        cursor: pointer !important;
+    }
+
+    @@media (max-width: 600px) {
+        .manual-capacity-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+
+        .manual-capacity-summary > button {
+            grid-column: 1 / -1 !important;
+        }
+    }
+
+    /* MANUAL_BUTTON_VISIBLE_V4_END */
+
+</style>
+
+@code {
+    [Parameter, EditorRequired]
+    public string ProviderUserId { get; set; } = string.Empty;
+
+    [Parameter]
+    public Guid? DoctorId { get; set; }
+
+    [Parameter, EditorRequired]
+    public ServiceRequestType ServiceType { get; set; }
+
+    [Parameter]
+    public int Capacity { get; set; } = 1;
+
+    private bool loading = true;
+    private int electronicCount;
+    private int manualCount;
+
+    private int Used => electronicCount + manualCount;
+
+    private int Remaining => Math.Max(0, Capacity - Used);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+
+        using var scope = ScopeFactory.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        if (
+            ServiceType == ServiceRequestType.MedicalConsultation
+            && DoctorId is not null
+        )
+        {
+            electronicCount = await db.MedicalRequests.CountAsync(r =>
+                r.DoctorId == DoctorId
+                && r.AppointmentDate == today
+                && (
+                    r.Status == RequestStatus.Approved
+                    || r.Status == RequestStatus.Completed
+                )
+            );
+        }
+        else
+        {
+            electronicCount = await db.MedicalRequests.CountAsync(r =>
+                r.AssignedProviderUserId == ProviderUserId
+                && r.ServiceType == ServiceType
+                && r.AppointmentDate == today
+                && (
+                    r.Status == RequestStatus.Approved
+                    || r.Status == RequestStatus.Completed
+                )
+            );
+        }
+
+        manualCount = await db.ManualServiceRecords
+            .Where(x =>
+                x.ProviderUserId == ProviderUserId
+                && x.ServiceType == ServiceType
+                && x.ServiceDate == today
+            )
+            .SumAsync(x => (int?)x.Quantity) ?? 0;
+
+        loading = false;
+    }
+
+    private void OpenManualPage()
+    {
+        Nav.NavigateTo(
+            $"/admin/manual-services"
+            + $"?type={(int)ServiceType}"
+            + $"&provider={Uri.EscapeDataString(ProviderUserId)}"
+        );
+    }
+}

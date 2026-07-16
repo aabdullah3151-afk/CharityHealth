@@ -13273,5 +13273,439 @@ border-color:#334155!important;
 
 }
 
+/* CHARITYHEALTH_RESPONSIVE_V2_START */
+/* Global responsive safety */
+html,
+body,
+#app {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+}
 
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
 
+img,
+svg,
+video,
+canvas,
+iframe {
+    max-width: 100%;
+    height: auto;
+}
+
+input,
+select,
+textarea,
+button {
+    max-width: 100%;
+    font: inherit;
+}
+
+main,
+.page,
+.content,
+.main-content,
+.layout-content,
+.portal-content,
+.app-content,
+.doctors-page,
+.partner-admin-page,
+.notifications-page,
+.notification-page,
+.manual-page,
+.ops-page,
+.admin-page,
+.dashboard-page,
+.provider-page,
+.beneficiary-page,
+.partner-queue-page {
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+
+/* Common responsive grids */
+.doctors-grid,
+.providers-grid,
+.provider-grid,
+.partner-grid,
+.partners-grid,
+.cards-grid,
+.dashboard-grid,
+.requests-grid,
+.request-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)) !important;
+    gap: clamp(12px, 1.8vw, 22px) !important;
+    align-items: stretch !important;
+}
+
+.doctor-card,
+.provider-card,
+.partner-card,
+.dashboard-card,
+.notification-card,
+.request-card,
+.content-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden;
+}
+
+.doctor-card *,
+.provider-card *,
+.partner-card *,
+.notification-card *,
+.request-card * {
+    min-width: 0;
+}
+
+.doctor-license,
+.doctor-address,
+.doctor-schedule strong,
+.provider-card strong,
+.partner-card strong,
+.notification-card,
+.notification-item,
+td,
+th {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.table-wrapper,
+.table-responsive,
+.ops-table-wrap,
+.records-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Manual service capacity component: desktop */
+.manual-capacity-summary {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 14px 0 !important;
+    padding: 10px !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(64px, 1fr)) !important;
+    gap: 8px !important;
+    overflow: visible !important;
+}
+
+.manual-capacity-summary > div {
+    min-width: 0 !important;
+}
+
+.manual-capacity-summary > button {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: normal !important;
+    line-height: 1.4 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: static !important;
+    transform: none !important;
+}
+
+/* Notification pages */
+.notifications-page,
+.notification-page,
+.beneficiary-notifications,
+.notifications-center-page {
+    width: min(100%, 1200px) !important;
+    margin-inline: auto !important;
+    padding-inline: clamp(10px, 3vw, 28px) !important;
+}
+
+.notifications-hero,
+.notification-hero,
+.notifications-header,
+.notifications-summary,
+.notification-summary {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.notifications-stats,
+.notification-stats,
+.notifications-summary-grid,
+.notification-summary-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)) !important;
+    gap: 12px !important;
+}
+
+.notifications-hero h1,
+.notification-hero h1,
+.notifications-header h1 {
+    font-size: clamp(30px, 6vw, 64px) !important;
+    line-height: 1.05 !important;
+    overflow-wrap: normal !important;
+}
+
+/* Keep floating widgets away from page content */
+.whatsapp-float,
+.whatsapp-button,
+.floating-whatsapp {
+    max-width: 58px !important;
+    max-height: 58px !important;
+}
+
+@@media (max-width: 1024px) {
+    .doctors-page,
+    .partner-admin-page,
+    .notifications-page,
+    .notification-page,
+    .manual-page,
+    .ops-page,
+    .admin-page,
+    .dashboard-page,
+    .provider-page,
+    .beneficiary-page,
+    .partner-queue-page {
+        padding: 16px !important;
+    }
+
+    .doctors-grid,
+    .providers-grid,
+    .provider-grid,
+    .partner-grid,
+    .partners-grid,
+    .cards-grid,
+    .dashboard-grid,
+    .requests-grid,
+    .request-grid {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)) !important;
+    }
+}
+
+@@media (max-width: 768px) {
+    html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
+    body {
+        font-size: 14px;
+    }
+
+    .doctors-page,
+    .partner-admin-page,
+    .notifications-page,
+    .notification-page,
+    .manual-page,
+    .ops-page,
+    .admin-page,
+    .dashboard-page,
+    .provider-page,
+    .beneficiary-page,
+    .partner-queue-page {
+        width: 100% !important;
+        padding: 10px !important;
+        margin: 0 !important;
+    }
+
+    .doctors-grid,
+    .providers-grid,
+    .provider-grid,
+    .partner-grid,
+    .partners-grid,
+    .cards-grid,
+    .dashboard-grid,
+    .requests-grid,
+    .request-grid,
+    .notifications-stats,
+    .notification-stats,
+    .notifications-summary-grid,
+    .notification-summary-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 12px !important;
+    }
+
+    .doctor-card,
+    .provider-card,
+    .partner-card,
+    .dashboard-card,
+    .notification-card,
+    .request-card,
+    .content-card {
+        border-radius: 18px !important;
+        padding: 15px !important;
+    }
+
+    .doctor-card-top,
+    .provider-card-top,
+    .partner-card-top,
+    .notifications-header,
+    .notifications-hero,
+    .notification-hero,
+    .partner-admin-hero,
+    .ops-hero,
+    .manual-page > header,
+    .partner-queue-head {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        padding: 18px !important;
+        border-radius: 20px !important;
+    }
+
+    .doctor-main-info h2,
+    .provider-card h2,
+    .partner-card h2 {
+        font-size: clamp(20px, 6vw, 26px) !important;
+    }
+
+    .notifications-hero h1,
+    .notification-hero h1,
+    .notifications-header h1 {
+        font-size: clamp(32px, 12vw, 48px) !important;
+        line-height: 1.05 !important;
+        margin-block: 8px !important;
+    }
+
+    .notifications-hero p,
+    .notification-hero p,
+    .notifications-header p {
+        font-size: 15px !important;
+        line-height: 1.7 !important;
+    }
+
+    .doctor-meta,
+    .doctor-schedule,
+    .doctor-stats,
+    .provider-meta,
+    .provider-stats,
+    .partner-meta,
+    .partner-stats {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+
+    .doctor-actions,
+    .provider-actions,
+    .partner-actions,
+    .ops-actions,
+    .records-head,
+    .page-actions {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .doctor-actions button,
+    .doctor-actions a,
+    .provider-actions button,
+    .provider-actions a,
+    .partner-actions button,
+    .partner-actions a,
+    .ops-actions button,
+    .page-actions button,
+    .page-actions a {
+        width: 100% !important;
+        min-height: 44px !important;
+        margin: 0 !important;
+    }
+
+    .manual-capacity-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        padding: 8px !important;
+        border-radius: 16px !important;
+    }
+
+    .manual-capacity-summary > div {
+        padding: 9px 5px !important;
+    }
+
+    .manual-capacity-summary span {
+        font-size: 10px !important;
+    }
+
+    .manual-capacity-summary strong {
+        font-size: 18px !important;
+    }
+
+    .manual-capacity-summary > button {
+        grid-column: 1 / -1 !important;
+        min-height: 46px !important;
+        font-size: 13px !important;
+    }
+
+    table {
+        min-width: 680px;
+    }
+}
+
+@@media (max-width: 480px) {
+    .doctors-page,
+    .partner-admin-page,
+    .notifications-page,
+    .notification-page,
+    .manual-page,
+    .ops-page,
+    .admin-page,
+    .dashboard-page,
+    .provider-page,
+    .beneficiary-page,
+    .partner-queue-page {
+        padding: 8px !important;
+    }
+
+    .doctor-card,
+    .provider-card,
+    .partner-card,
+    .dashboard-card,
+    .notification-card,
+    .request-card,
+    .content-card {
+        padding: 12px !important;
+        border-radius: 16px !important;
+    }
+
+    .doctor-meta,
+    .doctor-schedule,
+    .doctor-stats,
+    .provider-meta,
+    .provider-stats,
+    .partner-meta,
+    .partner-stats {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .manual-capacity-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+    }
+
+    .notifications-hero,
+    .notification-hero,
+    .notifications-header {
+        padding: 16px !important;
+    }
+
+    .notifications-hero h1,
+    .notification-hero h1,
+    .notifications-header h1 {
+        font-size: clamp(30px, 13vw, 42px) !important;
+    }
+}
+/* CHARITYHEALTH_RESPONSIVE_V2_END */

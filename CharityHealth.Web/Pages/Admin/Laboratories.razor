@@ -126,6 +126,17 @@
                         <div><strong>@stats.Completed</strong><span>مكتملة</span></div>
                     </div>
 
+                    @* LABORATORY_MANUAL_SERVICE_BUTTON_START *@
+                    @if (provider.IsActive)
+                    {
+                        <button type="button"
+                                class="manual-service-card-button"
+                                @onclick='() => Nav.NavigateTo($"/admin/manual-services?type={(int)ServiceRequestType.LaboratoryTest}&provider={Uri.EscapeDataString(provider.Id)}")'>
+                            ✓ تمت الخدمة يدويًا
+                        </button>
+                    }
+                    @* LABORATORY_MANUAL_SERVICE_BUTTON_END *@
+
                     <div class="partner-actions">
                         <button type="button"
                                 class="profile"
@@ -534,6 +545,47 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* MANUAL_SERVICE_CARD_BUTTON_CSS_START */
+.manual-service-card-button {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 14px;
+    padding: 11px 16px;
+    border: 0;
+    border-radius: 15px;
+    background: var(--partner-accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    font-size: 14px;
+    font-weight: 950;
+    line-height: 1.5;
+    cursor: pointer;
+    box-shadow: 0 9px 20px color-mix(in srgb, var(--partner-accent) 22%, transparent);
+    transition: transform .18s ease, filter .18s ease;
+}
+
+.manual-service-card-button:hover {
+    filter: brightness(.95);
+    transform: translateY(-1px);
+}
+
+.manual-service-card-button:active {
+    transform: translateY(0);
+}
+
+@@media (max-width: 800px) {
+    .manual-service-card-button {
+        min-height: 46px;
+        font-size: 13px;
+        border-radius: 13px;
+    }
+}
+/* MANUAL_SERVICE_CARD_BUTTON_CSS_END */
+
 </style>
 
 @code {

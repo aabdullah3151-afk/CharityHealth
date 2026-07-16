@@ -53,6 +53,45 @@
             <span>أو ادخل بياناتك</span>
         </div>
 
+
+        @* LOGIN_ERROR_MESSAGE_PATCH *@
+        @if (!string.IsNullOrWhiteSpace(LoginError))
+        {
+            <div role="alert"
+                 aria-live="assertive"
+                 style="
+                    margin:0 0 18px;
+                    padding:13px 15px;
+                    border:1px solid #fecaca;
+                    border-radius:14px;
+                    background:#fff1f2;
+                    color:#b91c1c;
+                    display:flex;
+                    align-items:center;
+                    gap:10px;
+                    font-size:14px;
+                    font-weight:900;
+                    line-height:1.7;
+                    box-shadow:0 8px 20px rgba(185,28,28,.08);">
+
+                <span aria-hidden="true"
+                      style="
+                        width:25px;
+                        height:25px;
+                        flex:0 0 25px;
+                        border-radius:50%;
+                        background:#dc2626;
+                        color:#fff;
+                        display:grid;
+                        place-items:center;
+                        font-weight:950;">
+                    !
+                </span>
+
+                <span>@LoginError</span>
+            </div>
+        }
+
         <form method="post" action="/account/login" class="login-form" autocomplete="on">
             <input type="hidden" name="returnUrl" value="@(ReturnUrl ?? string.Empty)" />
 
@@ -142,6 +181,10 @@
 </script>
 
 @code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? LoginError { get; set; }
+
+
     private bool showPassword;
 
     private string PasswordToggleLabel =>

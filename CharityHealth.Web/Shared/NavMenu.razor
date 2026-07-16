@@ -215,4 +215,17 @@
         </Authorized>
     </AuthorizeView>
 
+
+    @* MANUAL_SERVICES_NAV *@
+    <AuthorizeView Roles="Administrator,Staff">
+        <Authorized>
+            <NavLink class="nav-link"
+                     href="/admin/manual-services"
+                     Match="NavLinkMatch.Prefix">
+                <span aria-hidden="true">✓</span>
+                <span>الخدمات اليدوية المكتملة</span>
+            </NavLink>
+        </Authorized>
+    </AuthorizeView>
+
 </nav>

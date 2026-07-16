@@ -9,6 +9,7 @@
 @using CharityHealth.Domain.Enums
 @using CharityHealth.Infrastructure.Persistence
 @using CharityHealth.Web.Services
+@using CharityHealth.Web.Components.Partners
 
 @inject HealthcareUiService Ui
 @inject AppDbContext Db
@@ -174,6 +175,14 @@
                             📍 @doctor.ClinicAddress
                         </div>
                     }
+
+                    
+                    @* MANUAL_CAPACITY_DOCTOR *@
+                    <ManualCapacitySummary
+                        ProviderUserId="@doctor.UserId"
+                        DoctorId="@doctor.Id"
+                        ServiceType="@ServiceRequestType.MedicalConsultation"
+                        Capacity="@doctor.MaxDailySlots" />
 
                     <div class="doctor-stats">
                         <div>

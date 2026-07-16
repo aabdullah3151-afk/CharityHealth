@@ -17,6 +17,8 @@ namespace CharityHealth.Web.Controllers
         IAuditService audit,
         ILogger<AccountController> logger) : Controller
     {
+
+        // LOGIN_ERROR_MESSAGE_PATCH
         [HttpPost("login")]
         public async Task<IActionResult> Login(
             [FromForm] string credential,
@@ -25,54 +27,125 @@ namespace CharityHealth.Web.Controllers
         {
             credential = credential?.Trim() ?? string.Empty;
 
-            var user = await userManager.FindByEmailAsync(credential)
-                ?? await userManager.FindByNameAsync(credential)
-                ?? userManager.Users.FirstOrDefault(u => u.PhoneNumber == credential);
-
-            if (user is null || !user.IsActive)
+            try
             {
-                TempData["LoginError"] = "اسم المستخدم أو كلمة المرور غير صحيحة";
-                return Redirect("/login");
-            }
+                var user = await userManager.FindByEmailAsync(credential)
+                    ?? await userManager.FindByNameAsync(credential)
+                    ?? userManager.Users.FirstOrDefault(
+                        u => u.PhoneNumber == credential);
 
-            if (await userManager.IsLockedOutAsync(user))
-            {
-                TempData["LoginError"] = "الحساب مقفل مؤقتاً. حاول بعد 15 دقيقة.";
-                return Redirect("/login");
-            }
+                if (user is null || !user.IsActive)
+                {
+                    return RedirectToLogin(
+                        "البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة.",
+                        returnUrl);
+                }
 
-            if (!await userManager.CheckPasswordAsync(user, password))
-            {
-                await userManager.AccessFailedAsync(user);
+                if (await userManager.IsLockedOutAsync(user))
+                {
+                    return RedirectToLogin(
+                        "الحساب مقفل مؤقتًا. حاول مرة أخرى بعد 15 دقيقة.",
+                        returnUrl);
+                }
+
+                if (!await userManager.CheckPasswordAsync(user, password))
+                {
+                    await userManager.AccessFailedAsync(user);
+
+                    await audit.LogAsync(
+                        "Auth.Login.Failed",
+                        "ApplicationUser",
+                        user.Id,
+                        newValues: "{\"reason\":\"wrong_password\"}"
+                    );
+
+                    return RedirectToLogin(
+                        "البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة.",
+                        returnUrl);
+                }
+
+                await userManager.ResetAccessFailedCountAsync(user);
+
+                var roles = await userManager.GetRolesAsync(user);
+
+                await SignInUserAsync(user, roles);
 
                 await audit.LogAsync(
-                    "Auth.Login.Failed",
+                    "Auth.Login.Success",
                     "ApplicationUser",
                     user.Id,
-                    newValues: "{\"reason\":\"wrong_password\"}"
+                    newValues: "{\"method\":\"password\"}"
                 );
 
-                TempData["LoginError"] = "اسم المستخدم أو كلمة المرور غير صحيحة";
-                return Redirect("/login");
+                logger.LogInformation(
+                    "User {UserId} logged in via password",
+                    user.Id);
+
+                return Redirect(
+                    GetSafeReturnUrl(
+                        returnUrl,
+                        user.UserType,
+                        roles));
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    await signInManager.SignOutAsync();
+                }
+                catch
+                {
+                }
+
+                // الخطأ الكامل سيظهر داخل Terminal
+                logger.LogError(
+                    ex,
+                    "Technical login failure for credential {Credential}",
+                    credential);
+
+                var technicalMessage =
+                    ex.GetBaseException().Message;
+
+                var userMessage =
+                    technicalMessage.Contains(
+                        "127.0.0.1:5432",
+                        System.StringComparison.OrdinalIgnoreCase)
+                    || technicalMessage.Contains(
+                        "Connection refused",
+                        System.StringComparison.OrdinalIgnoreCase)
+                    || technicalMessage.Contains(
+                        "Failed to connect",
+                        System.StringComparison.OrdinalIgnoreCase)
+
+                    ? "تعذر تسجيل الدخول لأن قاعدة البيانات غير متاحة حاليًا. تأكد من تشغيل PostgreSQL ثم حاول مرة أخرى."
+
+                    : "حدث خطأ تقني أثناء تسجيل الدخول. حاول مرة أخرى بعد قليل.";
+
+                return RedirectToLogin(
+                    userMessage,
+                    returnUrl);
+            }
+        }
+
+        private IActionResult RedirectToLogin(
+            string message,
+            string? returnUrl = null)
+        {
+            var target =
+                "/login?error="
+                + System.Uri.EscapeDataString(message);
+
+            if (!string.IsNullOrWhiteSpace(returnUrl)
+                && Url.IsLocalUrl(returnUrl))
+            {
+                target +=
+                    "&returnUrl="
+                    + System.Uri.EscapeDataString(returnUrl);
             }
 
-            await userManager.ResetAccessFailedCountAsync(user);
-
-            var roles = await userManager.GetRolesAsync(user);
-
-            await SignInUserAsync(user, roles);
-
-            await audit.LogAsync(
-                "Auth.Login.Success",
-                "ApplicationUser",
-                user.Id,
-                newValues: "{\"method\":\"password\"}"
-            );
-
-            logger.LogInformation("User {UserId} logged in via password", user.Id);
-
-            return Redirect(GetSafeReturnUrl(returnUrl, user.UserType, roles));
+            return Redirect(target);
         }
+
 
         [HttpPost("send-otp")]
         public async Task<IActionResult> SendOtp([FromForm] string phone)

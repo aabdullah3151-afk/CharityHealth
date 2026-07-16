@@ -1,21 +1,871 @@
 @page "/admin/radiology-centers"
 @layout MainLayout
 @attribute [Authorize(Roles = "Administrator")]
+
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CharityHealth.Domain.Entities
 @using CharityHealth.Domain.Enums
-@using CharityHealth.Web.Components.Partners
+@using CharityHealth.Infrastructure.Persistence
+
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject NavigationManager Nav
+
 <PageTitle>إدارة مراكز الأشعة</PageTitle>
-<PartnerAdminList PrimaryRoleName="RadiologyCenter"
-                  PrimaryRoleLabel="مركز أشعة"
-                  Title="مراكز الأشعة المتعاونة"
-                  Subtitle="إدارة بيانات مراكز الأشعة وحساباتها وعناوينها وسعتها اليومية."
-                  Kicker="Radiology Centers"
-                  SingularLabel="مركز أشعة"
-                  PluralLabel="مراكز الأشعة"
-                  Icon="🩻"
-                  CreateUrl="/admin/radiology-centers/create"
-                  ServiceType="@ServiceRequestType.RadiologyScan"
-                  AccentColor="#2563eb"
-                  AccentSoft="#eff6ff"
-                  AccentBorder="#bfdbfe"
-                  AccentShadow="rgba(37,99,235,.12)" />
+
+<div class="partner-admin-page" dir="rtl" style="--partner-accent:#2563eb;--partner-soft:#eff6ff;--partner-border:#bfdbfe;">
+    <header class="partner-admin-head">
+        <div>
+            <span>Radiology Centers Management</span>
+            <h1>مراكز الأشعة المتعاونة</h1>
+            <p>إدارة البيانات والحسابات، مع إمكانية الحذف الآمن أو إعادة التفعيل بواسطة مدير النظام فقط.</p>
+        </div>
+
+        <button type="button" @onclick='() => Nav.NavigateTo("/admin/radiology-centers/create")'>
+            + إضافة مركز الأشعة
+        </button>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="partner-message @(messageOk ? "ok" : "bad")">@message</div>
+    }
+
+    @if (deleteCandidate is not null)
+    {
+        <section class="delete-confirmation">
+            <div>
+                <strong>تأكيد حذف مركز الأشعة</strong>
+                <p>
+                    سيتم تعطيل حساب
+                    <b>@DisplayName(deleteCandidate)</b>
+                    ومنعه من تسجيل الدخول وإخفاؤه من القائمة النشطة.
+                </p>
+                <small>
+                    الطلبات غير المكتملة المخصصة له ستعود تلقائيًا إلى قائمة مراجعة الإدارة،
+                    بينما تظل الطلبات المكتملة محفوظة داخل التقارير والسجل.
+                </small>
+            </div>
+
+            <div class="delete-confirmation-actions">
+                <button type="button"
+                        class="cancel"
+                        disabled="@busy"
+                        @onclick="CancelDelete">
+                    إلغاء
+                </button>
+
+                <button type="button"
+                        class="delete"
+                        disabled="@busy"
+                        @onclick="DeleteProviderAsync">
+                    @(busy ? "جارٍ الحذف..." : "تأكيد الحذف")
+                </button>
+            </div>
+        </section>
+    }
+
+    <section class="partner-toolbar">
+        <label class="partner-search">
+            <span>🔎</span>
+            <input type="search"
+                   @bind="search"
+                   @bind:event="oninput"
+                   placeholder="ابحث بالاسم أو الهاتف أو البريد أو المدينة أو الترخيص..." />
+        </label>
+
+        <label class="inactive-toggle">
+            <input type="checkbox" @bind="showInactive" />
+            <span>عرض الحسابات المحذوفة أو الموقوفة</span>
+        </label>
+    </section>
+
+    @if (loading)
+    {
+        <section class="partner-state">جارٍ تحميل البيانات...</section>
+    }
+    else if (!FilteredProviders.Any())
+    {
+        <section class="partner-state">لا توجد نتائج مطابقة.</section>
+    }
+    else
+    {
+        <section class="partner-grid">
+            @foreach (var provider in FilteredProviders)
+            {
+                var stats = GetStats(provider.Id);
+
+                <article class="partner-card @(provider.IsActive ? "" : "inactive")">
+                    <div class="partner-card-head">
+                        <span class="partner-icon">🩻</span>
+
+                        <div>
+                            <h2>@DisplayName(provider)</h2>
+                            <p>@Show(provider.FullNameEn, "مركز الأشعة")</p>
+                        </div>
+
+                        <span class="account-status @(provider.IsActive ? "active" : "inactive")">
+                            @(provider.IsActive ? "نشط" : "محذوف / موقوف")
+                        </span>
+                    </div>
+
+                    <div class="partner-info">
+                        <div><span>المسؤول</span><strong>@Show(provider.ContactPersonName)</strong></div>
+                        <div><span>الهاتف</span><strong>@Show(provider.PhoneNumber)</strong></div>
+                        <div><span>البريد</span><strong>@Show(provider.Email)</strong></div>
+                        <div><span>الترخيص</span><strong>@Show(provider.LicenseNumber)</strong></div>
+                        <div><span>المحافظة</span><strong>@Show(provider.Governorate)</strong></div>
+                        <div><span>المدينة</span><strong>@Show(provider.City)</strong></div>
+                        <div><span>السعة اليومية</span><strong>@provider.DailyRequestCapacity</strong></div>
+                        <div><span>الخصم</span><strong>@provider.DiscountPercentage.ToString("0.##")%</strong></div>
+                    </div>
+
+                    <div class="partner-stats">
+                        <div><strong>@stats.Total</strong><span>إجمالي الطلبات</span></div>
+                        <div><strong>@stats.Open</strong><span>قيد التنفيذ</span></div>
+                        <div><strong>@stats.Completed</strong><span>مكتملة</span></div>
+                    </div>
+
+                    @if (provider.IsActive)
+                    {
+                        @* RADIOLOGY_MANUAL_SERVICE_BUTTON *@
+                        <button type="button"
+                                class="manual-service-button"
+                                @onclick='() => Nav.NavigateTo($"/admin/manual-services?type=RadiologyScan&provider={Uri.EscapeDataString(provider.Id)}")'>
+                            ✓ تمت الخدمة يدويًا
+                        </button>
+                    }
+
+
+                    @* LABORATORY_MANUAL_SERVICE_BUTTON_START *@
+                    @if (provider.IsActive)
+                    {
+                        <button type="button"
+                                class="manual-service-card-button"
+                                @onclick='() => Nav.NavigateTo($"/admin/manual-services?type={(int)ServiceRequestType.RadiologyScan}&provider={Uri.EscapeDataString(provider.Id)}")'>
+                            ✓ تمت الخدمة يدويًا
+                        </button>
+                    }
+                    @* LABORATORY_MANUAL_SERVICE_BUTTON_END *@
+
+                    <div class="partner-actions">
+                        <button type="button"
+                                class="profile"
+                                @onclick='() => Nav.NavigateTo($"/admin/user-profile/{provider.Id}")'>
+                            عرض الملف الكامل
+                        </button>
+
+                        @if (provider.IsActive)
+                        {
+                            <button type="button"
+                                    class="delete"
+                                    disabled="@busy"
+                                    @onclick="() => AskDelete(provider)">
+                                حذف مركز الأشعة
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button"
+                                    class="restore"
+                                    disabled="@busy"
+                                    @onclick="() => RestoreProviderAsync(provider)">
+                                إعادة تفعيل الحساب
+                            </button>
+                        }
+                    </div>
+                </article>
+            }
+        </section>
+    }
+</div>
+
+<style>
+.partner-admin-page {
+    min-height: calc(100vh - 76px);
+    padding: 34px;
+    background: #f8fafc;
+    color: #101828;
+}
+
+.partner-admin-head {
+    border-radius: 31px;
+    padding: 29px 31px;
+    background: linear-gradient(135deg, var(--partner-accent), color-mix(in srgb, var(--partner-accent) 72%, #0f172a));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    box-shadow: 0 20px 44px color-mix(in srgb, var(--partner-accent) 23%, transparent);
+}
+
+.partner-admin-head > div > span {
+    color: rgba(255,255,255,.74);
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.partner-admin-head h1 {
+    margin: 6px 0 0;
+    color: #fff;
+    font-size: 34px;
+    font-weight: 950;
+}
+
+.partner-admin-head p {
+    margin: 8px 0 0;
+    color: rgba(255,255,255,.84);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.partner-admin-head > button {
+    min-height: 47px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 999px;
+    background: #fff;
+    color: var(--partner-accent);
+    font-weight: 950;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.partner-message {
+    margin: 17px 0;
+    border-radius: 17px;
+    padding: 14px 17px;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.partner-message.ok {
+    background: #ecfdf3;
+    color: #047857;
+}
+
+.partner-message.bad {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.delete-confirmation {
+    margin: 18px 0;
+    border: 1px solid #fecaca;
+    border-radius: 24px;
+    background: #fff7f7;
+    padding: 20px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.delete-confirmation strong {
+    color: #991b1b;
+    font-size: 18px;
+    font-weight: 950;
+}
+
+.delete-confirmation p {
+    margin: 7px 0 0;
+    color: #7f1d1d;
+    font-size: 13px;
+    font-weight: 850;
+}
+
+.delete-confirmation small {
+    display: block;
+    margin-top: 7px;
+    color: #b91c1c;
+    font-size: 11px;
+    line-height: 1.8;
+    font-weight: 850;
+}
+
+.delete-confirmation-actions {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+}
+
+.delete-confirmation-actions button {
+    min-height: 42px;
+    padding: 0 17px;
+    border: 0;
+    border-radius: 999px;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.delete-confirmation-actions .cancel {
+    background: #fff;
+    color: #475467;
+}
+
+.delete-confirmation-actions .delete {
+    background: #dc2626;
+    color: #fff;
+}
+
+.partner-toolbar {
+    margin: 20px 0;
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) auto;
+    gap: 13px;
+    align-items: center;
+}
+
+.partner-search {
+    min-height: 53px;
+    border: 1px solid #e5e7eb;
+    border-radius: 17px;
+    background: #fff;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.partner-search input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #101828;
+    font: inherit;
+    font-weight: 850;
+}
+
+.inactive-toggle {
+    min-height: 53px;
+    border: 1px solid #e5e7eb;
+    border-radius: 17px;
+    background: #fff;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #475467;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.inactive-toggle input {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--partner-accent);
+}
+
+.partner-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    gap: 17px;
+}
+
+.partner-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 26px;
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 13px 32px rgba(15,23,42,.06);
+}
+
+.partner-card.inactive {
+    opacity: .76;
+    border-style: dashed;
+}
+
+.partner-card-head {
+    display: grid;
+    grid-template-columns: 54px minmax(0,1fr) auto;
+    gap: 12px;
+    align-items: center;
+}
+
+.partner-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 18px;
+    background: var(--partner-soft);
+    display: grid;
+    place-items: center;
+    font-size: 27px;
+}
+
+.partner-card-head h2 {
+    margin: 0;
+    color: #101828;
+    font-size: 19px;
+    font-weight: 950;
+}
+
+.partner-card-head p {
+    margin: 5px 0 0;
+    color: #98a2b3;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.account-status {
+    border-radius: 999px;
+    padding: 7px 10px;
+    font-size: 10px;
+    font-weight: 950;
+}
+
+.account-status.active {
+    background: #ecfdf3;
+    color: #047857;
+}
+
+.account-status.inactive {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.partner-info {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 9px;
+}
+
+.partner-info > div {
+    border-radius: 15px;
+    background: #f8fafc;
+    padding: 11px;
+}
+
+.partner-info span {
+    display: block;
+    color: #98a2b3;
+    font-size: 10px;
+    font-weight: 850;
+}
+
+.partner-info strong {
+    display: block;
+    margin-top: 5px;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 950;
+    overflow-wrap: anywhere;
+}
+
+.partner-stats {
+    margin-top: 13px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.partner-stats div {
+    border: 1px solid #eef2f6;
+    border-radius: 14px;
+    padding: 10px 5px;
+    text-align: center;
+}
+
+.partner-stats strong {
+    display: block;
+    color: var(--partner-accent);
+    font-size: 20px;
+    font-weight: 950;
+}
+
+.partner-stats span {
+    display: block;
+    margin-top: 4px;
+    color: #667085;
+    font-size: 9px;
+    font-weight: 850;
+}
+
+.partner-actions {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 9px;
+}
+
+.partner-actions button {
+    min-height: 42px;
+    border: 0;
+    border-radius: 999px;
+    padding: 0 15px;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.partner-actions .profile {
+    background: var(--partner-soft);
+    color: var(--partner-accent);
+}
+
+.partner-actions .delete {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.partner-actions .restore {
+    background: #ecfdf3;
+    color: #047857;
+}
+
+.partner-state {
+    border: 1px dashed #d0d5dd;
+    border-radius: 23px;
+    background: #fff;
+    padding: 38px;
+    text-align: center;
+    color: #667085;
+    font-weight: 900;
+}
+
+@@media (max-width: 800px) {
+    .partner-admin-page {
+        padding: 20px 12px;
+    }
+
+    .partner-admin-head,
+    .delete-confirmation {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .partner-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .partner-card-head {
+        grid-template-columns: 50px minmax(0,1fr);
+    }
+
+    .account-status {
+        grid-column: 1 / -1;
+        width: max-content;
+    }
+
+    .partner-info {
+        grid-template-columns: 1fr;
+    }
+
+    .partner-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* MANUAL_SERVICE_CARD_BUTTON_CSS_START */
+.manual-service-card-button {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 14px;
+    padding: 11px 16px;
+    border: 0;
+    border-radius: 15px;
+    background: var(--partner-accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    font-size: 14px;
+    font-weight: 950;
+    line-height: 1.5;
+    cursor: pointer;
+    box-shadow: 0 9px 20px color-mix(in srgb, var(--partner-accent) 22%, transparent);
+    transition: transform .18s ease, filter .18s ease;
+}
+
+.manual-service-card-button:hover {
+    filter: brightness(.95);
+    transform: translateY(-1px);
+}
+
+.manual-service-card-button:active {
+    transform: translateY(0);
+}
+
+@@media (max-width: 800px) {
+    .manual-service-card-button {
+        min-height: 46px;
+        font-size: 13px;
+        border-radius: 13px;
+    }
+}
+/* MANUAL_SERVICE_CARD_BUTTON_CSS_END */
+
+
+.manual-service-button {
+    width: 100%;
+    min-height: 46px;
+    margin-top: 13px;
+    border: 0;
+    border-radius: 15px;
+    background: var(--partner-accent);
+    color: #fff;
+    font-weight: 950;
+    cursor: pointer;
+}
+
+.manual-service-button:hover {
+    filter: brightness(.96);
+}
+
+</style>
+
+@code {
+    private bool loading = true;
+    private bool busy;
+    private bool showInactive;
+    private bool messageOk;
+    private string search = string.Empty;
+    private string? message;
+
+    private ApplicationUser? deleteCandidate;
+    private List<ApplicationUser> providers = [];
+    private List<MedicalRequest> requests = [];
+
+    private static readonly string[] ProviderKeys = ["RadiologyCenter", "Radiology"];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        loading = true;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        var allUsers = await db.Users
+            .AsNoTracking()
+            .OrderBy(user => user.FullNameAr)
+            .ToListAsync();
+
+        providers = allUsers
+            .Where(IsCorrectProvider)
+            .ToList();
+
+        var ids = providers
+            .Select(provider => provider.Id)
+            .ToList();
+
+        requests = ids.Count == 0
+            ? []
+            : await db.MedicalRequests
+                .AsNoTracking()
+                .Where(request =>
+                    request.AssignedProviderUserId != null
+                    && ids.Contains(request.AssignedProviderUserId))
+                .ToListAsync();
+
+        loading = false;
+    }
+
+    private IEnumerable<ApplicationUser> FilteredProviders
+    {
+        get
+        {
+            IEnumerable<ApplicationUser> query = providers;
+
+            if (!showInactive)
+            {
+                query = query.Where(provider => provider.IsActive);
+            }
+
+            var term = search.Trim();
+
+            if (!string.IsNullOrWhiteSpace(term))
+            {
+                query = query.Where(provider =>
+                    Contains(provider.FullNameAr, term)
+                    || Contains(provider.FullNameEn, term)
+                    || Contains(provider.PhoneNumber, term)
+                    || Contains(provider.Email, term)
+                    || Contains(provider.ContactPersonName, term)
+                    || Contains(provider.LicenseNumber, term)
+                    || Contains(provider.Governorate, term)
+                    || Contains(provider.City, term)
+                    || Contains(provider.AddressAr, term));
+            }
+
+            return query;
+        }
+    }
+
+    private void AskDelete(ApplicationUser provider)
+    {
+        message = null;
+        deleteCandidate = provider;
+    }
+
+    private void CancelDelete()
+    {
+        deleteCandidate = null;
+    }
+
+    private async Task DeleteProviderAsync()
+    {
+        if (deleteCandidate is null || busy)
+        {
+            return;
+        }
+
+        busy = true;
+        message = null;
+        messageOk = false;
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            await using var transaction = await db.Database.BeginTransactionAsync();
+
+            var account = await db.Users
+                .FirstOrDefaultAsync(user => user.Id == deleteCandidate.Id);
+
+            if (account is null || !IsCorrectProvider(account))
+            {
+                message = "مركز الأشعة غير موجود أو لا ينتمي إلى هذا النوع.";
+                return;
+            }
+
+            var activeRequests = await db.MedicalRequests
+                .Include(request => request.QRCodeToken)
+                .Where(request =>
+                    request.AssignedProviderUserId == account.Id
+                    && request.Status != RequestStatus.Completed
+                    && request.Status != RequestStatus.Rejected)
+                .ToListAsync();
+
+            foreach (var request in activeRequests)
+            {
+                request.AssignedProviderUserId = null;
+                request.Status = RequestStatus.UnderReview;
+                request.ReviewedBy = null;
+                request.ReviewedAt = null;
+                request.ReviewNoteAr = "أعيد الطلب للمراجعة بعد حذف الجهة الطبية التي كانت مخصصة له.";
+
+                if (request.QRCodeToken is not null)
+                {
+                    request.QRCodeToken.ExpiresAt = DateTime.UtcNow;
+                }
+            }
+
+            account.IsActive = false;
+            account.LockoutEnabled = true;
+            account.LockoutEnd = DateTimeOffset.UtcNow.AddYears(100);
+            account.UpdatedAt = DateTime.UtcNow;
+            account.SecurityStamp = Guid.NewGuid().ToString();
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            messageOk = true;
+            message = activeRequests.Count == 0
+                ? "تم حذف مركز الأشعة وتعطيل حسابه بنجاح."
+                : $"تم حذف مركز الأشعة وتعطيل حسابه، وإعادة {activeRequests.Count} طلب غير مكتمل إلى مراجعة الإدارة.";
+
+            deleteCandidate = null;
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = $"تعذر حذف مركز الأشعة: {ex.Message}";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task RestoreProviderAsync(ApplicationUser provider)
+    {
+        if (busy)
+        {
+            return;
+        }
+
+        busy = true;
+        message = null;
+        messageOk = false;
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var account = await db.Users
+                .FirstOrDefaultAsync(user => user.Id == provider.Id);
+
+            if (account is null || !IsCorrectProvider(account))
+            {
+                message = "مركز الأشعة غير موجود أو لا ينتمي إلى هذا النوع.";
+                return;
+            }
+
+            account.IsActive = true;
+            account.LockoutEnabled = false;
+            account.LockoutEnd = null;
+            account.UpdatedAt = DateTime.UtcNow;
+            account.SecurityStamp = Guid.NewGuid().ToString();
+
+            await db.SaveChangesAsync();
+
+            messageOk = true;
+            message = "تمت إعادة تفعيل حساب مركز الأشعة بنجاح.";
+
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = $"تعذر إعادة تفعيل مركز الأشعة: {ex.Message}";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private ProviderStats GetStats(string providerId)
+    {
+        var related = requests
+            .Where(request => request.AssignedProviderUserId == providerId)
+            .ToList();
+
+        var completed = related.Count(request => request.Status == RequestStatus.Completed);
+        var open = related.Count(request =>
+            request.Status is RequestStatus.Submitted
+                or RequestStatus.UnderReview
+                or RequestStatus.Approved);
+
+        return new ProviderStats(related.Count, open, completed);
+    }
+
+    private static bool IsCorrectProvider(ApplicationUser user)
+    {
+        var type = user.UserType.ToString();
+
+        return ProviderKeys.Any(key =>
+            type.Contains(key, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool Contains(string? source, string term) =>
+        !string.IsNullOrWhiteSpace(source)
+        && source.Contains(term, StringComparison.OrdinalIgnoreCase);
+
+    private static string DisplayName(ApplicationUser user) =>
+        Show(user.FullNameAr, user.FullNameEn);
+
+    private static string Show(string? value, string fallback = "غير مسجل") =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private readonly record struct ProviderStats(
+        int Total,
+        int Open,
+        int Completed);
+}
