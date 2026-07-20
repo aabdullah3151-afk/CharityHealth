@@ -35,17 +35,17 @@
             <h1>مستشفى بلا مستشفى</h1>
             <h2>تقرير التغطية والتشغيل الأسبوعي</h2>
             <p>الفترة من @week[0].ToString("dd/MM/yyyy") إلى @week.Last().ToString("dd/MM/yyyy")</p>
-            <p>إجمالي العمليات: @WeekOperationsCount</p>
+            <p>إجمالي الخدمات الإلكترونية واليدوية: @WeekOperationsCount</p>
             <p>تاريخ الاستخراج: @DateTime.Now.ToString("dd/MM/yyyy hh:mm tt")</p>
         </section>
 
         @foreach (var specialty in specialties)
         {
-            var doctorList = doctors.Where(x => x.SpecialtyId == specialty.Id).ToList();
-            if (doctorList.Count > 0)
+            var list = doctors.Where(x => x.SpecialtyId == specialty.Id).ToList();
+            if (list.Count > 0)
             {
                 <section class="print-section page-break">
-                    <header><h2>تخصص: @specialty.NameAr</h2><span>@doctorList.Count طبيب</span></header>
+                    <header><h2>تخصص: @specialty.NameAr</h2><span>@list.Count طبيب</span></header>
                     <table>
                         <thead>
                             <tr>
@@ -59,7 +59,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var doctor in doctorList)
+                            @foreach (var doctor in list)
                             {
                                 <tr>
                                     <td>@doctor.User.FullNameAr</td>
@@ -78,13 +78,13 @@
             }
         }
 
-        @foreach (var partnerSection in partnerSections)
+        @foreach (var section in partnerSections)
         {
-            var partnerList = PartnersFor(partnerSection).ToList();
-            if (partnerList.Count > 0)
+            var list = partners.Where(x => PartnerMatches(x, section.Type, section.IncludePharmacist)).ToList();
+            if (list.Count > 0)
             {
                 <section class="print-section page-break">
-                    <header><h2>@partnerSection.Title</h2><span>@partnerList.Count جهة</span></header>
+                    <header><h2>@section.Title</h2><span>@list.Count جهة</span></header>
                     <table>
                         <thead>
                             <tr>
@@ -98,7 +98,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var partner in partnerList)
+                            @foreach (var partner in list)
                             {
                                 <tr>
                                     <td>@partner.FullNameAr</td>
@@ -106,7 +106,7 @@
                                     <td>@Math.Max(1, partner.DailyRequestCapacity)</td>
                                     @foreach (var day in week)
                                     {
-                                        var state = PartnerState(partner, day, partnerSection.Service);
+                                        var state = PartnerState(partner, section.Service, day);
                                         <td class="@state.Css">@state.Text</td>
                                     }
                                 </tr>
@@ -125,7 +125,7 @@
     .print-actions{display:flex;gap:10px;margin-bottom:18px}.print-actions button{border:0;border-radius:10px;padding:11px 18px;font-weight:800;cursor:pointer;background:#0f766e;color:#fff}.print-actions button:last-child{background:#e5e7eb;color:#111827}
     .print-cover{text-align:center;border:2px solid #0f766e;border-radius:18px;padding:42px 24px;margin-bottom:28px}.print-cover h1{font-size:30px;margin:0 0 12px}.print-cover h2{font-size:22px;margin:0 0 18px;color:#0f766e}.print-cover p{margin:7px 0;color:#475569}
     .print-section{margin:0 0 28px}.print-section header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0f766e;padding:0 0 10px;margin-bottom:12px}.print-section h2{margin:0;font-size:22px}.print-section header span{font-weight:800;color:#0f766e}
-    table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}th,td{border:1px solid #cbd5e1;padding:8px 5px;text-align:center;vertical-align:middle;word-wrap:break-word}th{background:#0f766e;color:#fff;font-weight:800}th small{display:block;margin-top:3px}.available{background:#dcfce7;color:#166534;font-weight:800}.near{background:#fef3c7;color:#92400e;font-weight:800}.full{background:#dcfce7;color:#166534;font-size:19px;font-weight:950}.off{background:#e2e8f0;color:#64748b;font-weight:700}
+    table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}th,td{border:1px solid #cbd5e1;padding:8px 5px;text-align:center;vertical-align:middle;word-wrap:break-word}th{background:#0f766e;color:#fff;font-weight:800}th small{display:block;margin-top:3px}.available{background:#dcfce7;color:#166534;font-weight:800}.near{background:#fef3c7;color:#92400e;font-weight:800}.full{background:#fee2e2;color:#991b1b;font-weight:900;font-size:18px}.off{background:#e2e8f0;color:#64748b;font-weight:700}
     .page-break{break-before:page;page-break-before:always}
     @@media print{.no-print{display:none!important}.print-report{padding:0}.print-cover{break-after:page;page-break-after:always}.print-section{break-inside:avoid-page}@@page{size:A4 landscape;margin:10mm}}
 </style>
@@ -136,17 +136,17 @@
     private List<Doctor> doctors = [];
     private List<ApplicationUser> partners = [];
     private List<MedicalRequest> requests = [];
-    private List<ManualServiceRecord> manualServices = [];
+    private List<ManualServiceRecord> manualServiceRecords = [];
     private List<Specialty> specialties = [];
 
-    private readonly PartnerSectionDefinition[] partnerSections =
+    private readonly (string Title, UserType Type, ServiceRequestType Service, bool IncludePharmacist)[] partnerSections =
     [
-        new("معامل التحاليل", UserType.Laboratory, ServiceRequestType.LaboratoryTest),
-        new("مراكز الأشعة", UserType.RadiologyCenter, ServiceRequestType.RadiologyScan),
-        new("الصيدليات", UserType.Pharmacy, ServiceRequestType.PharmacyMedication, true)
+        ("معامل التحاليل", UserType.Laboratory, ServiceRequestType.LaboratoryTest, false),
+        ("مراكز الأشعة", UserType.RadiologyCenter, ServiceRequestType.RadiologyScan, false),
+        ("الصيدليات", UserType.Pharmacy, ServiceRequestType.PharmacyMedication, true)
     ];
 
-    private int WeekOperationsCount => requests.Count + manualServices.Sum(x => x.Quantity);
+    private int WeekOperationsCount => requests.Count + manualServiceRecords.Sum(x => x.Quantity);
 
     protected override async Task OnInitializedAsync()
     {
@@ -176,20 +176,15 @@
         requests = await Db.MedicalRequests.AsNoTracking()
             .Where(x => x.AppointmentDate >= week[0] &&
                         x.AppointmentDate <= week.Last() &&
-                        (x.Status == RequestStatus.Approved || x.Status == RequestStatus.Completed))
+                       (x.Status == RequestStatus.Approved || x.Status == RequestStatus.Completed))
             .ToListAsync();
 
-        manualServices = await Db.ManualServiceRecords.AsNoTracking()
+        manualServiceRecords = await Db.ManualServiceRecords.AsNoTracking()
             .Where(x => x.ServiceDate >= week[0] && x.ServiceDate <= week.Last())
             .ToListAsync();
 
         loading = false;
     }
-
-    private IEnumerable<ApplicationUser> PartnersFor(PartnerSectionDefinition definition) =>
-        partners.Where(x =>
-            x.UserType == definition.Type ||
-            (definition.IncludePharmacist && x.UserType == UserType.Pharmacist));
 
     private StatusCell DoctorState(Doctor doctor, DateOnly day)
     {
@@ -201,11 +196,10 @@
             x.ServiceType == ServiceRequestType.MedicalConsultation &&
             x.DoctorId == doctor.Id &&
             x.AppointmentDate == day);
-        var manualUsed = manualServices
-            .Where(x =>
-                x.ServiceType == ServiceRequestType.MedicalConsultation &&
-                x.DoctorId == doctor.Id &&
-                x.ServiceDate == day)
+        var manualUsed = manualServiceRecords
+            .Where(x => x.ServiceType == ServiceRequestType.MedicalConsultation &&
+                        x.DoctorId == doctor.Id &&
+                        x.ServiceDate == day)
             .Sum(x => x.Quantity);
         var used = electronicUsed + manualUsed;
         var remaining = Math.Max(0, capacity - used);
@@ -215,7 +209,7 @@
             : new($"متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
     }
 
-    private StatusCell PartnerState(ApplicationUser partner, DateOnly day, ServiceRequestType service)
+    private StatusCell PartnerState(ApplicationUser partner, ServiceRequestType service, DateOnly day)
     {
         if (!IsWorking(partner.WorkingDays, day.DayOfWeek))
             return new("غير موجود", "off");
@@ -225,11 +219,10 @@
             x.ServiceType == service &&
             x.AssignedProviderUserId == partner.Id &&
             x.AppointmentDate == day);
-        var manualUsed = manualServices
-            .Where(x =>
-                x.ServiceType == service &&
-                x.ProviderUserId == partner.Id &&
-                x.ServiceDate == day)
+        var manualUsed = manualServiceRecords
+            .Where(x => x.ServiceType == service &&
+                        x.ProviderUserId == partner.Id &&
+                        x.ServiceDate == day)
             .Sum(x => x.Quantity);
         var used = electronicUsed + manualUsed;
         var remaining = Math.Max(0, capacity - used);
@@ -238,6 +231,9 @@
             ? new("✓", "full")
             : new($"متاح {remaining}/{capacity}", remaining <= Math.Max(1, capacity / 4) ? "near" : "available");
     }
+
+    private static bool PartnerMatches(ApplicationUser user, UserType type, bool includePharmacist) =>
+        user.UserType == type || (includePharmacist && user.UserType == UserType.Pharmacist);
 
     private static List<DateOnly> BuildWeek(DateOnly today)
     {
@@ -275,9 +271,4 @@
     };
 
     private sealed record StatusCell(string Text, string Css);
-    private sealed record PartnerSectionDefinition(
-        string Title,
-        UserType Type,
-        ServiceRequestType Service,
-        bool IncludePharmacist = false);
 }

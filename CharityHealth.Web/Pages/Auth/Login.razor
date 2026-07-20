@@ -1,4 +1,5 @@
 @page "/login"
+@* LOGIN_AUTOFILL_DISABLED *@
 @using CharityHealth.Web.Components.Auth
 
 @using System.Globalization
@@ -22,31 +23,6 @@
             
 
 
-            <div class="demo-grid">
-                <button type="button"
-                        class="demo-btn demo-beneficiary"
-                        onclick="fillLogin('mm0115810@gmail.com','Admin@123456!')">
-                    مستفيد
-                </button>
-
-                <button type="button"
-                        class="demo-btn demo-doctor"
-                        onclick="fillLogin('doctor@charityhealth.org','12345678')">
-                    طبيب متطوع
-                </button>
-
-                <button type="button"
-                        class="demo-btn demo-pharmacy"
-                        onclick="fillLogin('pharmacist@charityhealth.org','Admin@123456!')">
-                    صيدلاني
-                </button>
-
-                <button type="button"
-                        class="demo-btn demo-admin"
-                        onclick="fillLogin('admin@charityhealth.org','Admin@123456!')">
-                    مدير نظام
-                </button>
-            </div>
         </div>
 
         <div class="login-divider">
@@ -92,8 +68,8 @@
             </div>
         }
 
-        <form method="post" action="/account/login" class="login-form" autocomplete="on">
-            <input type="hidden" name="returnUrl" value="@(ReturnUrl ?? string.Empty)" />
+        <form method="post" action="/account/login" class="login-form" autocomplete="off">
+            <input type="hidden" name="returnUrl" />
 
             <label for="login-credential">البريد الإلكتروني</label>
             <div class="field-shell">
@@ -103,7 +79,7 @@
                        name="credential"
                        type="email"
                        placeholder="example@email.com"
-                       required / autocomplete="off">
+                       required / data-lpignore="true" data-1p-ignore="true" readonly autocomplete="off" onfocus="this.removeAttribute('readonly')" onpointerdown="this.removeAttribute('readonly')">
             </div>
 
             <label for="login-password">كلمة المرور</label>
@@ -114,7 +90,7 @@
                        name="password"
                        type="@(showPassword ? "text" : "password")"
                        placeholder="••••••••"
-                       required / autocomplete="off">
+                       required / data-lpignore="true" data-1p-ignore="true" readonly autocomplete="new-password" onfocus="this.removeAttribute('readonly')" onpointerdown="this.removeAttribute('readonly')">
         <button type="button"
                 class="login-password-eye"
                 @onclick="TogglePasswordVisibility"
@@ -164,20 +140,7 @@
 </div>
 
 <script>
-    window.fillLogin = function (credential, password) {
-        const credentialInput = document.getElementById('login-credential');
-        const passwordInput = document.getElementById('login-password');
-
-        if (credentialInput) {
-            credentialInput.value = credential;
-            credentialInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-
-        if (passwordInput) {
-            passwordInput.value = password;
-            passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-    };
+    
 </script>
 
 @code {

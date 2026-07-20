@@ -127,7 +127,7 @@ else
     {
         await LoadStatsAsync();
 
-        refreshTimer = new PeriodicTimer(TimeSpan.FromMinutes(5));
+        refreshTimer = new PeriodicTimer(TimeSpan.FromSeconds(30));
         refreshTask = RefreshLoopAsync();
     }
 
@@ -169,20 +169,11 @@ else
                             user.UserType == UserType.RadiologyCenter,
                     refreshCts.Token);
 
-            var electronicCompleted = await db.MedicalRequests
+            completedServices = await db.MedicalRequests
                 .AsNoTracking()
                 .CountAsync(
                     request => request.Status == RequestStatus.Completed,
                     refreshCts.Token);
-
-            var manualCompleted = await db.ManualServiceRecords
-                .AsNoTracking()
-                .SumAsync(
-                    record => (int?)record.Quantity,
-                    refreshCts.Token) ?? 0;
-
-            completedServices = electronicCompleted + manualCompleted;
-            // LOGIN_COMPLETED_INCLUDES_MANUAL_V1
 
             loadFailed = false;
         }
