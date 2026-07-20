@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.EntityFrameworkCore;
 using Radzen;
 using Microsoft.Extensions.FileProviders;
 
@@ -19,13 +20,11 @@ builder.Services.AddServerSideBlazor();
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+
 // ── Layers ────────────────────────────────────────────
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-//// ── Blazor Server ─────────────────────────────────────
-//builder.Services.AddRazorComponents()
-//    .AddInteractiveServerComponents();
 
 // ── Radzen ────────────────────────────────────────────
 builder.Services.AddRadzenComponents();
@@ -33,8 +32,10 @@ builder.Services.AddScoped<Radzen.DialogService>();
 builder.Services.AddScoped<Radzen.NotificationService>();
 builder.Services.AddScoped<Radzen.TooltipService>();
 
+
 // ── Auth ──────────────────────────────────────────────
 builder.Services.AddCascadingAuthenticationState();
+
 builder.Services.AddScoped<AuthenticationStateProvider,
     Microsoft.AspNetCore.Components.Server.ServerAuthenticationStateProvider>();
 
@@ -42,18 +43,26 @@ builder.Services.AddScoped<
     CharityHealth.Application.Interfaces.Services.INotificationSender,
     CharityHealth.Web.Hubs.SignalRNotificationSender>();
 
+
 // ── SignalR ───────────────────────────────────────────
 builder.Services.AddSignalR();
 
-// ── HttpContextAccessor (needed for CurrentUserService) ──
+
+// ── HttpContextAccessor ───────────────────────────────
 builder.Services.AddHttpContextAccessor();
 
-// ── New Blazor UI services ─────────────────────────────
+
+// ── UI Services ───────────────────────────────────────
 builder.Services.AddScoped<UiThemeService>();
 builder.Services.AddScoped<HealthcareUiService>();
 
+
 // ── Localization ──────────────────────────────────────
-builder.Services.AddLocalization(opts => opts.ResourcesPath = "Resources");
+builder.Services.AddLocalization(opts =>
+{
+    opts.ResourcesPath = "Resources";
+});
+
 
 // ── Cookie Auth ───────────────────────────────────────
 builder.Services.ConfigureApplicationCookie(opts =>
@@ -62,10 +71,12 @@ builder.Services.ConfigureApplicationCookie(opts =>
     opts.AccessDeniedPath = "/access-denied";
     opts.ExpireTimeSpan = TimeSpan.FromDays(30);
     opts.SlidingExpiration = true;
+
     opts.Cookie.HttpOnly = true;
     opts.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     opts.Cookie.SameSite = SameSiteMode.Strict;
 });
+
 
 // ── HSTS ─────────────────────────────────────────────
 builder.Services.AddHsts(opts =>
@@ -75,7 +86,9 @@ builder.Services.AddHsts(opts =>
     opts.MaxAge = TimeSpan.FromDays(365);
 });
 
+
 var app = builder.Build();
+
 
 // ── Middleware Pipeline ───────────────────────────────
 if (!app.Environment.IsDevelopment())
@@ -84,10 +97,13 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+
 app.UseHttpsRedirection();
+
 app.UseStaticFiles();
-// ── Serve uploaded files ───────────────────────────────
-// ✅ Auto-create the uploads directory so PhysicalFileProvider never throws
+
+
+// ── Uploads ───────────────────────────────────────────
 var uploadsPath = builder.Configuration["FileStorage:BasePath"];
 
 if (string.IsNullOrWhiteSpace(uploadsPath))
@@ -101,41 +117,58 @@ else if (!Path.IsPathRooted(uploadsPath))
 
 Directory.CreateDirectory(uploadsPath);
 
+
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(uploadsPath),
     RequestPath = "/uploads"
 });
 
+
 app.UseRouting();
 
 
 app.Use(async (context, next) =>
 {
-    var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
+    var antiforgery =
+        context.RequestServices.GetRequiredService<IAntiforgery>();
 
     antiforgery.GetAndStoreTokens(context);
 
     await next();
 });
 
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+
+// Controllers + Razor Pages
 app.MapControllers();
+
+app.MapRazorPages();
+
 
 app.UseAntiforgery();
 
+
 // ── Blazor & SignalR ──────────────────────────────────
 app.MapBlazorHub();
+
 app.MapHub<NotificationHub>("/hubs/notifications");
+
 
 app.MapFallbackToPage("/_Host");
 
+
+// ── Auto Apply EF Core Migrations ─────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider
+        .GetRequiredService<CharityHealth.Infrastructure.Persistence.AppDbContext>();
+
+    db.Database.Migrate();
+}
+
+
 app.Run();
-
-// ─────────────────────────────────────────────────────
-
-
-
-
-
