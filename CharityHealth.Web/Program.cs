@@ -166,7 +166,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider
         .GetRequiredService<CharityHealth.Infrastructure.Persistence.AppDbContext>();
 
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 }
 
 
