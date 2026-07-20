@@ -4,9 +4,7 @@ using CharityHealth.Infrastructure;
 using CharityHealth.Web.Data;
 using CharityHealth.Web.Hubs;
 using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
 using Radzen;
 using Microsoft.Extensions.FileProviders;
@@ -20,6 +18,7 @@ builder.Services.AddServerSideBlazor();
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+
 
 // ── Layers ────────────────────────────────────────────
 builder.Services.AddApplication();
@@ -161,13 +160,13 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapFallbackToPage("/_Host");
 
 
-// ── Auto Apply EF Core Migrations ─────────────────────
+// ── Auto Create Database on Render ─────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider
         .GetRequiredService<CharityHealth.Infrastructure.Persistence.AppDbContext>();
 
-    db.Database.Migrate();
+    db.Database.EnsureCreated();
 }
 
 
