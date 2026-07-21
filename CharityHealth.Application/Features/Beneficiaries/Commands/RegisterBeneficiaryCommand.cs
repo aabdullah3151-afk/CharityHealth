@@ -34,20 +34,20 @@ public class RegisterBeneficiaryValidator : AbstractValidator<RegisterBeneficiar
         RuleFor(x => x.FullNameAr)
             .NotEmpty().WithMessage("الاسم الكامل بالعربية مطلوب")
             .MaximumLength(200);
-
         RuleFor(x => x.PhoneNumber)
             .NotEmpty().WithMessage("رقم الهاتف مطلوب")
-            .Matches(@"^\+?[0-9]{8,15}$").WithMessage("رقم الهاتف غير صحيح");
+            .Matches(@"^01[012][0-9]{8}$")
+            .WithMessage("رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010 أو 011 أو 012");
 
- RuleFor(x => x.Password)
+RuleFor(x => x.Password)
      .NotEmpty().WithMessage("كلمة المرور مطلوبة")
      .MinimumLength(6).WithMessage("كلمة المرور 6 أحرف على الأقل");
-
         RuleFor(x => x.NationalId)
-            .NotEmpty().WithMessage("رقم الهوية مطلوب")
-            .MaximumLength(20);
+            .NotEmpty().WithMessage("الرقم القومي مطلوب")
+            .Matches(@"^[0-9]{14}$")
+            .WithMessage("الرقم القومي يجب أن يتكون من 14 رقمًا فقط");
 
-        RuleFor(x => x.DateOfBirth)
+RuleFor(x => x.DateOfBirth)
             .LessThan(DateOnly.FromDateTime(DateTime.Today.AddYears(-10)))
             .WithMessage("العمر يجب أن يكون أكثر من 10 سنوات");
 
@@ -90,7 +90,7 @@ public class RegisterBeneficiaryHandler(
                 FullNameEn = cmd.FullNameEn,
                 UserType = UserType.Beneficiary,
                 IsActive = true,
-                PhoneNumberConfirmed = false,
+                PhoneNumberConfirmed = true,
                 EmailConfirmed = string.IsNullOrEmpty(cmd.Email) ? false : false,
             };
 

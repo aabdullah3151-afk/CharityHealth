@@ -50,8 +50,11 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>رقم الهوية الوطنية <span class="req">*</span></label>
+                    <label>الرقم القومي <span class="req">*</span></label>
                     <InputText @bind-Value="step1.NationalId"
+                               maxlength="14"
+                               inputmode="numeric"
+                               pattern="[0-9]{14}"
                                class="form-control"
                                placeholder="XXXXXXXX"
                                dir="ltr"
@@ -112,13 +115,15 @@
             <div class="form-group">
                 <label>رقم الهاتف <span class="req">*</span></label>
                 <InputText @bind-Value="step2.PhoneNumber"
+                               maxlength="11"
+                               inputmode="numeric"
+                               pattern="01[012][0-9]{8}"
                            class="form-control"
                            placeholder="+96891234567"
                            dir="ltr"
                            type="tel"
-                           inputmode="numeric"
                            autocomplete="off" />
-                <small class="hint">سيُستخدم رقم الهاتف للتواصل والتحقق عند الحاجة</small>
+                <small class="hint">يجب أن يكون رقم الهاتف 11 رقمًا ويبدأ بـ 010 أو 011 أو 012</small>
                 <ValidationMessage For="@(() => step2.PhoneNumber)" />
             </div>
 
@@ -311,6 +316,10 @@
         public string? FullNameEn { get; set; }
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "رقم الهوية مطلوب")]
+        [System.ComponentModel.DataAnnotations.RegularExpression(
+            @"^[0-9]{14}$",
+            ErrorMessage = "الرقم القومي يجب أن يتكون من 14 رقمًا فقط")]
+
         public string NationalId { get; set; } = string.Empty;
 
         public DateOnly DateOfBirth { get; set; } = new DateOnly(1990, 1, 1);
@@ -325,6 +334,10 @@
     private class Step2Model
     {
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "رقم الهاتف مطلوب")]
+        [System.ComponentModel.DataAnnotations.RegularExpression(
+            @"^01[012][0-9]{8}$",
+            ErrorMessage = "رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010 أو 011 أو 012")]
+
         public string PhoneNumber { get; set; } = string.Empty;
 
         [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "بريد إلكتروني غير صحيح")]
