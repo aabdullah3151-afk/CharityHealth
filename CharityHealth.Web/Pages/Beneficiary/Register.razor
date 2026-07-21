@@ -51,13 +51,12 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>الرقم القومي <span class="req">*</span></label>
-                    <InputText @bind-Value="step1.NationalId"
+                    <InputText @bind-Value="step1.NationalId" dir="ltr"
                                maxlength="14"
                                inputmode="numeric"
                                pattern="[0-9]{14}"
                                class="form-control"
                                placeholder="XXXXXXXX"
-                               dir="ltr"
                                autocomplete="off" />
                     <ValidationMessage For="@(() => step1.NationalId)" />
                 </div>
@@ -114,16 +113,15 @@
 
             <div class="form-group">
                 <label>رقم الهاتف <span class="req">*</span></label>
-                <InputText @bind-Value="step2.PhoneNumber"
+                <InputText @bind-Value="step2.PhoneNumber" dir="ltr"
                                maxlength="11"
                                inputmode="numeric"
-                               pattern="01[012][0-9]{8}"
+                               pattern="01[0125][0-9]{8}"
                            class="form-control"
                            placeholder="+96891234567"
-                           dir="ltr"
                            type="tel"
                            autocomplete="off" />
-                <small class="hint">يجب أن يكون رقم الهاتف 11 رقمًا ويبدأ بـ 010 أو 011 أو 012</small>
+                <small class="hint">يجب أن يكون رقم الهاتف 11 رقمًا ويبدأ بـ 010 أو 011 أو 012 أو 015</small>
                 <ValidationMessage For="@(() => step2.PhoneNumber)" />
             </div>
 
@@ -335,8 +333,8 @@
     {
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "رقم الهاتف مطلوب")]
         [System.ComponentModel.DataAnnotations.RegularExpression(
-            @"^01[012][0-9]{8}$",
-            ErrorMessage = "رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010 أو 011 أو 012")]
+            @"^01[0125][0-9]{8}$",
+            ErrorMessage = "رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010 أو 011 أو 012 أو 015")]
 
         public string PhoneNumber { get; set; } = string.Empty;
 

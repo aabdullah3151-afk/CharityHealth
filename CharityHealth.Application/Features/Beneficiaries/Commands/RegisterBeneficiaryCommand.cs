@@ -36,8 +36,8 @@ public class RegisterBeneficiaryValidator : AbstractValidator<RegisterBeneficiar
             .MaximumLength(200);
         RuleFor(x => x.PhoneNumber)
             .NotEmpty().WithMessage("رقم الهاتف مطلوب")
-            .Matches(@"^01[012][0-9]{8}$")
-            .WithMessage("رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010 أو 011 أو 012");
+            .Matches(@"^01[0125][0-9]{8}$")
+            .WithMessage("رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010 أو 011 أو 012 أو 015");
 
 RuleFor(x => x.Password)
      .NotEmpty().WithMessage("كلمة المرور مطلوبة")
