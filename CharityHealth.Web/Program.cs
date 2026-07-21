@@ -3,11 +3,13 @@ using CharityHealth.Application;
 using CharityHealth.Infrastructure;
 using CharityHealth.Web.Data;
 using CharityHealth.Web.Hubs;
+using CharityHealth.Domain.Entities;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Radzen;
 using Microsoft.Extensions.FileProviders;
+using Radzen;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,7 +37,8 @@ builder.Services.AddScoped<Radzen.TooltipService>();
 // ── Auth ──────────────────────────────────────────────
 builder.Services.AddCascadingAuthenticationState();
 
-builder.Services.AddScoped<AuthenticationStateProvider,
+builder.Services.AddScoped<
+    AuthenticationStateProvider,
     Microsoft.AspNetCore.Components.Server.ServerAuthenticationStateProvider>();
 
 builder.Services.AddScoped<
@@ -68,6 +71,7 @@ builder.Services.ConfigureApplicationCookie(opts =>
 {
     opts.LoginPath = "/login";
     opts.AccessDeniedPath = "/access-denied";
+
     opts.ExpireTimeSpan = TimeSpan.FromDays(30);
     opts.SlidingExpiration = true;
 
@@ -77,7 +81,7 @@ builder.Services.ConfigureApplicationCookie(opts =>
 });
 
 
-// ── HSTS ─────────────────────────────────────────────
+// ── HSTS ──────────────────────────────────────────────
 builder.Services.AddHsts(opts =>
 {
     opts.Preload = true;
@@ -107,11 +111,15 @@ var uploadsPath = builder.Configuration["FileStorage:BasePath"];
 
 if (string.IsNullOrWhiteSpace(uploadsPath))
 {
-    uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
+    uploadsPath = Path.Combine(
+        app.Environment.ContentRootPath,
+        "uploads");
 }
 else if (!Path.IsPathRooted(uploadsPath))
 {
-    uploadsPath = Path.Combine(app.Environment.ContentRootPath, uploadsPath);
+    uploadsPath = Path.Combine(
+        app.Environment.ContentRootPath,
+        uploadsPath);
 }
 
 Directory.CreateDirectory(uploadsPath);
@@ -142,11 +150,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 
-// Controllers + Razor Pages
+// ── Controllers + Razor Pages ─────────────────────────
 app.MapControllers();
 
 app.MapRazorPages();
-
 
 app.UseAntiforgery();
 
@@ -156,17 +163,69 @@ app.MapBlazorHub();
 
 app.MapHub<NotificationHub>("/hubs/notifications");
 
-
 app.MapFallbackToPage("/_Host");
 
 
-// ── Auto Create Database on Render ─────────────────────
+// ── Auto Apply EF Core Migrations ─────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider
-        .GetRequiredService<CharityHealth.Infrastructure.Persistence.AppDbContext>();
+        .GetRequiredService<
+            CharityHealth.Infrastructure.Persistence.AppDbContext>();
 
     db.Database.Migrate();
+}
+
+
+// ── Temporary Admin Password Reset ────────────────────
+var adminResetPassword =
+    builder.Configuration["ADMIN_RESET_PASSWORD"];
+
+if (!string.IsNullOrWhiteSpace(adminResetPassword))
+{
+    using var resetScope = app.Services.CreateScope();
+
+    var userManager = resetScope.ServiceProvider
+        .GetRequiredService<UserManager<ApplicationUser>>();
+
+    var admin = await userManager.FindByEmailAsync(
+        "admin@charityhealth.org");
+
+    if (admin is null)
+    {
+        throw new InvalidOperationException(
+            "The administrator account was not found.");
+    }
+
+    admin.PasswordHash =
+        userManager.PasswordHasher.HashPassword(
+            admin,
+            adminResetPassword);
+
+    admin.SecurityStamp = Guid.NewGuid().ToString();
+
+    var updateResult =
+        await userManager.UpdateAsync(admin);
+
+    if (!updateResult.Succeeded)
+    {
+        var errors = string.Join(
+            " | ",
+            updateResult.Errors.Select(
+                error => $"{error.Code}: {error.Description}"));
+
+        throw new InvalidOperationException(
+            $"Administrator password reset failed: {errors}");
+    }
+
+    await userManager.ResetAccessFailedCountAsync(admin);
+
+    await userManager.SetLockoutEndDateAsync(
+        admin,
+        null);
+
+    app.Logger.LogWarning(
+        "Administrator password reset completed successfully.");
 }
 
 
