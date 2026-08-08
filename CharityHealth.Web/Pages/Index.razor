@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @layout CharityHealth.Web.Shared.Layouts.AuthLayout
 
 @using Microsoft.EntityFrameworkCore
@@ -7,7 +7,27 @@
 @inject NavigationManager Nav
 @inject CharityHealth.Infrastructure.Persistence.AppDbContext Db
 
-<PageTitle>مستشفى بلا مستشفى</PageTitle>
+<PageTitle>مستشفى بلا مستشفى | كشف مجاني في بني مزار | مستشفى الزراعيين</PageTitle>
+
+<HeadContent>
+    <meta name="description"
+          content="مستشفى بلا مستشفى منصة رعاية صحية خيرية تقدم خدمات كشف مجاني في بني مزار لخدمة الأهالي وربط المستفيدين بالأطباء المتطوعين. مستشفى بني مزار، مستشفى بنى مزار، مستشفي بني مزار، مستشفى الزراعيين." />
+
+    <meta property="og:title"
+          content="مستشفى بلا مستشفى | كشف مجاني في بني مزار" />
+
+    <meta property="og:description"
+          content="رعاية صحية خيرية وكشف مجاني في بني مزار بالتعاون مع الأطباء المتطوعين." />
+
+    <meta property="og:type"
+          content="website" />
+
+    <meta property="og:url"
+          content="https://charityhealth.onrender.com/" />
+
+    <link rel="canonical"
+          href="https://charityhealth.onrender.com/" />
+</HeadContent>
 
 <div class="login-shell landing-shell">
 
@@ -17,8 +37,9 @@
             <h1>مستشفى بلا مستشفى</h1>
 
             <p>
-                منصة خيرية رقمية تربط المستفيدين بالأطباء
-                والمتطوعين والمؤسسة.
+                منصة رعاية صحية خيرية في بني مزار، تساعد أهالي بني مزار
+                في تقديم طلب كشف مجاني، وتربط المستفيدين بالأطباء
+                المتطوعين ومقدمي الخدمات الطبية.
             </p>
         </div>
 
