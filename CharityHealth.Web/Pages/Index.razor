@@ -3,6 +3,7 @@
 
 @using Microsoft.EntityFrameworkCore
 @using System.Globalization
+@using CharityHealth.Domain.Enums
 
 @inject NavigationManager Nav
 @inject CharityHealth.Infrastructure.Persistence.AppDbContext Db
@@ -151,9 +152,25 @@
                     doctor.IsAvailable &&
                     !doctor.IsDeleted);
 
-            CompletedConsultations = await Db.Consultations
+            const int historicalDoctorReferrals = 537;
+
+            var electronicCompleted = await Db.MedicalRequests
                 .AsNoTracking()
-                .CountAsync();
+                .CountAsync(r =>
+                    r.ServiceType == ServiceRequestType.MedicalConsultation
+                    && r.Status == RequestStatus.Completed);
+
+            var manualCompleted = await Db.ManualServiceRecords
+                .AsNoTracking()
+                .Where(r =>
+                    !r.IsDeleted
+                    && r.ServiceType == ServiceRequestType.MedicalConsultation)
+                .SumAsync(r => (int?)r.Quantity) ?? 0;
+
+            CompletedConsultations =
+                historicalDoctorReferrals
+                + electronicCompleted
+                + manualCompleted;
 
             SatisfactionDisplay = "—";
         }
