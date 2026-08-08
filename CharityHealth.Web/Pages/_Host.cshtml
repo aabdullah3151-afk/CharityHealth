@@ -1,11 +1,11 @@
-@page "/"
+﻿@page "/"
 @namespace CharityHealth.Web.Pages
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
 @{
     Layout = "_Layout";
 }
 
-<component type="typeof(App)" render-mode="Server" />
+<component type="typeof(App)" render-mode="ServerPrerendered" />
 
 <!-- GLOBAL WHATSAPP FLOATING SUPPORT -->
 <a class="whatsapp-float-btn"
