@@ -1,4 +1,4 @@
-@implements IAsyncDisposable
+﻿@implements IAsyncDisposable
 
 @using Microsoft.EntityFrameworkCore
 @using CharityHealth.Domain.Enums
@@ -181,7 +181,12 @@ else
                     record => (int?)record.Quantity,
                     refreshCts.Token) ?? 0;
 
-            completedServices = electronicCompleted + manualCompleted;
+            const int historicalCompletedServices = 537;
+
+            completedServices =
+                historicalCompletedServices
+                + electronicCompleted
+                + manualCompleted;
             // LOGIN_COMPLETED_INCLUDES_MANUAL_V1
 
             loadFailed = false;
