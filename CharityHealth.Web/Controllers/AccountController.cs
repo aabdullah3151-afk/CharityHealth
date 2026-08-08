@@ -1,4 +1,4 @@
-using CharityHealth.Application.Interfaces.Services;
+﻿using CharityHealth.Application.Interfaces.Services;
 using CharityHealth.Domain.Entities;
 using CharityHealth.Domain.Enums;
 using Microsoft.AspNetCore.Authentication;
@@ -276,7 +276,14 @@ namespace CharityHealth.Web.Controllers
             var identity = new ClaimsIdentity(claims, IdentityConstants.ApplicationScheme);
             var principal = new ClaimsPrincipal(identity);
 
-            await HttpContext.SignInAsync(IdentityConstants.ApplicationScheme, principal);
+            await HttpContext.SignInAsync(
+                IdentityConstants.ApplicationScheme,
+                principal,
+                new AuthenticationProperties
+                {
+                    IsPersistent = true,
+                    AllowRefresh = true
+                });
         }
 
         private static string GetSafeReturnUrl(

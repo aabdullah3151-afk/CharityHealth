@@ -1,4 +1,4 @@
-using CharityHealth.Web.Services;
+﻿using CharityHealth.Web.Services;
 using CharityHealth.Application;
 using CharityHealth.Infrastructure;
 using CharityHealth.Web.Data;
@@ -147,6 +147,75 @@ app.Use(async (context, next) =>
 
 
 app.UseAuthentication();
+
+
+// ── Redirect authenticated users from home/login ─────
+app.Use(async (context, next) =>
+{
+    if ((context.Request.Path == "/" ||
+         context.Request.Path == "/login")
+        && context.User.Identity?.IsAuthenticated == true)
+    {
+        var user = context.User;
+
+        string? target = null;
+
+        if (user.IsInRole("Laboratory"))
+        {
+            target = "/laboratory/dashboard";
+        }
+        else if (user.IsInRole("RadiologyCenter"))
+        {
+            target = "/radiology/dashboard";
+        }
+        else if (user.IsInRole("Pharmacy") ||
+                 user.IsInRole("Pharmacist"))
+        {
+            target = "/pharmacy/dashboard";
+        }
+        else if (user.IsInRole("Administrator") ||
+                 user.IsInRole("Staff"))
+        {
+            target = "/admin/dashboard";
+        }
+        else if (user.IsInRole("Doctor"))
+        {
+            target = "/doctor/dashboard";
+        }
+        else if (user.IsInRole("Beneficiary"))
+        {
+            target = "/portal/dashboard";
+        }
+        else
+        {
+            var userType =
+                user.FindFirst("UserType")?.Value;
+
+            target = userType switch
+            {
+                "Administrator" => "/admin/dashboard",
+                "Staff" => "/admin/dashboard",
+                "Doctor" => "/doctor/dashboard",
+                "Beneficiary" => "/portal/dashboard",
+                "Pharmacy" => "/pharmacy/dashboard",
+                "Pharmacist" => "/pharmacy/dashboard",
+                "Laboratory" => "/laboratory/dashboard",
+                "RadiologyCenter" => "/radiology/dashboard",
+                _ => null
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(target))
+        {
+            context.Response.Redirect(target);
+            return;
+        }
+    }
+
+    await next();
+});
+
+
 app.UseAuthorization();
 
 
