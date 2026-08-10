@@ -77,7 +77,7 @@ builder.Services.ConfigureApplicationCookie(opts =>
 
     opts.Cookie.HttpOnly = true;
     opts.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    opts.Cookie.SameSite = SameSiteMode.Strict;
+    opts.Cookie.SameSite = SameSiteMode.Lax;
 });
 
 

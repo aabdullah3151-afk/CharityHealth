@@ -282,7 +282,8 @@ namespace CharityHealth.Web.Controllers
                 new AuthenticationProperties
                 {
                     IsPersistent = true,
-                    AllowRefresh = true
+                    AllowRefresh = true,
+                    ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30)
                 });
         }
 
