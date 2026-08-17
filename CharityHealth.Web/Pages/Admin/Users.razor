@@ -4,6 +4,7 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.EntityFrameworkCore
 @using CharityHealth.Domain.Entities
 @using CharityHealth.Infrastructure.Persistence
@@ -11,6 +12,8 @@
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
 
 <PageTitle>إدارة المستخدمين</PageTitle>
 
@@ -48,6 +51,16 @@
             <option value="inactive">موقوف</option>
         </select>
     </section>
+
+    @if (!string.IsNullOrWhiteSpace(actionError))
+    {
+        <div class="users-alert error">@actionError</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(actionSuccess))
+    {
+        <div class="users-alert success">@actionSuccess</div>
+    }
 
     @if (loading)
     {
@@ -97,10 +110,22 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="open-profile"
-                                            @onclick='() => Nav.NavigateTo($"/admin/user-profile/{user.Id}")'>
-                                        التقرير الكامل
-                                    </button>
+                                    <div class="user-actions">
+                                        <button class="open-profile"
+                                                @onclick='() => Nav.NavigateTo($"/admin/user-profile/{user.Id}")'>
+                                            التقرير الكامل
+                                        </button>
+
+                                        @if (!RoleOf(user).Equals("Administrator", StringComparison.OrdinalIgnoreCase)
+                                             && user.Id != currentUserId)
+                                        {
+                                            <button class="delete-user"
+                                                    disabled="@(deletingUserId == user.Id)"
+                                                    @onclick="() => DeleteUserAsync(user)">
+                                                @(deletingUserId == user.Id ? "جارٍ الحذف..." : "حذف الحساب")
+                                            </button>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -132,7 +157,14 @@
 .user-avatar{width:43px;height:43px;border-radius:15px;background:#f3e8ff;color:#7e22ce;display:grid;place-items:center;font-size:18px;font-weight:950}
 .role-pill,.status-pill{display:inline-flex;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:950}
 .role-pill{background:#f3e8ff;color:#7e22ce}.status-pill.active{background:#ecfdf3;color:#047857}.status-pill.inactive{background:#fef2f2;color:#b91c1c}
+.user-actions{display:flex;align-items:center;gap:8px;white-space:nowrap}
 .open-profile{border:0;border-radius:999px;background:#7e22ce;color:#fff;min-height:39px;padding:0 15px;font-weight:950;cursor:pointer}
+.delete-user{border:1px solid #fecaca;border-radius:999px;background:#fff1f2;color:#be123c;min-height:39px;padding:0 15px;font-weight:950;cursor:pointer}
+.delete-user:hover{background:#be123c;color:#fff;border-color:#be123c}
+.delete-user:disabled{opacity:.55;cursor:not-allowed}
+.users-alert{margin:18px 0 0;padding:14px 18px;border-radius:16px;font-weight:900}
+.users-alert.error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
+.users-alert.success{background:#ecfdf3;color:#047857;border:1px solid #a7f3d0}
 .users-state{border:1px solid #e5e7eb;border-radius:24px;background:#fff;padding:30px;text-align:center;color:#667085;font-weight:900}
 @@media(max-width:850px){.users-admin-page{padding:20px 12px}.users-hero{align-items:flex-start}.users-toolbar{grid-template-columns:1fr}.users-total{min-width:90px}.users-hero h1{font-size:27px}}
 </style>
@@ -144,9 +176,16 @@
     private string statusFilter = string.Empty;
     private List<ApplicationUser> users = [];
     private readonly Dictionary<string, string> roles = new();
+    private string? currentUserId;
+    private string? deletingUserId;
+    private string? actionError;
+    private string? actionSuccess;
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUserId = UserManager.GetUserId(authState.User);
+
         await using var db = await DbFactory.CreateDbContextAsync();
         users = await db.Users.AsNoTracking()
             .OrderByDescending(x => x.CreatedAt)
@@ -159,6 +198,134 @@
         }
 
         loading = false;
+    }
+
+    private async Task DeleteUserAsync(ApplicationUser user)
+    {
+        actionError = null;
+        actionSuccess = null;
+
+        if (user.Id == currentUserId)
+        {
+            actionError = "لا يمكنك حذف الحساب الذي تستخدمه حاليًا.";
+            return;
+        }
+
+        if (RoleOf(user).Equals("Administrator", StringComparison.OrdinalIgnoreCase))
+        {
+            actionError = "لا يمكن حذف حساب مدير النظام من هذه الشاشة.";
+            return;
+        }
+
+        var displayName = Show(user.FullNameAr, user.Email);
+
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"هل أنت متأكد من حذف حساب «{displayName}» نهائيًا؟\n\nلا يمكن التراجع عن هذه العملية.");
+
+        if (!confirmed)
+            return;
+
+        deletingUserId = user.Id;
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var dbUser = await db.Users
+                .FirstOrDefaultAsync(x => x.Id == user.Id);
+
+            if (dbUser is null)
+            {
+                actionError = "الحساب غير موجود أو تم حذفه بالفعل.";
+                users.RemoveAll(x => x.Id == user.Id);
+                roles.Remove(user.Id);
+                return;
+            }
+
+            var doctor = await db.Doctors
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(x => x.UserId == user.Id);
+
+            if (doctor is not null)
+            {
+                var hasDoctorRequests = await db.MedicalRequests
+                    .IgnoreQueryFilters()
+                    .AnyAsync(x => x.DoctorId == doctor.Id);
+
+                var hasManualDoctorServices = await db.ManualServiceRecords
+                    .IgnoreQueryFilters()
+                    .AnyAsync(x => x.DoctorId == doctor.Id);
+
+                if (hasDoctorRequests || hasManualDoctorServices)
+                {
+                    actionError =
+                        "لا يمكن حذف هذا الطبيب لأنه مرتبط بطلبات أو خدمات مسجلة. يمكنك إيقاف الحساب بدلًا من حذفه.";
+                    return;
+                }
+            }
+
+            var beneficiary = await db.Beneficiaries
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(x => x.UserId == user.Id);
+
+            if (beneficiary is not null)
+            {
+                var hasBeneficiaryRequests = await db.MedicalRequests
+                    .IgnoreQueryFilters()
+                    .AnyAsync(x => x.BeneficiaryId == beneficiary.Id);
+
+                if (hasBeneficiaryRequests)
+                {
+                    actionError =
+                        "لا يمكن حذف هذا المستفيد لأنه مرتبط بطلبات طبية مسجلة. يمكنك إيقاف الحساب بدلًا من حذفه.";
+                    return;
+                }
+            }
+
+            var hasProviderRequests = await db.MedicalRequests
+                .IgnoreQueryFilters()
+                .AnyAsync(x => x.AssignedProviderUserId == user.Id);
+
+            var hasProviderManualServices = await db.ManualServiceRecords
+                .IgnoreQueryFilters()
+                .AnyAsync(x => x.ProviderUserId == user.Id);
+
+            if (hasProviderRequests || hasProviderManualServices)
+            {
+                actionError =
+                    "لا يمكن حذف هذا الحساب لأنه مرتبط بخدمات أو طلبات مسجلة. يمكنك إيقاف الحساب بدلًا من حذفه.";
+                return;
+            }
+
+            if (doctor is not null)
+                db.Doctors.Remove(doctor);
+
+            if (beneficiary is not null)
+                db.Beneficiaries.Remove(beneficiary);
+
+            db.Users.Remove(dbUser);
+
+            await db.SaveChangesAsync();
+
+            users.RemoveAll(x => x.Id == user.Id);
+            roles.Remove(user.Id);
+
+            actionSuccess = $"تم حذف حساب «{displayName}» بنجاح.";
+        }
+        catch (DbUpdateException)
+        {
+            actionError =
+                "تعذر حذف الحساب لأنه مرتبط ببيانات أخرى داخل النظام. يمكنك إيقاف الحساب بدلًا من الحذف.";
+        }
+        catch (Exception ex)
+        {
+            actionError = $"حدث خطأ أثناء حذف الحساب: {ex.Message}";
+        }
+        finally
+        {
+            deletingUserId = null;
+        }
     }
 
     private IEnumerable<ApplicationUser> FilteredUsers
