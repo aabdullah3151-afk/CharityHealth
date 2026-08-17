@@ -28,7 +28,7 @@ public class DoctorConfiguration : IEntityTypeConfiguration<Doctor>
     public void Configure(EntityTypeBuilder<Doctor> b)
     {
         b.HasKey(x => x.Id);
-        b.Property(x => x.LicenseNumber).HasMaxLength(50).IsRequired();
+        b.Property(x => x.LicenseNumber).HasMaxLength(50);
         b.HasIndex(x => x.LicenseNumber).IsUnique();
         b.Property(x => x.ClinicAddress).HasMaxLength(500);
         b.Property(x => x.ClinicPhone).HasMaxLength(20);

@@ -1,10 +1,11 @@
-﻿@page "/admin/doctors/create"
+@page "/admin/doctors/create"
 @layout MainLayout
 @attribute [Authorize(Roles = "Administrator,Staff")]
 
 @using System.ComponentModel.DataAnnotations
 @using System.Security.Claims
 @using CharityHealth.Domain.Entities
+@using CharityHealth.Domain.Enums
 @using CharityHealth.Infrastructure.Persistence
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
@@ -343,6 +344,12 @@
 
         try
         {
+            if (!model.SpecialtyId.HasValue)
+            {
+                errorMsg = "من فضلك اختر التخصص.";
+                return;
+            }
+
             if (model.WorkingDays.Count == 0)
             {
                 errorMsg = "اختر يوم عمل واحد على الأقل.";
@@ -352,13 +359,15 @@
             var email = model.Email.Trim();
 
             var existing = await UserManager.FindByEmailAsync(email);
+
             if (existing is not null)
             {
                 errorMsg = "يوجد حساب مسجل بالفعل بهذا البريد الإلكتروني.";
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(model.Password) && model.Password.Trim().Length < 8)
+            if (!string.IsNullOrWhiteSpace(model.Password) &&
+                model.Password.Trim().Length < 8)
             {
                 errorMsg = "كلمة المرور يجب ألا تقل عن 8 أحرف أو أرقام.";
                 return;
@@ -369,30 +378,94 @@
                 UserName = email,
                 Email = email,
                 EmailConfirmed = true,
-                PhoneNumber = string.IsNullOrWhiteSpace(model.PhoneNumber) ? null : model.PhoneNumber.Trim(),
+                PhoneNumber = string.IsNullOrWhiteSpace(model.PhoneNumber)
+                    ? null
+                    : model.PhoneNumber.Trim(),
                 FullNameAr = model.FullNameAr.Trim(),
-                FullNameEn = string.IsNullOrWhiteSpace(model.FullNameEn) ? string.Empty : model.FullNameEn.Trim()
+                FullNameEn = string.IsNullOrWhiteSpace(model.FullNameEn)
+                    ? string.Empty
+                    : model.FullNameEn.Trim(),
+                UserType = UserType.Doctor
             };
 
-            var selectedPassword = string.IsNullOrWhiteSpace(model.Password) ? DefaultDoctorPassword : model.Password.Trim();
-            var createResult = await UserManager.CreateAsync(user, selectedPassword);
+            var selectedPassword =
+                string.IsNullOrWhiteSpace(model.Password)
+                    ? DefaultDoctorPassword
+                    : model.Password.Trim();
+
+            var createResult =
+                await UserManager.CreateAsync(user, selectedPassword);
 
             if (!createResult.Succeeded)
             {
-                errorMsg = string.Join(" | ", createResult.Errors.Select(e => e.Description));
+                errorMsg = string.Join(
+                    " | ",
+                    createResult.Errors.Select(e => e.Description)
+                );
+
                 return;
             }
 
-            await UserManager.AddToRoleAsync(user, "Doctor");
-            await UserManager.AddClaimAsync(user, new Claim("FullNameAr", user.FullNameAr));
-            await UserManager.AddClaimAsync(user, new Claim("UserType", "Doctor"));
+            var roleResult =
+                await UserManager.AddToRoleAsync(user, "Doctor");
+
+            if (!roleResult.Succeeded)
+            {
+                errorMsg = "تم إنشاء الحساب ولكن فشل إضافة دور الطبيب: " +
+                           string.Join(
+                               " | ",
+                               roleResult.Errors.Select(e => e.Description)
+                           );
+
+                return;
+            }
+
+            var fullNameClaimResult =
+                await UserManager.AddClaimAsync(
+                    user,
+                    new Claim("FullNameAr", user.FullNameAr)
+                );
+
+            if (!fullNameClaimResult.Succeeded)
+            {
+                errorMsg = "فشل إضافة بيانات الطبيب للحساب: " +
+                           string.Join(
+                               " | ",
+                               fullNameClaimResult.Errors.Select(e => e.Description)
+                           );
+
+                return;
+            }
+
+            var userTypeClaimResult =
+                await UserManager.AddClaimAsync(
+                    user,
+                    new Claim("UserType", "Doctor")
+                );
+
+            if (!userTypeClaimResult.Succeeded)
+            {
+                errorMsg = "فشل تحديد نوع الحساب كطبيب: " +
+                           string.Join(
+                               " | ",
+                               userTypeClaimResult.Errors.Select(e => e.Description)
+                           );
+
+                return;
+            }
 
             var doctor = new Doctor
             {
                 UserId = user.Id,
-                SpecialtyId = model.SpecialtyId!.Value,
-                LicenseNumber = string.IsNullOrWhiteSpace(model.LicenseNumber) ? null : model.LicenseNumber.Trim(),
-                ClinicAddress = string.IsNullOrWhiteSpace(model.ClinicAddress) ? null : model.ClinicAddress.Trim(),
+                SpecialtyId = model.SpecialtyId.Value,
+                LicenseNumber =
+                    string.IsNullOrWhiteSpace(model.LicenseNumber)
+                        ? null
+                        : model.LicenseNumber.Trim(),
+                ClinicAddress =
+                    string.IsNullOrWhiteSpace(model.ClinicAddress)
+                        ? null
+                        : model.ClinicAddress.Trim(),
                 MaxDailySlots = model.MaxDailySlots,
                 IsAvailable = model.IsAvailable,
                 WorkingDays = string.Join(",", model.WorkingDays),
@@ -401,12 +474,25 @@
             };
 
             Db.Doctors.Add(doctor);
+
             await Db.SaveChangesAsync();
 
-            successMsg = $"تم إضافة الطبيب بنجاح. كلمة المرور: {selectedPassword}";
+            successMsg =
+                $"تم إضافة الطبيب بنجاح. كلمة المرور: {selectedPassword}";
 
             await Task.Delay(700);
+
             Nav.NavigateTo("/admin/doctors");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"[CREATE DOCTOR ERROR] {ex}"
+            );
+
+            errorMsg =
+                "حدث خطأ أثناء إضافة الطبيب: " +
+                (ex.InnerException?.Message ?? ex.Message);
         }
         finally
         {

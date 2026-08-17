@@ -126,17 +126,6 @@
                         <div><strong>@stats.Completed</strong><span>مكتملة</span></div>
                     </div>
 
-                    @if (provider.IsActive)
-                    {
-                        @* RADIOLOGY_MANUAL_SERVICE_BUTTON *@
-                        <button type="button"
-                                class="manual-service-button"
-                                @onclick='() => Nav.NavigateTo($"/admin/manual-services?type=RadiologyScan&provider={Uri.EscapeDataString(provider.Id)}")'>
-                            ✓ تمت الخدمة يدويًا
-                        </button>
-                    }
-
-
                     @* LABORATORY_MANUAL_SERVICE_BUTTON_START *@
                     @if (provider.IsActive)
                     {
