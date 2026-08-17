@@ -1,4 +1,4 @@
-﻿using CharityHealth.Web.Services;
+using CharityHealth.Web.Services;
 using CharityHealth.Application;
 using CharityHealth.Infrastructure;
 using CharityHealth.Web.Data;
@@ -243,6 +243,39 @@ using (var scope = app.Services.CreateScope())
             CharityHealth.Infrastructure.Persistence.AppDbContext>();
 
     db.Database.Migrate();
+
+    // Ensure required Identity roles always exist
+    var roleManager = scope.ServiceProvider
+        .GetRequiredService<RoleManager<IdentityRole>>();
+
+    var requiredRoles = new[]
+    {
+        "Administrator",
+        "Staff",
+        "Doctor",
+        "Pharmacy",
+        "Pharmacist",
+        "Laboratory",
+        "RadiologyCenter"
+    };
+
+    foreach (var roleName in requiredRoles)
+    {
+        if (await roleManager.RoleExistsAsync(roleName))
+            continue;
+
+        var roleResult = await roleManager.CreateAsync(
+            new IdentityRole(roleName));
+
+        if (!roleResult.Succeeded)
+        {
+            throw new InvalidOperationException(
+                $"Failed to create role {roleName}: " +
+                string.Join(
+                    " | ",
+                    roleResult.Errors.Select(x => x.Description)));
+        }
+    }
 }
 
 
