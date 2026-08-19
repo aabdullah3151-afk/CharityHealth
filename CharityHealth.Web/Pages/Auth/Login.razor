@@ -117,6 +117,17 @@
             </button>
         </form>
 
+        <button type="button"
+                class="guest-login-button"
+                @onclick='() => Nav.NavigateTo("/")'>
+            الدخول كضيف
+        </button>
+
+        <p class="guest-login-hint">
+            يمكنك تصفح الأطباء والصيدليات والمعامل ومراكز الأشعة بدون حساب،
+            وسيُطلب منك تسجيل الدخول فقط عند الحجز أو تقديم طلب.
+        </p>
+
         <p class="login-footer">
             ليس لديك حساب؟
             <a href="/register">إنشاء حساب مستفيد</a>
@@ -211,6 +222,35 @@
 }
 
 <style>
+
+    .guest-login-button {
+        width: 100%;
+        min-height: 58px;
+        margin-top: 14px;
+        border: 2px solid #05aa46;
+        border-radius: 18px;
+        background: #fff;
+        color: #05963e;
+        font-size: 17px;
+        font-weight: 900;
+        cursor: pointer;
+        transition: .2s ease;
+    }
+
+    .guest-login-button:hover {
+        background: #ecfdf3;
+        transform: translateY(-1px);
+    }
+
+    .guest-login-hint {
+        margin: 10px 12px 0;
+        text-align: center;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.8;
+        font-weight: 700;
+    }
+
 
     /* Password visibility button */
     .login-password-wrap {
