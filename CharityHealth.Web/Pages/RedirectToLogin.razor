@@ -1,10 +1,12 @@
-﻿@inject NavigationManager Nav
+@inject NavigationManager Nav
 
 @code {
     protected override void OnInitialized()
     {
-        // Encode current URL so we can redirect back after login
-        var returnUrl = Uri.EscapeDataString(Nav.Uri);
+        // Keep a local path/query so login can safely return the guest
+        // to the requested booking/service page.
+        var current = new System.Uri(Nav.Uri);
+        var returnUrl = System.Uri.EscapeDataString(current.PathAndQuery);
         Nav.NavigateTo($"/login?returnUrl={returnUrl}", forceLoad: false);
     }
 }

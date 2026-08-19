@@ -1,0 +1,147 @@
+@page "/directory/{Type}"
+@layout CharityHealth.Web.Shared.Layouts.AuthLayout
+
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+@using CharityHealth.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject AppDbContext Db
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>@Title | مستشفى بلا مستشفى</PageTitle>
+
+<div class="directory-page" dir="rtl">
+    <header class="directory-page-head">
+        <div>
+            <a href="/">الصفحة الرئيسية</a>
+            <h1>@Title</h1>
+            <p>@Subtitle</p>
+        </div>
+        <div class="directory-tabs">
+            <a href="/directory/doctors">الأطباء</a>
+            <a href="/directory/pharmacies">الصيدليات</a>
+            <a href="/directory/laboratories">المعامل</a>
+            <a href="/directory/radiology-centers">مراكز الأشعة</a>
+        </div>
+    </header>
+
+    @if (loading)
+    {
+        <div class="directory-state">جارٍ التحميل...</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(error))
+    {
+        <div class="directory-state error">@error</div>
+    }
+    else if (IsDoctors)
+    {
+        <div class="directory-grid">
+            @foreach (var doctor in doctors)
+            {
+                <article class="directory-card" @onclick='() => Nav.NavigateTo($"/directory/doctor/{doctor.Id}")'>
+                    <div class="rank">@doctor.CompletedServices كشف مكتمل</div>
+                    <h2>@doctor.NameAr</h2>
+                    <strong>@doctor.SpecialtyName</strong>
+                    <p>📍 @Safe(doctor.ClinicAddress, "العنوان غير مسجل")</p>
+                    <div class="actions">
+                        <button class="light" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo($"/directory/doctor/{doctor.Id}")'>كل التفاصيل</button>
+                        <button class="primary" @onclick:stopPropagation="true" @onclick='() => OpenProtected($"/portal/request/medical?doctorId={doctor.Id}")'>طلب حجز</button>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="directory-grid">
+            @foreach (var provider in providers)
+            {
+                <article class="directory-card" @onclick='() => OpenProvider(provider)'>
+                    <div class="rank">@provider.CompletedServices خدمة مكتملة</div>
+                    <h2>@provider.NameAr</h2>
+                    <strong>@Title</strong>
+                    <p>📍 @ProviderAddress(provider)</p>
+                    <div class="actions">
+                        <button class="light" @onclick:stopPropagation="true" @onclick='() => OpenProvider(provider)'>كل التفاصيل</button>
+                        <button class="primary" @onclick:stopPropagation="true" @onclick='() => OpenProtected(ProviderRequestUrl(provider))'>تقديم طلب</button>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Type { get; set; } = "doctors";
+
+    private bool loading = true;
+    private string? error;
+    private List<PublicDoctorCard> doctors = [];
+    private List<PublicProviderCard> providers = [];
+
+    private bool IsDoctors => Type.Equals("doctors", StringComparison.OrdinalIgnoreCase);
+    private ServiceRequestType? ServiceType => PublicDirectoryData.ServiceTypeFromSlug(Type);
+    private string Title => IsDoctors ? "كل الأطباء" : ServiceType is { } t ? PublicDirectoryData.ProviderTitle(t) : "الدليل الطبي";
+    private string Subtitle => IsDoctors
+        ? "الأطباء مرتبين حسب عدد الكشوف المكتملة، ثم بالاسم."
+        : "الجهات مرتبة حسب عدد الخدمات المكتملة فعليًا داخل النظام.";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        error = null;
+        doctors = [];
+        providers = [];
+        try
+        {
+            if (IsDoctors)
+                doctors = await PublicDirectoryData.GetDoctorsAsync(Db);
+            else if (ServiceType is { } type)
+                providers = await PublicDirectoryData.GetProvidersAsync(Db, type);
+            else
+                error = "نوع الدليل غير صحيح.";
+        }
+        catch
+        {
+            error = "تعذر تحميل البيانات حاليًا.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OpenProvider(PublicProviderCard provider)
+    {
+        var slug = PublicDirectoryData.SlugFor(provider.ServiceType);
+        Nav.NavigateTo($"/directory/provider/{slug}/{Uri.EscapeDataString(provider.UserId)}");
+    }
+
+    private string ProviderRequestUrl(PublicProviderCard provider) =>
+        $"/portal/request/service/{provider.ServiceType}?provider={Uri.EscapeDataString(provider.UserId)}";
+
+    private async Task OpenProtected(string target)
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        if (auth.User.Identity?.IsAuthenticated == true && auth.User.IsInRole("Beneficiary"))
+        {
+            Nav.NavigateTo(target);
+            return;
+        }
+        var message = Uri.EscapeDataString("سجل الدخول أولًا حتى تتمكن من الحجز أو تقديم الطلب.");
+        Nav.NavigateTo($"/login?error={message}&returnUrl={Uri.EscapeDataString(target)}");
+    }
+
+    private static string Safe(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;
+    private static string ProviderAddress(PublicProviderCard p)
+    {
+        var text = string.Join(" - ", new[] { p.Governorate, p.City, p.AddressAr }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        return string.IsNullOrWhiteSpace(text) ? "العنوان غير مسجل" : text;
+    }
+}
+
+<style>
+.directory-page{max-width:1380px;margin:0 auto;padding:36px 24px 64px;color:#101828}.directory-page-head{display:grid;gap:18px;margin-bottom:26px}.directory-page-head a{color:#059669;font-weight:900;text-decoration:none}.directory-page-head h1{margin:8px 0 6px;font-size:38px;font-weight:950}.directory-page-head p{margin:0;color:#667085;font-weight:750}.directory-tabs{display:flex;flex-wrap:wrap;gap:8px}.directory-tabs a{border:1px solid #d0d5dd;border-radius:999px;background:#fff;padding:10px 15px;color:#344054}.directory-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.directory-card{border:1px solid #e4e7ec;border-radius:24px;background:#fff;padding:20px;box-shadow:0 12px 30px rgba(15,23,42,.05);cursor:pointer}.directory-card .rank{display:inline-block;background:#ecfdf3;color:#047857;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900}.directory-card h2{margin:16px 0 5px;font-size:20px;font-weight:950}.directory-card>strong{color:#059669}.directory-card>p{min-height:48px;color:#667085;font-size:13px;line-height:1.8}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.actions button{min-height:40px;border-radius:12px;font-weight:900;cursor:pointer}.actions .light{border:1px solid #d0d5dd;background:#fff}.actions .primary{border:0;background:#059669;color:#fff}.directory-state{padding:32px;border:1px solid #e4e7ec;border-radius:20px;background:#fff;text-align:center;font-weight:900}.directory-state.error{color:#b42318}@@media(max-width:1100px){.directory-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@@media(max-width:650px){.directory-page{padding:24px 14px}.directory-grid{grid-template-columns:1fr}.directory-page-head h1{font-size:30px}}
+</style>

@@ -242,6 +242,9 @@
 @code {
     [Parameter] public string Type { get; set; } = string.Empty;
 
+    [SupplyParameterFromQuery(Name = "provider")]
+    public string? ProviderQuery { get; set; }
+
     private ServiceRequestType serviceType;
     private bool initialLoading = true;
     private bool saving;
@@ -308,6 +311,18 @@
         profileName = user?.FullNameAr ?? auth.User.Identity?.Name ?? "مستفيد";
         profilePhone = user?.PhoneNumber;
         providers = await Ui.GetActivePartnerAccountsAsync(serviceType);
+
+        if (!string.IsNullOrWhiteSpace(ProviderQuery))
+        {
+            var requestedProvider = providers.FirstOrDefault(
+                p => p.UserId == ProviderQuery);
+
+            if (requestedProvider is not null)
+            {
+                await SelectProvider(requestedProvider);
+            }
+        }
+
         initialLoading = false;
     }
 

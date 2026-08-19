@@ -1,0 +1,165 @@
+@using CharityHealth.Domain.Enums
+@using CharityHealth.Infrastructure.Persistence
+@using CharityHealth.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject AppDbContext Db
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<section id="health-directory" class="public-directory @(Compact ? "compact" : "")" dir="rtl">
+    <div class="public-directory-head">
+        <div>
+            <span class="public-directory-kicker">الدليل الطبي</span>
+            <h2>الأكثر خدمة للمستفيدين</h2>
+            <p>يتم ترتيب الأطباء والجهات حسب عدد الخدمات المكتملة فعليًا داخل النظام.</p>
+        </div>
+    </div>
+
+    @if (loading)
+    {
+        <div class="public-directory-state">جارٍ تحميل الدليل الطبي...</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(error))
+    {
+        <div class="public-directory-state error">@error</div>
+    }
+    else
+    {
+        <section class="public-directory-block">
+            <div class="public-directory-block-head">
+                <div>
+                    <span class="directory-icon">🩺</span>
+                    <h3>الأطباء الأكثر كشفًا</h3>
+                </div>
+                <button type="button" @onclick='() => Nav.NavigateTo("/directory/doctors")'>كل الأطباء</button>
+            </div>
+
+            <div class="public-directory-grid">
+                @foreach (var doctor in doctors)
+                {
+                    <article class="public-directory-card" @onclick='() => Nav.NavigateTo($"/directory/doctor/{doctor.Id}")'>
+                        <div class="card-top">
+                            <span class="card-avatar">د</span>
+                            <span class="service-count">@doctor.CompletedServices كشف مكتمل</span>
+                        </div>
+                        <h4>@doctor.NameAr</h4>
+                        <strong>@doctor.SpecialtyName</strong>
+                        <p>📍 @Safe(doctor.ClinicAddress, "العنوان غير مسجل")</p>
+                        <div class="card-actions">
+                            <button type="button" class="details" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo($"/directory/doctor/{doctor.Id}")'>التفاصيل</button>
+                            <button type="button" class="primary" @onclick:stopPropagation="true" @onclick='() => OpenProtected($"/portal/request/medical?doctorId={doctor.Id}")'>طلب حجز موعد</button>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+
+        @foreach (var group in ProviderGroups)
+        {
+            <section class="public-directory-block">
+                <div class="public-directory-block-head">
+                    <div>
+                        <span class="directory-icon">@group.Icon</span>
+                        <h3>@group.Title الأكثر خدمة</h3>
+                    </div>
+                    <button type="button" @onclick='() => Nav.NavigateTo($"/directory/{group.Slug}")'>عرض الكل</button>
+                </div>
+
+                <div class="public-directory-grid">
+                    @foreach (var provider in group.Items)
+                    {
+                        <article class="public-directory-card" @onclick='() => OpenProvider(provider)'>
+                            <div class="card-top">
+                                <span class="card-avatar provider">@group.Icon</span>
+                                <span class="service-count">@provider.CompletedServices خدمة مكتملة</span>
+                            </div>
+                            <h4>@provider.NameAr</h4>
+                            <strong>@group.Title</strong>
+                            <p>📍 @ProviderAddress(provider)</p>
+                            <div class="card-actions">
+                                <button type="button" class="details" @onclick:stopPropagation="true" @onclick='() => OpenProvider(provider)'>التفاصيل</button>
+                                <button type="button" class="primary" @onclick:stopPropagation="true" @onclick='() => OpenProtected(ProviderRequestUrl(provider))'>تقديم طلب</button>
+                            </div>
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public bool Compact { get; set; }
+
+    private bool loading = true;
+    private string? error;
+    private List<PublicDoctorCard> doctors = [];
+    private List<PublicProviderCard> pharmacies = [];
+    private List<PublicProviderCard> laboratories = [];
+    private List<PublicProviderCard> radiologyCenters = [];
+
+    private IEnumerable<(string Slug, string Title, string Icon, List<PublicProviderCard> Items)> ProviderGroups =>
+    [
+        ("pharmacies", "الصيدليات", "💊", pharmacies),
+        ("laboratories", "معامل التحاليل", "🧪", laboratories),
+        ("radiology-centers", "مراكز الأشعة", "🩻", radiologyCenters)
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            doctors = await PublicDirectoryData.GetDoctorsAsync(Db, 4);
+            pharmacies = await PublicDirectoryData.GetProvidersAsync(Db, ServiceRequestType.PharmacyMedication, 4);
+            laboratories = await PublicDirectoryData.GetProvidersAsync(Db, ServiceRequestType.LaboratoryTest, 4);
+            radiologyCenters = await PublicDirectoryData.GetProvidersAsync(Db, ServiceRequestType.RadiologyScan, 4);
+        }
+        catch
+        {
+            error = "تعذر تحميل الدليل الطبي حاليًا.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OpenProvider(PublicProviderCard provider)
+    {
+        var slug = PublicDirectoryData.SlugFor(provider.ServiceType);
+        Nav.NavigateTo($"/directory/provider/{slug}/{Uri.EscapeDataString(provider.UserId)}");
+    }
+
+    private string ProviderRequestUrl(PublicProviderCard provider) =>
+        $"/portal/request/service/{provider.ServiceType}?provider={Uri.EscapeDataString(provider.UserId)}";
+
+    private async Task OpenProtected(string target)
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        if (auth.User.Identity?.IsAuthenticated == true && auth.User.IsInRole("Beneficiary"))
+        {
+            Nav.NavigateTo(target);
+            return;
+        }
+
+        var message = Uri.EscapeDataString("سجل الدخول أولًا حتى تتمكن من الحجز أو تقديم الطلب.");
+        var returnUrl = Uri.EscapeDataString(target);
+        Nav.NavigateTo($"/login?error={message}&returnUrl={returnUrl}");
+    }
+
+    private static string Safe(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private static string ProviderAddress(PublicProviderCard provider)
+    {
+        var parts = new[] { provider.Governorate, provider.City, provider.AddressAr }
+            .Where(x => !string.IsNullOrWhiteSpace(x));
+        var text = string.Join(" - ", parts);
+        return string.IsNullOrWhiteSpace(text) ? "العنوان غير مسجل" : text;
+    }
+}
+
+<style>
+.public-directory{max-width:1440px;margin:0 auto;padding:42px 28px 64px;color:#101828}.public-directory.compact{padding:26px 0 8px}.public-directory-head{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:28px}.public-directory-kicker{display:block;color:#059669;font-weight:950;font-size:14px;margin-bottom:5px}.public-directory-head h2{margin:0;font-size:34px;font-weight:950}.public-directory-head p{margin:8px 0 0;color:#667085;font-weight:750;line-height:1.8}.public-directory-block{margin-top:30px}.public-directory-block-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}.public-directory-block-head>div{display:flex;align-items:center;gap:10px}.public-directory-block-head h3{margin:0;font-size:23px;font-weight:950}.directory-icon{font-size:24px}.public-directory-block-head>button{border:1px solid #d0d5dd;border-radius:999px;background:#fff;padding:10px 16px;font-weight:900;color:#344054;cursor:pointer}.public-directory-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.public-directory-card{border:1px solid #e4e7ec;border-radius:24px;background:#fff;padding:20px;box-shadow:0 12px 30px rgba(15,23,42,.05);cursor:pointer;transition:.2s}.public-directory-card:hover{transform:translateY(-3px);box-shadow:0 18px 38px rgba(15,23,42,.09)}.card-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.card-avatar{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;background:#ecfdf3;color:#047857;font-weight:950;font-size:20px}.card-avatar.provider{font-size:22px}.service-count{font-size:12px;font-weight:900;color:#047857;background:#ecfdf3;padding:7px 10px;border-radius:999px}.public-directory-card h4{margin:16px 0 6px;font-size:20px;font-weight:950}.public-directory-card>strong{display:block;color:#059669;font-size:14px}.public-directory-card>p{min-height:44px;margin:12px 0;color:#667085;font-size:13px;line-height:1.8;font-weight:750}.card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.card-actions button{min-height:40px;border-radius:12px;font-weight:900;cursor:pointer}.card-actions .details{border:1px solid #d0d5dd;background:#fff;color:#344054}.card-actions .primary{border:0;background:#059669;color:#fff}.public-directory-state{padding:34px;border:1px solid #e4e7ec;border-radius:22px;background:#fff;text-align:center;font-weight:900;color:#667085}.public-directory-state.error{color:#b42318;background:#fff5f5;border-color:#fecaca}@@media(max-width:1100px){.public-directory-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@@media(max-width:650px){.public-directory{padding:28px 14px 48px}.public-directory-head h2{font-size:28px}.public-directory-grid{grid-template-columns:1fr}.public-directory-block-head h3{font-size:19px}}
+</style>

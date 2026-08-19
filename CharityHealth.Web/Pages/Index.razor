@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @layout CharityHealth.Web.Shared.Layouts.AuthLayout
 
 @using Microsoft.EntityFrameworkCore
@@ -54,6 +54,11 @@
             <button class="outline-submit"
                     @onclick='() => Nav.NavigateTo("/register")'>
                 إنشاء حساب مستفيد
+            </button>
+
+            <button class="outline-submit"
+                    @onclick='() => Nav.NavigateTo("/directory/doctors")'>
+                الدخول كضيف وتصفح الدليل
             </button>
 
         </div>
@@ -126,6 +131,9 @@
     </section>
 
 </div>
+
+
+<HealthcareDirectory />
 
 @code {
     private int? TotalBeneficiaries;

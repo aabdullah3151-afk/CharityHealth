@@ -451,6 +451,9 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "doctorId")]
+    public Guid? DoctorIdQuery { get; set; }
+
     private NewRequestModel model = new();
 
     private List<Specialty> specialties = [];
@@ -520,6 +523,11 @@
         specialties = (await UoW.Specialties.FindAsync(s => s.IsActive))
             .OrderBy(s => s.NameAr)
             .ToList();
+
+        if (DoctorIdQuery is Guid requestedDoctorId)
+        {
+            await PreselectDoctorAsync(requestedDoctorId);
+        }
     }
 
     private async Task GoToStep(int step)
@@ -648,6 +656,34 @@
         }
 
         return true;
+    }
+
+    private async Task PreselectDoctorAsync(Guid doctorId)
+    {
+        var target = await Db.Doctors
+            .AsNoTracking()
+            .Include(d => d.Specialty)
+            .FirstOrDefaultAsync(d =>
+                d.Id == doctorId &&
+                d.IsAvailable &&
+                !d.IsDeleted &&
+                d.User.IsActive);
+
+        if (target is null)
+        {
+            return;
+        }
+
+        model.SpecialtyId = target.SpecialtyId;
+        selectedSpecialtyName = target.Specialty.NameAr;
+
+        await LoadDoctorsForSpecialty(target.SpecialtyId);
+
+        var option = doctors.FirstOrDefault(d => d.Id == doctorId);
+        if (option is not null)
+        {
+            await SelectDoctor(option);
+        }
     }
 
     private async Task SelectSpecialty(Specialty spec)
