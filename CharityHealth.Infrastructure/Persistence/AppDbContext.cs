@@ -1,12 +1,15 @@
 using CharityHealth.Domain.Entities;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace CharityHealth.Infrastructure.Persistence;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options)
-    : IdentityDbContext<ApplicationUser>(options)
+    : IdentityDbContext<ApplicationUser>(options), IDataProtectionKeyContext
 {
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     // ── Domain DbSets ──────────────────────────────────
     public DbSet<Beneficiary> Beneficiaries => Set<Beneficiary>();
     public DbSet<Doctor> Doctors => Set<Doctor>();

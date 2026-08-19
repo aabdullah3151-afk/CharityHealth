@@ -7,6 +7,7 @@ using CharityHealth.Domain.Entities;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Radzen;
@@ -25,6 +26,11 @@ builder.Services.AddControllers();
 // ── Layers ────────────────────────────────────────────
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services
+    .AddDataProtection()
+    .SetApplicationName("CharityHealth")
+    .PersistKeysToDbContext<CharityHealth.Infrastructure.Persistence.AppDbContext>();
 
 
 // ── Radzen ────────────────────────────────────────────
