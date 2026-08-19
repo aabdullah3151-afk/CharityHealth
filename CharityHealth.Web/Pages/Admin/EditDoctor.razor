@@ -237,7 +237,7 @@
             Email = doctor.User.Email ?? string.Empty,
             PhoneNumber = doctor.User.PhoneNumber,
             SpecialtyId = doctor.SpecialtyId,
-            LicenseNumber = doctor.LicenseNumber == "غير محدد" ? null : doctor.LicenseNumber,
+            LicenseNumber = IsPlaceholderLicense(doctor.LicenseNumber) ? null : doctor.LicenseNumber,
             ClinicAddress = doctor.ClinicAddress,
             MaxDailySlots = doctor.MaxDailySlots,
             IsAvailable = doctor.IsAvailable,
@@ -354,7 +354,9 @@
             await UserManager.AddClaimAsync(doctor.User, new Claim("UserType", "Doctor"));
 
             doctor.SpecialtyId = model.SpecialtyId!.Value;
-            doctor.LicenseNumber = string.IsNullOrWhiteSpace(model.LicenseNumber) ? "غير محدد" : model.LicenseNumber.Trim();
+            doctor.LicenseNumber = string.IsNullOrWhiteSpace(model.LicenseNumber)
+                ? null
+                : model.LicenseNumber.Trim();
             doctor.ClinicAddress = string.IsNullOrWhiteSpace(model.ClinicAddress) ? null : model.ClinicAddress.Trim();
             doctor.MaxDailySlots = model.MaxDailySlots;
             doctor.IsAvailable = model.IsAvailable;
@@ -371,6 +373,9 @@
             saving = false;
         }
     }
+
+    private static bool IsPlaceholderLicense(string? licenseNumber)
+        => string.IsNullOrWhiteSpace(licenseNumber) || licenseNumber.StartsWith("غير محدد", StringComparison.Ordinal);
 
     private static TimeOnly? ParseTime(string? value)
     {
