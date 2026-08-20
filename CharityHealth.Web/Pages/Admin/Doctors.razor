@@ -43,10 +43,60 @@
         </div>
     </header>
 
-    <section class="ch-search doctor-live-search">
-        <span>⌕</span>
-        <input type="search" placeholder="ابحث باسم الطبيب أو الهاتف أو التخصص أو الترخيص..." @bind="searchText" @bind:event="oninput" />
-        @if (!string.IsNullOrWhiteSpace(searchText)) { <button type="button" @onclick='() => searchText = string.Empty'>مسح</button> }
+    <section class="admin-doctor-filterbar">
+
+        <div class="ch-search doctor-live-search">
+
+            <span>⌕</span>
+
+            <input type="search"
+                   placeholder="بحث ذكي: الاسم، التخصص، الهاتف، الترخيص أو العنوان..."
+                   @bind="searchText"
+                   @bind:event="oninput" />
+
+            @if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                <button type="button"
+                        @onclick='() => searchText = string.Empty'>
+                    مسح
+                </button>
+            }
+
+        </div>
+
+
+        <div class="admin-doctor-specialty">
+
+            <label>التخصص</label>
+
+            <select @bind="selectedSpecialty">
+
+                <option value="">
+                    كل التخصصات
+                </option>
+
+                @foreach (var specialty in DoctorSpecialties)
+                {
+                    <option value="@specialty">
+                        @specialty
+                    </option>
+                }
+
+            </select>
+
+        </div>
+
+
+        <div class="admin-doctor-result-count">
+
+            <strong>
+                @FilteredDoctors.Count()
+            </strong>
+
+            <span>طبيب</span>
+
+        </div>
+
     </section>
 
     @if (!string.IsNullOrWhiteSpace(actionMessage))
@@ -228,6 +278,7 @@
     private bool deleting;
     private bool showUnavailable;
     private string searchText = string.Empty;
+    private string selectedSpecialty = string.Empty;
     private bool actionSucceeded;
     private string? actionMessage;
 
@@ -251,20 +302,141 @@
         loading = false;
     }
 
+    private IEnumerable<string> DoctorSpecialties =>
+        doctors
+            .Select(d => d.SpecialtyName)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x);
+
+
     private IEnumerable<DoctorListItem> FilteredDoctors
     {
         get
         {
-            IEnumerable<DoctorListItem> result = showUnavailable ? doctors : doctors.Where(d => d.IsAvailable);
-            var term = searchText.Trim();
-            if (!string.IsNullOrWhiteSpace(term))
-                result = result.Where(d => Has(d.FullNameAr, term) || Has(d.SpecialtyName, term) || Has(d.PhoneNumber, term) || Has(d.LicenseNumber, term) || Has(d.ClinicAddress, term));
+            IEnumerable<DoctorListItem> result =
+                showUnavailable
+                    ? doctors
+                    : doctors.Where(d => d.IsAvailable);
+
+
+            // فلتر التخصص
+            if (!string.IsNullOrWhiteSpace(selectedSpecialty))
+            {
+                result = result.Where(d =>
+                    string.Equals(
+                        d.SpecialtyName,
+                        selectedSpecialty,
+                        StringComparison.OrdinalIgnoreCase));
+            }
+
+
+            // البحث الذكي
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                result = result.Where(d =>
+                    SmartMatches(
+                        searchText,
+                        d.FullNameAr,
+                        d.SpecialtyName,
+                        d.PhoneNumber,
+                        d.LicenseNumber,
+                        d.ClinicAddress));
+            }
+
+
             return result;
         }
     }
 
-    private static bool Has(string? value, string term)
-        => !string.IsNullOrWhiteSpace(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeSearch(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var text = value.Trim().ToLowerInvariant()
+            .Replace('أ', 'ا')
+            .Replace('إ', 'ا')
+            .Replace('آ', 'ا')
+            .Replace('ٱ', 'ا')
+            .Replace('ى', 'ي')
+            .Replace('ة', 'ه')
+            .Replace('ؤ', 'و')
+            .Replace('ئ', 'ي');
+
+        var buffer = new System.Text.StringBuilder(text.Length);
+
+        foreach (var ch in text)
+        {
+            var category =
+                System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+
+            if (category ==
+                System.Globalization.UnicodeCategory.NonSpacingMark)
+                continue;
+
+            buffer.Append(char.IsLetterOrDigit(ch) ? ch : ' ');
+        }
+
+        return string.Join(" ",
+            buffer.ToString().Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries));
+    }
+
+    private static bool SmartMatches(
+        string? query,
+        params string?[] values)
+    {
+        var q = NormalizeSearch(query);
+
+        if (string.IsNullOrWhiteSpace(q))
+            return true;
+
+        var haystack = NormalizeSearch(
+            string.Join(" ",
+                values.Where(v => !string.IsNullOrWhiteSpace(v))));
+
+        var ignored = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            "د",
+            "دكتور",
+            "دكتوره",
+            "طبيب",
+            "الطبيب"
+        };
+
+        var words = q
+            .Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries)
+            .Where(x => !ignored.Contains(x))
+            .ToArray();
+
+        if (words.Length == 0)
+            return true;
+
+        // مثال: "احمد نساء"
+        // يمكن أن تكون "احمد" في الاسم و"نساء" في التخصص.
+        if (words.All(word =>
+            haystack.Contains(
+                word,
+                StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        // يسمح أيضًا بالبحث مع اختلاف المسافات:
+        // "عبدالرحيم" = "عبد الرحيم"
+        var compactQuery = string.Concat(words);
+        var compactData = haystack.Replace(" ", string.Empty);
+
+        return compactData.Contains(
+            compactQuery,
+            StringComparison.OrdinalIgnoreCase);
+    }
 
     private void AskDelete(DoctorListItem doctor)
     {
@@ -403,3 +575,122 @@
         int Completed
     );
 }
+
+
+<style>
+
+/* SMART_SPECIALTY_FILTER_ADMIN */
+
+.admin-doctor-filterbar {
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(300px, 1fr)
+        minmax(220px, 280px)
+        auto;
+
+    gap: 12px;
+
+    align-items: stretch;
+
+    margin-bottom: 20px;
+}
+
+
+.admin-doctor-filterbar
+.doctor-live-search {
+
+    margin: 0;
+}
+
+
+.admin-doctor-specialty,
+.admin-doctor-result-count {
+
+    min-height: 54px;
+
+    border: 1px solid #e4e7ec;
+    border-radius: 16px;
+
+    background: #ffffff;
+}
+
+
+.admin-doctor-specialty {
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 0 14px;
+}
+
+
+.admin-doctor-specialty label {
+
+    color: #667085;
+
+    font-size: 13px;
+    font-weight: 950;
+
+    white-space: nowrap;
+}
+
+
+.admin-doctor-specialty select {
+
+    flex: 1;
+
+    min-width: 0;
+
+    border: 0;
+    outline: 0;
+
+    background: transparent;
+
+    color: #101828;
+
+    font-family: inherit;
+    font-weight: 900;
+
+    cursor: pointer;
+}
+
+
+.admin-doctor-result-count {
+
+    min-width: 105px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 6px;
+
+    padding: 0 14px;
+
+    color: #667085;
+    font-weight: 850;
+}
+
+
+.admin-doctor-result-count strong {
+
+    color: #059669;
+    font-size: 20px;
+}
+
+
+@media (max-width: 850px) {
+
+    .admin-doctor-filterbar {
+
+        grid-template-columns: 1fr;
+    }
+
+}
+
+</style>

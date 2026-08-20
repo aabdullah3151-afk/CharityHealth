@@ -47,6 +47,30 @@
             }
         </div>
 
+        @if (IsDoctors)
+        {
+            <div class="directory-specialty-filter">
+
+                <span>التخصص</span>
+
+                <select @bind="selectedSpecialty">
+
+                    <option value="">
+                        كل التخصصات
+                    </option>
+
+                    @foreach (var specialty in DoctorSpecialties)
+                    {
+                        <option value="@specialty">
+                            @specialty
+                        </option>
+                    }
+
+                </select>
+
+            </div>
+        }
+
         <div class="result-count">
             <strong>@VisibleCount</strong>
             <span>@ResultLabel</span>
@@ -124,40 +148,74 @@
     private List<PublicProviderCard> providers = [];
 
     private string searchText = string.Empty;
+    private string selectedSpecialty = string.Empty;
+
+    private IEnumerable<string> DoctorSpecialties =>
+        doctors
+            .Select(d => d.SpecialtyName)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x);
+
 
     private IEnumerable<PublicDoctorCard> FilteredDoctors =>
-        string.IsNullOrWhiteSpace(searchText)
-            ? doctors
-            : doctors.Where(d => MatchesSearch(
+        doctors.Where(d =>
+
+            (
+                string.IsNullOrWhiteSpace(selectedSpecialty)
+
+                ||
+
+                string.Equals(
+                    d.SpecialtyName,
+                    selectedSpecialty,
+                    StringComparison.OrdinalIgnoreCase)
+            )
+
+            &&
+
+            SmartMatches(
+                searchText,
                 d.NameAr,
                 d.SpecialtyName,
                 d.ClinicAddress,
-                d.ClinicPhone));
+                d.ClinicPhone,
+                d.LicenseNumber)
+        );
+
 
     private IEnumerable<PublicProviderCard> FilteredProviders =>
-        string.IsNullOrWhiteSpace(searchText)
-            ? providers
-            : providers.Where(p => MatchesSearch(
+        providers.Where(p =>
+            SmartMatches(
+                searchText,
                 p.NameAr,
                 p.PhoneNumber,
                 p.ContactPersonName,
                 p.Governorate,
                 p.City,
                 p.AddressAr,
-                p.DescriptionAr));
+                p.DescriptionAr,
+                p.LicenseNumber)
+        );
+
 
     private int VisibleCount =>
         IsDoctors
             ? FilteredDoctors.Count()
             : FilteredProviders.Count();
 
+
     private string ResultLabel =>
-        IsDoctors ? "طبيب" : "جهة";
+        IsDoctors
+            ? "طبيب"
+            : "جهة";
+
 
     private string SearchPlaceholder =>
         IsDoctors
-            ? "ابحث باسم الطبيب أو التخصص أو العنوان..."
-            : $"ابحث في {Title} بالاسم أو المحافظة أو المدينة...";
+            ? "ابحث باسم الطبيب أو التخصص أو العنوان أو الهاتف..."
+            : $"ابحث في {Title} بالاسم أو المحافظة أو المدينة أو الهاتف...";
+
 
     private bool IsDoctors => Type.Equals("doctors", StringComparison.OrdinalIgnoreCase);
     private ServiceRequestType? ServiceType => PublicDirectoryData.ServiceTypeFromSlug(Type);
@@ -171,6 +229,7 @@
         loading = true;
         error = null;
         searchText = string.Empty;
+        selectedSpecialty = string.Empty;
         doctors = [];
         providers = [];
         try
@@ -194,21 +253,97 @@
         }
     }
 
-    private bool MatchesSearch(params string?[] values)
-    {
-        var query = searchText.Trim();
-
-        return query.Length == 0 ||
-               values.Any(value =>
-                   !string.IsNullOrWhiteSpace(value) &&
-                   value.Contains(
-                       query,
-                       StringComparison.OrdinalIgnoreCase));
-    }
-
     private void ClearSearch()
     {
         searchText = string.Empty;
+    }
+
+    private static string NormalizeSearch(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var text = value.Trim().ToLowerInvariant()
+            .Replace('أ', 'ا')
+            .Replace('إ', 'ا')
+            .Replace('آ', 'ا')
+            .Replace('ٱ', 'ا')
+            .Replace('ى', 'ي')
+            .Replace('ة', 'ه')
+            .Replace('ؤ', 'و')
+            .Replace('ئ', 'ي');
+
+        var buffer = new System.Text.StringBuilder(text.Length);
+
+        foreach (var ch in text)
+        {
+            var category =
+                System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+
+            if (category ==
+                System.Globalization.UnicodeCategory.NonSpacingMark)
+                continue;
+
+            buffer.Append(char.IsLetterOrDigit(ch) ? ch : ' ');
+        }
+
+        return string.Join(" ",
+            buffer.ToString().Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries));
+    }
+
+    private static bool SmartMatches(
+        string? query,
+        params string?[] values)
+    {
+        var q = NormalizeSearch(query);
+
+        if (string.IsNullOrWhiteSpace(q))
+            return true;
+
+        var haystack = NormalizeSearch(
+            string.Join(" ",
+                values.Where(v => !string.IsNullOrWhiteSpace(v))));
+
+        var ignored = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            "د",
+            "دكتور",
+            "دكتوره",
+            "طبيب",
+            "الطبيب"
+        };
+
+        var words = q
+            .Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries)
+            .Where(x => !ignored.Contains(x))
+            .ToArray();
+
+        if (words.Length == 0)
+            return true;
+
+        // مثال: "احمد نساء"
+        // يمكن أن تكون "احمد" في الاسم و"نساء" في التخصص.
+        if (words.All(word =>
+            haystack.Contains(
+                word,
+                StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        // يسمح أيضًا بالبحث مع اختلاف المسافات:
+        // "عبدالرحيم" = "عبد الرحيم"
+        var compactQuery = string.Concat(words);
+        var compactData = haystack.Replace(" ", string.Empty);
+
+        return compactData.Contains(
+            compactQuery,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private void OpenProvider(PublicProviderCard provider)
@@ -652,4 +787,66 @@
         grid-template-columns: 1fr;
     }
 }
+</style>
+
+
+<style>
+
+/* SMART_SPECIALTY_FILTER_PUBLIC */
+
+.directory-specialty-filter {
+    min-width: 230px;
+    height: 54px;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 0 14px;
+
+    border: 1px solid #d0d5dd;
+    border-radius: 16px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 6px 18px rgba(15,23,42,.035);
+}
+
+.directory-specialty-filter span {
+    color: #667085;
+
+    font-size: 13px;
+    font-weight: 950;
+
+    white-space: nowrap;
+}
+
+.directory-specialty-filter select {
+    flex: 1;
+
+    min-width: 0;
+
+    border: 0;
+    outline: 0;
+
+    background: transparent;
+
+    color: #101828;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 900;
+
+    cursor: pointer;
+}
+
+@media (max-width: 800px) {
+
+    .directory-specialty-filter {
+        width: 100%;
+    }
+
+}
+
 </style>
