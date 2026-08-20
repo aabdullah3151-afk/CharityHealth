@@ -258,6 +258,7 @@ using (var scope = app.Services.CreateScope())
     {
         "Administrator",
         "Staff",
+        "Beneficiary",
         "Doctor",
         "Pharmacy",
         "Pharmacist",

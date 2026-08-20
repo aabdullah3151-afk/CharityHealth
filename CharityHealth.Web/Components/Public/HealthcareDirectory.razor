@@ -3,8 +3,9 @@
 @using CharityHealth.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
 
-@inject AppDbContext Db
+@inject IDbContextFactory<AppDbContext> DbFactory
 @inject AuthenticationStateProvider AuthState
+@inject ILogger<HealthcareDirectory> Logger
 @inject NavigationManager Nav
 
 <section id="health-directory" class="public-directory @(Compact ? "compact" : "")" dir="rtl">
@@ -110,13 +111,16 @@
     {
         try
         {
-            doctors = await PublicDirectoryData.GetDoctorsAsync(Db, 4);
-            pharmacies = await PublicDirectoryData.GetProvidersAsync(Db, ServiceRequestType.PharmacyMedication, 4);
-            laboratories = await PublicDirectoryData.GetProvidersAsync(Db, ServiceRequestType.LaboratoryTest, 4);
-            radiologyCenters = await PublicDirectoryData.GetProvidersAsync(Db, ServiceRequestType.RadiologyScan, 4);
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            doctors = await PublicDirectoryData.GetDoctorsAsync(db, 4);
+            pharmacies = await PublicDirectoryData.GetProvidersAsync(db, ServiceRequestType.PharmacyMedication, 4);
+            laboratories = await PublicDirectoryData.GetProvidersAsync(db, ServiceRequestType.LaboratoryTest, 4);
+            radiologyCenters = await PublicDirectoryData.GetProvidersAsync(db, ServiceRequestType.RadiologyScan, 4);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "Failed to load public healthcare directory.");
             error = "تعذر تحميل الدليل الطبي حاليًا.";
         }
         finally

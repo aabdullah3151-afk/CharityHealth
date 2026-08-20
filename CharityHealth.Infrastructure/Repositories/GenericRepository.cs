@@ -102,19 +102,40 @@ public class UnitOfWork(AppDbContext context) : IUnitOfWork
 
     public async Task CommitTransactionAsync(CancellationToken ct = default)
     {
-        if (_transaction is not null)
+        if (_transaction is null)
+            return;
+
+        try
+        {
             await _transaction.CommitAsync(ct);
+        }
+        finally
+        {
+            await _transaction.DisposeAsync();
+            _transaction = null;
+        }
     }
 
     public async Task RollbackTransactionAsync(CancellationToken ct = default)
     {
-        if (_transaction is not null)
+        if (_transaction is null)
+            return;
+
+        try
+        {
             await _transaction.RollbackAsync(ct);
+        }
+        finally
+        {
+            await _transaction.DisposeAsync();
+            _transaction = null;
+        }
     }
 
     public void Dispose()
     {
         _transaction?.Dispose();
+        _transaction = null;
         // ✅ لا تعمل context.Dispose() — الـ DI هو المسؤول عن تنظيفه
     }
 }

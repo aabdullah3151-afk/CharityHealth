@@ -126,7 +126,7 @@
             nameAr = doctor.User.FullNameAr;
             nameEn = doctor.User.FullNameEn;
             phone = doctor.User.PhoneNumber;
-            license = doctor.LicenseNumber == "غير محدد" ? null : doctor.LicenseNumber;
+            license = doctor.LicenseNumber?.StartsWith("غير محدد", StringComparison.Ordinal) == true ? null : doctor.LicenseNumber;
             clinicAddress = doctor.ClinicAddress;
             notes = doctor.Notes;
             isAvailable = doctor.IsAvailable;
@@ -166,7 +166,9 @@
             var userResult = await UserManager.UpdateAsync(doctor.User);
             if (!userResult.Succeeded) { profileMessage = Errors(userResult); return; }
 
-            doctor.LicenseNumber = Clean(license) ?? "غير محدد";
+            doctor.LicenseNumber = Clean(license) is { Length: > 0 } value
+                ? value
+                : $"غير محدد-{doctor.UserId[..8]}";
             doctor.ClinicAddress = Clean(clinicAddress);
             doctor.Notes = Clean(notes);
             doctor.IsAvailable = isAvailable;

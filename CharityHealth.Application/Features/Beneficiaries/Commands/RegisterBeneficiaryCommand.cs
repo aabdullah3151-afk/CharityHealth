@@ -1,4 +1,4 @@
-﻿using CharityHealth.Application.Interfaces.Services;
+using CharityHealth.Application.Interfaces.Services;
 using CharityHealth.Domain.Entities;
 using CharityHealth.Domain.Enums;
 using CharityHealth.Domain.Interfaces.Repositories;
@@ -102,7 +102,13 @@ public class RegisterBeneficiaryHandler(
                 return Result<RegisterBeneficiaryResult>.Failure(errors);
             }
 
-            await userManager.AddToRoleAsync(user, "Beneficiary");
+            var roleResult = await userManager.AddToRoleAsync(user, "Beneficiary");
+            if (!roleResult.Succeeded)
+            {
+                await uow.RollbackTransactionAsync(ct);
+                var roleErrors = roleResult.Errors.Select(e => e.Description).ToList();
+                return Result<RegisterBeneficiaryResult>.Failure(roleErrors);
+            }
 
             // 2. Create Beneficiary profile
             var beneficiary = new Beneficiary
@@ -119,8 +125,19 @@ public class RegisterBeneficiaryHandler(
             await uow.SaveChangesAsync(ct);
             await uow.CommitTransactionAsync(ct);
 
-            await audit.LogAsync("Beneficiary.Registered", "ApplicationUser", user.Id,
-                newValues: $"{{\"phone\":\"{cmd.PhoneNumber}\",\"nationalId\":\"{cmd.NationalId}\"}}");
+            // التسجيل تم بالفعل بعد الـ Commit، لذلك فشل الـ Audit لا يجب أن
+            // يرجع للمستخدم رسالة أن إنشاء الحساب فشل.
+            try
+            {
+                await audit.LogAsync("Beneficiary.Registered", "ApplicationUser", user.Id,
+                    newValues: $"{{\"phone\":\"{cmd.PhoneNumber}\",\"nationalId\":\"{cmd.NationalId}\"}}");
+            }
+            catch (Exception auditEx)
+            {
+                logger.LogWarning(auditEx,
+                    "Beneficiary {UserId} registered successfully but audit logging failed",
+                    user.Id);
+            }
 
             logger.LogInformation("New beneficiary registered: {UserId}", user.Id);
 
@@ -130,7 +147,15 @@ public class RegisterBeneficiaryHandler(
         }
         catch (Exception ex)
         {
-            await uow.RollbackTransactionAsync(ct);
+            try
+            {
+                await uow.RollbackTransactionAsync(ct);
+            }
+            catch (Exception rollbackEx)
+            {
+                logger.LogWarning(rollbackEx, "Registration transaction rollback failed");
+            }
+
             logger.LogError(ex, "Registration failed");
             return Result<RegisterBeneficiaryResult>.Failure("حدث خطأ أثناء التسجيل. يرجى المحاولة لاحقاً.");
         }

@@ -6,7 +6,7 @@
 @using CharityHealth.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
 
-@inject AppDbContext Db
+@inject IDbContextFactory<AppDbContext> DbFactory
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 
@@ -68,7 +68,8 @@
         serviceType = PublicDirectoryData.ServiceTypeFromSlug(Type);
         try
         {
-            provider = serviceType is null ? null : await PublicDirectoryData.GetProviderAsync(Db, serviceType.Value, Id);
+            await using var db = await DbFactory.CreateDbContextAsync();
+            provider = serviceType is null ? null : await PublicDirectoryData.GetProviderAsync(db, serviceType.Value, Id);
         }
         finally { loading = false; }
     }

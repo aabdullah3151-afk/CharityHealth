@@ -5,7 +5,7 @@
 @using CharityHealth.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
 
-@inject AppDbContext Db
+@inject IDbContextFactory<AppDbContext> DbFactory
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 
@@ -57,7 +57,11 @@
     protected override async Task OnParametersSetAsync()
     {
         loading = true;
-        try { doctor = await PublicDirectoryData.GetDoctorAsync(Db, Id); }
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            doctor = await PublicDirectoryData.GetDoctorAsync(db, Id);
+        }
         finally { loading = false; }
     }
 

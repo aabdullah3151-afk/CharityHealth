@@ -71,14 +71,14 @@
         <form method="post" action="/account/login" class="login-form" autocomplete="off">
             <input type="hidden" name="returnUrl" value="@ReturnUrl" />
 
-            <label for="login-credential">البريد الإلكتروني</label>
+            <label for="login-credential">البريد الإلكتروني أو رقم الهاتف</label>
             <div class="field-shell">
                 <span class="field-symbol">✉</span>
                 <input id="login-credential"
                        class="clean-input"
                        name="credential"
-                       type="email"
-                       placeholder="example@email.com"
+                       type="text"
+                       placeholder="example@email.com أو 01012345678"
                        required / data-lpignore="true" data-1p-ignore="true" readonly autocomplete="off" onfocus="this.removeAttribute('readonly')" onpointerdown="this.removeAttribute('readonly')">
             </div>
 
@@ -119,13 +119,13 @@
 
         <button type="button"
                 class="guest-login-button"
-                @onclick='() => Nav.NavigateTo("/")'>
+                @onclick='() => Nav.NavigateTo("/portal/dashboard")'>
             الدخول كضيف
         </button>
 
         <p class="guest-login-hint">
-            يمكنك تصفح الأطباء والصيدليات والمعامل ومراكز الأشعة بدون حساب،
-            وسيُطلب منك تسجيل الدخول فقط عند الحجز أو تقديم طلب.
+            ستدخل إلى بوابة المستفيد كضيف ويمكنك تصفح مقدمي الخدمة،
+            وسيُطلب منك تسجيل الدخول فقط عند تقديم طلب أو فتح بياناتك الشخصية.
         </p>
 
         <p class="login-footer">

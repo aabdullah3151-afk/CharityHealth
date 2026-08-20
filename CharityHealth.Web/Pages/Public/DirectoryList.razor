@@ -6,7 +6,7 @@
 @using CharityHealth.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
 
-@inject AppDbContext Db
+@inject IDbContextFactory<AppDbContext> DbFactory
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 
@@ -96,10 +96,12 @@
         providers = [];
         try
         {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
             if (IsDoctors)
-                doctors = await PublicDirectoryData.GetDoctorsAsync(Db);
+                doctors = await PublicDirectoryData.GetDoctorsAsync(db);
             else if (ServiceType is { } type)
-                providers = await PublicDirectoryData.GetProvidersAsync(Db, type);
+                providers = await PublicDirectoryData.GetProvidersAsync(db, type);
             else
                 error = "نوع الدليل غير صحيح.";
         }

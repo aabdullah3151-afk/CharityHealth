@@ -30,6 +30,8 @@
           href="https://hospitalwithoutahospital.org/" />
 </HeadContent>
 
+<div class="public-home-stack">
+
 <div class="login-shell landing-shell">
 
     <section class="login-card landing-card">
@@ -134,6 +136,44 @@
 
 
 <HealthcareDirectory />
+
+</div>
+
+
+<style>
+.public-home-stack{
+    width:100%;
+    max-width:1440px;
+    display:flex;
+    flex-direction:column;
+    gap:38px;
+    margin:0 auto;
+}
+.public-home-stack .login-shell{
+    margin:0 auto;
+}
+.landing-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+.landing-actions .login-submit{
+    grid-column:1/-1;
+}
+.landing-actions .outline-submit{
+    min-height:48px;
+    border:1.5px solid #b7e7c9;
+    border-radius:999px;
+    background:#f0fff5;
+    color:#07823d;
+    font-size:14px;
+    font-weight:900;
+    cursor:pointer;
+}
+.landing-actions .outline-submit:hover{
+    background:#e5faed;
+}
+</style>
 
 @code {
     private int? TotalBeneficiaries;

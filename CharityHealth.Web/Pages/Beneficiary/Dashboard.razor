@@ -2,10 +2,7 @@
 @page "/beneficiary/dashboard"
 
 @layout MainLayout
-@attribute [Authorize(Roles = "Beneficiary")]
-
 @using System.Security.Claims
-@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using CharityHealth.Domain.Enums
 @using CharityHealth.Web.Services
@@ -31,11 +28,19 @@
 
         <button type="button"
                 class="beneficiary-primary-btn"
-                @onclick='() => Nav.NavigateTo("/portal/request/new")'>
+                @onclick="OpenNewRequest">
             <span>+</span>
             طلب خدمة صحية
         </button>
     </header>
+
+    @if (isGuest)
+    {
+        <section class="beneficiary-alert" style="margin-bottom:18px;">
+            أنت الآن تتصفح بوابة المستفيد كضيف. يمكنك استعراض مقدمي الخدمة بالأسفل،
+            ولتقديم طلب صحي أو متابعة الطلبات يلزم تسجيل الدخول أو إنشاء حساب.
+        </section>
+    }
 
     @if (loading)
     {
@@ -47,6 +52,26 @@
     {
         <section class="beneficiary-alert bad">
             @errorMsg
+        </section>
+    }
+    else if (isGuest)
+    {
+        <section class="beneficiary-content-grid">
+            <article class="beneficiary-panel large">
+                <div class="panel-head">
+                    <div>
+                        <h2>تصفح الخدمات كضيف</h2>
+                        <p>اختر الطبيب أو الجهة الطبية المناسبة من الدليل الموجود بالأسفل.</p>
+                    </div>
+                </div>
+
+                <div class="beneficiary-empty-box">
+                    <div>👤</div>
+                    <strong>بوابة المستفيد</strong>
+                    <span>يمكنك تصفح الدليل الآن بدون حساب. عند تقديم طلب سنحوّلك لتسجيل الدخول ثم نعيدك للخدمة المطلوبة.</span>
+                    <button type="button" @onclick="OpenNewRequest">تقديم طلب صحي</button>
+                </div>
+            </article>
         </section>
     }
     else
@@ -231,6 +256,7 @@
 
 @code {
     private bool loading = true;
+    private bool isGuest;
     private string? errorMsg;
 
     private List<RequestWorkItem> requests = [];
@@ -249,14 +275,24 @@
         try
         {
             var auth = await AuthState.GetAuthenticationStateAsync();
-            var userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var user = auth.User;
+            var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (string.IsNullOrWhiteSpace(userId))
+            if (user.Identity?.IsAuthenticated != true || string.IsNullOrWhiteSpace(userId))
             {
-                errorMsg = "تعذر قراءة بيانات المستخدم الحالي. برجاء تسجيل الدخول مرة أخرى.";
+                isGuest = true;
+                requests = [];
+                recentRequests = [];
                 return;
             }
 
+            if (!user.IsInRole("Beneficiary"))
+            {
+                errorMsg = "هذه الصفحة مخصصة للمستفيدين.";
+                return;
+            }
+
+            isGuest = false;
             requests = await Ui.GetBeneficiaryRequestsAsync(userId);
 
             recentRequests = requests
@@ -357,11 +393,23 @@
         }
     }
 
+    private void OpenNewRequest()
+    {
+        if (isGuest)
+        {
+            var returnUrl = Uri.EscapeDataString("/portal/request/new");
+            Nav.NavigateTo($"/login?returnUrl={returnUrl}");
+            return;
+        }
+
+        Nav.NavigateTo("/portal/request/new");
+    }
+
     private void GoToNextAction()
     {
         if (TotalRequests == 0 || RejectedRequests > 0)
         {
-            Nav.NavigateTo("/portal/request/new");
+            OpenNewRequest();
             return;
         }
 
