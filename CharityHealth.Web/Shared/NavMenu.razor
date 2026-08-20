@@ -31,6 +31,45 @@
         </Authorized>
     </AuthorizeView>
 
+
+    <AuthorizeView>
+        <NotAuthorized>
+
+            <NavLink href="/portal/dashboard"
+                     class="nav-link"
+                     ActiveClass="active"
+                     Match="NavLinkMatch.All">
+                <span class="nav-icon">⌂</span>
+                <span>الرئيسية</span>
+            </NavLink>
+
+            <NavLink href="/login?returnUrl=%2Fportal%2Frequest%2Fnew"
+                     class="nav-link">
+                <span class="nav-icon">＋</span>
+                <span>طلب خدمة صحية</span>
+            </NavLink>
+
+            <NavLink href="/login?returnUrl=%2Fportal%2Frequests"
+                     class="nav-link">
+                <span class="nav-icon">◷</span>
+                <span>طلباتي</span>
+            </NavLink>
+
+            <NavLink href="/login?returnUrl=%2Fportal%2Fnotifications"
+                     class="nav-link">
+                <span class="nav-icon">♢</span>
+                <span>الإشعارات</span>
+            </NavLink>
+
+            <NavLink href="/login?returnUrl=%2Fportal%2Frequests"
+                     class="nav-link">
+                <span class="nav-icon">↺</span>
+                <span>السجل الطبي</span>
+            </NavLink>
+
+        </NotAuthorized>
+    </AuthorizeView>
+
     <AuthorizeView Roles="Doctor">
         <Authorized>
             <NavLink href="/doctor/dashboard" class="nav-link" ActiveClass="active" Match="NavLinkMatch.All">

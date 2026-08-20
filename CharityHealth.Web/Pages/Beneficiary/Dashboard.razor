@@ -34,14 +34,6 @@
         </button>
     </header>
 
-    @if (isGuest)
-    {
-        <section class="beneficiary-alert" style="margin-bottom:18px;">
-            أنت الآن تتصفح بوابة المستفيد كضيف. يمكنك استعراض مقدمي الخدمة بالأسفل،
-            ولتقديم طلب صحي أو متابعة الطلبات يلزم تسجيل الدخول أو إنشاء حساب.
-        </section>
-    }
-
     @if (loading)
     {
         <section class="beneficiary-state-card">
@@ -52,26 +44,6 @@
     {
         <section class="beneficiary-alert bad">
             @errorMsg
-        </section>
-    }
-    else if (isGuest)
-    {
-        <section class="beneficiary-content-grid">
-            <article class="beneficiary-panel large">
-                <div class="panel-head">
-                    <div>
-                        <h2>تصفح الخدمات كضيف</h2>
-                        <p>اختر الطبيب أو الجهة الطبية المناسبة من الدليل الموجود بالأسفل.</p>
-                    </div>
-                </div>
-
-                <div class="beneficiary-empty-box">
-                    <div>👤</div>
-                    <strong>بوابة المستفيد</strong>
-                    <span>يمكنك تصفح الدليل الآن بدون حساب. عند تقديم طلب سنحوّلك لتسجيل الدخول ثم نعيدك للخدمة المطلوبة.</span>
-                    <button type="button" @onclick="OpenNewRequest">تقديم طلب صحي</button>
-                </div>
-            </article>
         </section>
     }
     else
@@ -115,7 +87,7 @@
 
                     <button type="button"
                             class="beneficiary-light-btn"
-                            @onclick='() => Nav.NavigateTo("/portal/requests")'>
+                            @onclick="OpenRequests">
                         عرض الكل
                     </button>
                 </div>
@@ -132,7 +104,7 @@
                         </span>
 
                         <button type="button"
-                                @onclick='() => Nav.NavigateTo("/portal/request/new")'>
+                                @onclick="OpenNewRequest">
                             تقديم طلب الآن
                         </button>
                     </div>
@@ -393,6 +365,18 @@
         }
     }
 
+    private void OpenRequests()
+    {
+        if (isGuest)
+        {
+            var returnUrl = Uri.EscapeDataString("/portal/requests");
+            Nav.NavigateTo($"/login?returnUrl={returnUrl}");
+            return;
+        }
+
+        Nav.NavigateTo("/portal/requests");
+    }
+
     private void OpenNewRequest()
     {
         if (isGuest)
@@ -413,7 +397,7 @@
             return;
         }
 
-        Nav.NavigateTo("/portal/requests");
+        OpenRequests();
     }
 
     private void OpenRequest(Guid id)
