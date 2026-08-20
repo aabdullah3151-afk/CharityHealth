@@ -40,7 +40,7 @@
             <article class="wide"><span>العنوان</span><strong>@Safe(provider.AddressAr)</strong></article>
             <article><span>الهاتف</span><strong dir="ltr">@Safe(provider.PhoneNumber)</strong></article>
             <article><span>مسؤول التواصل</span><strong>@Safe(provider.ContactPersonName)</strong></article>
-            <article><span>أيام العمل</span><strong>@Safe(provider.WorkingDays)</strong></article>
+            <article><span>أيام العمل</span><strong>@ArabicWorkingDays(provider.WorkingDays)</strong></article>
             <article><span>ساعات العمل</span><strong>@Safe(provider.WorkingHours)</strong></article>
             <article><span>نسبة الخصم</span><strong>@provider.DiscountPercentage.ToString("0.##")%</strong></article>
             <article><span>السعة اليومية</span><strong>@provider.DailyRequestCapacity طلب</strong></article>
@@ -84,6 +84,47 @@
         }
         var message = Uri.EscapeDataString("سجل الدخول أولًا حتى تتمكن من تقديم طلب الخدمة.");
         Nav.NavigateTo($"/login?error={message}&returnUrl={Uri.EscapeDataString(target)}");
+    }
+
+    private static string ArabicWorkingDays(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "غير مسجل";
+
+        var days = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Sat"] = "السبت",
+            ["Saturday"] = "السبت",
+
+            ["Sun"] = "الأحد",
+            ["Sunday"] = "الأحد",
+
+            ["Mon"] = "الاثنين",
+            ["Monday"] = "الاثنين",
+
+            ["Tue"] = "الثلاثاء",
+            ["Tuesday"] = "الثلاثاء",
+
+            ["Wed"] = "الأربعاء",
+            ["Wednesday"] = "الأربعاء",
+
+            ["Thu"] = "الخميس",
+            ["Thursday"] = "الخميس",
+
+            ["Fri"] = "الجمعة",
+            ["Friday"] = "الجمعة"
+        };
+
+        var parts = value
+            .Split(new[] { ',', ';', '|' },
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries);
+
+        return string.Join("، ",
+            parts.Select(day =>
+                days.TryGetValue(day, out var arabic)
+                    ? arabic
+                    : day));
     }
 
     private static string Safe(string? value) => string.IsNullOrWhiteSpace(value) ? "غير مسجل" : value;
