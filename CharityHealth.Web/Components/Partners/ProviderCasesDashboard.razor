@@ -35,7 +35,11 @@
         <section class="stats">
             <article><span>طلبات اليوم</span><strong>@TodayCount</strong><small>تشمل المكتملة اليوم</small></article>
             <article><span>جاهزة للتنفيذ</span><strong>@ReadyCount</strong><small>تم اعتمادها من الإدارة</small></article>
-            <article><span>مكتملة</span><strong>@CompletedCount</strong><small>يمكن معاينتها وتعديلها</small></article>
+            <article>
+                <span>إجمالي المكتمل</span>
+                <strong>@TotalCompletedCount</strong>
+                <small>يشمل الخدمات المسجلة يدويًا بواسطة الإدارة</small>
+            </article>
             <article><span>كل الطلبات</span><strong>@rows.Count</strong><small>السجل الكامل للحساب</small></article>
         </section>
 
@@ -54,7 +58,7 @@
                 <button class="@(filter == CaseFilter.Today ? "active" : "")" @onclick="() => filter = CaseFilter.Today">اليوم <b>@TodayCount</b></button>
                 <button class="@(filter == CaseFilter.Ready ? "active" : "")" @onclick="() => filter = CaseFilter.Ready">جاهزة <b>@ReadyCount</b></button>
                 <button class="@(filter == CaseFilter.Upcoming ? "active" : "")" @onclick="() => filter = CaseFilter.Upcoming">قادمة <b>@UpcomingCount</b></button>
-                <button class="@(filter == CaseFilter.Completed ? "active" : "")" @onclick="() => filter = CaseFilter.Completed">مكتملة <b>@CompletedCount</b></button>
+                <button class="@(filter == CaseFilter.Completed ? "active" : "")" @onclick="() => filter = CaseFilter.Completed">مكتملة إلكترونيًا <b>@ElectronicCompletedCount</b></button>
                 <button class="@(filter == CaseFilter.All ? "active" : "")" @onclick="() => filter = CaseFilter.All">الكل <b>@rows.Count</b></button>
             </div>
 
@@ -159,7 +163,9 @@
     private DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
     private int TodayCount => rows.Count(IsToday);
     private int ReadyCount => rows.Count(x => x.Status == RequestStatus.Approved);
-    private int CompletedCount => rows.Count(x => x.Status == RequestStatus.Completed);
+    private int ElectronicCompletedCount => rows.Count(x => x.Status == RequestStatus.Completed);
+    private int totalCompletedCount;
+    private int TotalCompletedCount => Math.Max(ElectronicCompletedCount, totalCompletedCount);
     private int UpcomingCount => rows.Count(x => x.AppointmentDate > Today && x.Status != RequestStatus.Completed);
 
     protected override async Task OnInitializedAsync() => await Load();
@@ -182,6 +188,11 @@
 
             dashboard = await Ui.GetPartnerDashboardAsync(userId, ServiceType);
             rows = await Ui.GetPartnerRequestsAsync(userId, ServiceType);
+
+            totalCompletedCount =
+                await Ui.GetPartnerCompletedServicesAsync(
+                    userId,
+                    ServiceType);
 
             notes.Clear();
             documents.Clear();

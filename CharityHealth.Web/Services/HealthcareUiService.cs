@@ -543,6 +543,67 @@ public sealed class HealthcareUiService(AppDbContext db)
         return result;
     }
 
+    public async Task<int> GetPartnerCompletedServicesAsync(
+        string providerUserId,
+        ServiceRequestType serviceType,
+        CancellationToken ct = default)
+    {
+        var electronicCompleted = await db.MedicalRequests
+            .AsNoTracking()
+            .CountAsync(r =>
+                r.AssignedProviderUserId == providerUserId
+                && r.ServiceType == serviceType
+                && r.Status == RequestStatus.Completed, ct);
+
+        var manualCompleted = await db.ManualServiceRecords
+            .AsNoTracking()
+            .Where(r =>
+                !r.IsDeleted
+                && r.ProviderUserId == providerUserId
+                && r.ServiceType == serviceType)
+            .SumAsync(r => (int?)r.Quantity, ct) ?? 0;
+
+        return electronicCompleted + manualCompleted;
+    }
+
+
+    public async Task<int> GetDoctorCompletedServicesAsync(
+        string doctorUserId,
+        CancellationToken ct = default)
+    {
+        var doctorId = await db.Doctors
+            .AsNoTracking()
+            .Where(d =>
+                d.UserId == doctorUserId
+                && !d.IsDeleted)
+            .Select(d => (Guid?)d.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (doctorId is null)
+            return 0;
+
+        var electronicCompleted = await db.MedicalRequests
+            .AsNoTracking()
+            .CountAsync(r =>
+                r.DoctorId == doctorId.Value
+                && r.ServiceType ==
+                    ServiceRequestType.MedicalConsultation
+                && r.Status == RequestStatus.Completed,
+                ct);
+
+        var manualCompleted = await db.ManualServiceRecords
+            .AsNoTracking()
+            .Where(r =>
+                !r.IsDeleted
+                && r.DoctorId == doctorId.Value
+                && r.ServiceType ==
+                    ServiceRequestType.MedicalConsultation)
+            .SumAsync(r => (int?)r.Quantity, ct) ?? 0;
+
+        return electronicCompleted + manualCompleted;
+    }
+
+
     public async Task<PartnerDashboardDto?> GetPartnerDashboardAsync(
         string providerUserId,
         ServiceRequestType serviceType,
@@ -563,10 +624,11 @@ public sealed class HealthcareUiService(AppDbContext db)
             && r.ServiceType == serviceType
             && r.Status == RequestStatus.Approved, ct);
 
-        var completed = await db.MedicalRequests.AsNoTracking().CountAsync(r =>
-            r.AssignedProviderUserId == providerUserId
-            && r.ServiceType == serviceType
-            && r.Status == RequestStatus.Completed, ct);
+        var completed =
+            await GetPartnerCompletedServicesAsync(
+                providerUserId,
+                serviceType,
+                ct);
 
         var capacity = user.DailyRequestCapacity <= 0 ? 20 : user.DailyRequestCapacity;
         return new PartnerDashboardDto(

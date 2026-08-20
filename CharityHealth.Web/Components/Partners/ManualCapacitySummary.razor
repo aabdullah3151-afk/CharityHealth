@@ -364,7 +364,8 @@
 
         manualCount = await db.ManualServiceRecords
             .Where(x =>
-                x.ProviderUserId == ProviderUserId
+                !x.IsDeleted
+                && x.ProviderUserId == ProviderUserId
                 && x.ServiceType == ServiceType
                 && x.ServiceDate == today
             )

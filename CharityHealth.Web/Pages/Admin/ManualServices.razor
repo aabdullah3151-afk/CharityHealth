@@ -655,7 +655,8 @@ td {
 
         manualCount = await Db.ManualServiceRecords
             .Where(x =>
-                x.ProviderUserId == SelectedProvider.UserId
+                !x.IsDeleted
+                && x.ProviderUserId == SelectedProvider.UserId
                 && x.ServiceType == serviceType
                 && x.ServiceDate == serviceDate
             )
@@ -724,7 +725,7 @@ td {
             notes = null;
 
             message =
-                "تم تسجيل الخدمة وخصمها من السعة اليومية.";
+                "تم تسجيل الخدمة كمكتملة واحتسابها لمقدم الخدمة وخصمها من السعة اليومية.";
 
             success = true;
 
@@ -750,7 +751,7 @@ td {
 
         var data = await Db.ManualServiceRecords
             .AsNoTracking()
-            .Where(x => x.ServiceDate >= from)
+            .Where(x => !x.IsDeleted && x.ServiceDate >= from)
             .OrderByDescending(x => x.ServiceDate)
             .ThenByDescending(x => x.CreatedAt)
             .Take(300)

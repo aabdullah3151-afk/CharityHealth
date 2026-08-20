@@ -180,7 +180,7 @@
             .ToListAsync();
 
         manualServiceRecords = await Db.ManualServiceRecords.AsNoTracking()
-            .Where(x => x.ServiceDate >= week[0] && x.ServiceDate <= week.Last())
+            .Where(x => !x.IsDeleted && x.ServiceDate >= week[0] && x.ServiceDate <= week.Last())
             .ToListAsync();
 
         loading = false;
